@@ -331,7 +331,12 @@ fusion_entry_lock( FusionEntries  *entries,
 
      /* Keep timestamp, but use the slightly
         inexact version to avoid performance impacts. */
+#ifdef _STRUCT_TIMESPEC
+     entry->last_lock.tv_sec = xtime.tv_sec;
+     entry->last_lock.tv_usec = xtime.tv_nsec / 1000;
+#else
      entry->last_lock = xtime;
+#endif
 
      /* Unlock entries. */
      up( &entries->lock );
