@@ -33,14 +33,21 @@ typedef struct {
 } LocalRef;
 
 typedef struct {
-  FusionLink  link;
-  spinlock_t  lock;
-  int         id;
-  int         global;
-  int         local;
-  bool        locked;
-  FusionLink *local_refs;
-  wait_queue_head_t wait;
+  FusionLink         link;
+
+  spinlock_t         lock;
+
+  int                id;
+  int                pid;
+
+  int                global;
+  int                local;
+
+  bool               locked;
+
+  FusionLink        *local_refs;
+
+  wait_queue_head_t  wait;
 } FusionRef;
 
 /******************************************************************************/
@@ -73,8 +80,8 @@ fusion_ref_read_proc(char *buf, char **start, off_t offset,
     {
       FusionRef *ref = (FusionRef*) l;
 
-      written += sprintf(buf+written, "0x%08x %2d %2d %s\n",
-                         ref->id, ref->global, ref->local,
+      written += sprintf(buf+written, "(%5d) 0x%08x %2d %2d %s\n",
+                         ref->pid, ref->id, ref->global, ref->local,
                          ref->locked ? "(locked)" : "");
       if (written < offset)
         {
@@ -144,6 +151,7 @@ fusion_ref_new (int *id)
   spin_lock (&refs_lock);
 
   ref->id   = ids++;
+  ref->pid  = current->pid;
   ref->lock = SPIN_LOCK_UNLOCKED;
 
   init_waitqueue_head (&ref->wait);
@@ -337,6 +345,8 @@ fusion_ref_destroy (int id)
 
   if (!ref)
     return -EINVAL;
+
+  spin_lock (&ref->lock);
 
   fusion_list_remove (&refs, &ref->link);
 
