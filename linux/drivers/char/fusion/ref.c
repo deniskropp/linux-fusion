@@ -42,7 +42,7 @@ typedef struct {
   int                global;
   int                local;
 
-  bool               locked;
+  int                locked;    /* non-zero fusion id of lock owner */
 
   FusionLink        *local_refs;
 
@@ -81,9 +81,13 @@ fusion_ref_read_proc(char *buf, char **start, off_t offset,
     {
       FusionRef *ref = (FusionRef*) l;
 
-      written += sprintf(buf+written, "(%5d) 0x%08x %2d %2d %s\n",
-                         ref->pid, ref->id, ref->global, ref->local,
-                         ref->locked ? "(locked)" : "");
+      if (ref->locked)
+        written += sprintf(buf+written, "(%5d) 0x%08x %2d %2d (locked by %d)\n",
+                           ref->pid, ref->id, ref->global, ref->local,
+                           ref->locked);
+      else
+        written += sprintf(buf+written, "(%5d) 0x%08x %2d %2d\n",
+                           ref->pid, ref->id, ref->global, ref->local);
       if (written < offset)
         {
           offset -= written;
@@ -263,7 +267,7 @@ fusion_ref_down (int id, int fusion_id)
 }
 
 int
-fusion_ref_zero_lock (int id)
+fusion_ref_zero_lock (int id, int fusion_id)
 {
   FusionRef *ref;
 
@@ -276,7 +280,8 @@ fusion_ref_zero_lock (int id)
       if (ref->locked)
         {
           unlock_ref (ref);
-          return -EAGAIN;
+
+          return ref->locked == fusion_id ? -EIO : -EAGAIN;
         }
 
       if (ref->global || ref->local)
@@ -290,7 +295,7 @@ fusion_ref_zero_lock (int id)
         break;
     }
 
-  ref->locked = true;
+  ref->locked = fusion_id;
 
   unlock_ref (ref);
 
@@ -298,7 +303,7 @@ fusion_ref_zero_lock (int id)
 }
 
 int
-fusion_ref_zero_trylock (int id)
+fusion_ref_zero_trylock (int id, int fusion_id)
 {
   int        ret = 0;
   FusionRef *ref = lock_ref (id);
@@ -309,13 +314,13 @@ fusion_ref_zero_trylock (int id)
   if (ref->locked)
     {
       unlock_ref (ref);
-      return -EAGAIN;
+      return ref->locked == fusion_id ? -EIO : -EAGAIN;
     }
 
   if (ref->global || ref->local)
     ret = -ETOOMANYREFS;
   else
-    ref->locked = true;
+    ref->locked = fusion_id;
 
   unlock_ref (ref);
 
@@ -323,14 +328,20 @@ fusion_ref_zero_trylock (int id)
 }
 
 int
-fusion_ref_unlock (int id)
+fusion_ref_unlock (int id, int fusion_id)
 {
   FusionRef *ref = lock_ref (id);
 
   if (!ref)
     return -EINVAL;
 
-  ref->locked = false;
+  if (ref->locked != fusion_id)
+    {
+      unlock_ref (ref);
+      return -EIO;
+    }
+
+  ref->locked = 0;
 
   unlock_ref (ref);
 
@@ -474,6 +485,9 @@ clear_local (FusionRef *ref, int fusion_id)
   FusionLink *l;
 
   spin_lock (&ref->lock);
+
+  if (ref->locked == fusion_id)
+    ref->locked = 0;
 
   fusion_list_foreach (l, ref->local_refs)
     {

@@ -30,9 +30,9 @@ void fusion_ref_cleanup (void);
 int fusion_ref_new (int *id);
 int fusion_ref_up (int id, int fusion_id);
 int fusion_ref_down (int id, int fusion_id);
-int fusion_ref_zero_lock (int id);
-int fusion_ref_zero_trylock (int id);
-int fusion_ref_unlock (int id);
+int fusion_ref_zero_lock (int id, int fusion_id);
+int fusion_ref_zero_trylock (int id, int fusion_id);
+int fusion_ref_unlock (int id, int fusion_id);
 int fusion_ref_stat (int id, int *refs);
 int fusion_ref_destroy (int id);
 
