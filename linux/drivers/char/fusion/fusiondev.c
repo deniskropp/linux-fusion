@@ -285,19 +285,19 @@ fusion_ioctl (struct inode *inode, struct file *file,
       if (get_user (id, (int*) arg))
         return -EFAULT;
 
-      return fusion_ref_zero_lock (id);
+      return fusion_ref_zero_lock (id, fusion_id);
 
     case FUSION_REF_ZERO_TRYLOCK:
       if (get_user (id, (int*) arg))
         return -EFAULT;
 
-      return fusion_ref_zero_trylock (id);
+      return fusion_ref_zero_trylock (id, fusion_id);
 
     case FUSION_REF_UNLOCK:
       if (get_user (id, (int*) arg))
         return -EFAULT;
 
-      return fusion_ref_unlock (id);
+      return fusion_ref_unlock (id, fusion_id);
 
     case FUSION_REF_STAT:
       if (get_user (id, (int*) arg))
