@@ -1,5 +1,10 @@
 Improve performance by using a hash table or a faster approach
-for looking up ids.
+for looking up ids. Currently an automatic "move-to-front-when-accessed"
+mechanism is implemented.
+
+Output more information in /proc/fusion.
+
+Improve performance (especially message throughput) by avoiding kmalloc.
 
 Implement defering/blocking of SIGSTOP while a Skirmish is locked
 by the process. This will avoid rare deadlocks when pressing Ctrl-Z
