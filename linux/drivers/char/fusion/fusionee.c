@@ -385,7 +385,6 @@ fusionee_destroy (int id)
     {
       Message *message = (Message*) fusion_fifo_get (&fusionee->messages);
 
-      kfree (message->data);
       kfree (message);
     }
 
