@@ -47,16 +47,10 @@ typedef struct {
 /*
  * Calling (synchronous RPC)
  */
-typedef int (*FusionCallHandler) (int   caller,   /* fusion id of the caller */
-                                  int   call_arg, /* optional call parameter */
-                                  void *call_ptr, /* optional call parameter */
-                                  void *ctx       /* optional handler context */
-                                  );
-
 typedef struct {
   int                call_id;   /* new call id returned */
 
-  FusionCallHandler  handler;   /* function pointer of handler to install */
+  void              *handler;   /* function pointer of handler to install */
   void              *ctx;       /* optional handler context */
 } FusionCallNew;
 
@@ -76,7 +70,7 @@ typedef struct {
 } FusionCallReturn;
 
 typedef struct {
-  FusionCallHandler  handler;   /* function pointer of handler to call */
+  void              *handler;   /* function pointer of handler to call */
   void              *ctx;       /* optional handler context */
 
   int                caller;    /* fusion id of the caller */
