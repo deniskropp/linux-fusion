@@ -304,6 +304,7 @@ fusion_property_purchase (int id, int fusion_id)
 int
 fusion_property_cede (int id, int fusion_id)
 {
+  bool            purchased;
   FusionProperty *property = lock_property (id);
 
   if (!property)
@@ -315,12 +316,17 @@ fusion_property_cede (int id, int fusion_id)
       return -EIO;
     }
 
+  purchased = (property->state == FUSION_PROPERTY_PURCHASED);
+
   property->state     = FUSION_PROPERTY_AVAILABLE;
   property->fusion_id = 0;
 
   wake_up_interruptible_all (&property->wait);
 
   unlock_property (property);
+
+  if (purchased)
+    yield();
 
   return 0;
 }
