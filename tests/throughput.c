@@ -121,7 +121,7 @@ int
 main (int argc, char *argv[])
 {
   int  n;
-  int  synchron = 0;
+  int  synchronous = 0;
   long d;
   int  fusion_id; /* Our own fusion id. */
   struct timeval t1, t2;
@@ -171,7 +171,7 @@ main (int argc, char *argv[])
         perror ("FUSION_SEND_MESSAGE failed");
 
       if (last_nr == n)
-        synchron++;
+        synchronous++;
     }
 
   /* Wait for all messages to arrive. */
@@ -185,8 +185,8 @@ main (int argc, char *argv[])
   d = (t2.tv_sec - t1.tv_sec) * 1000 + (t2.tv_usec - t1.tv_usec) / 1000;
 
   /* Print message. */
-  printf ("Sent/received %lu messages per second (%d%% synchron).\n",
-          4000000000U / d, synchron * 100 / 4000000);
+  printf ("Sent/received %lu messages per second (%d%% synchronous).\n",
+          4000000000U / d, synchronous * 100 / 4000000);
 
   /* Stop the receiver. */
   pthread_cancel (receiver);
