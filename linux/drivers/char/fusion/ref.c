@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/smp_lock.h>
+#include <linux/sched.h>
 
 #include <linux/fusion.h>
 
@@ -38,6 +39,7 @@ typedef struct {
   int         local;
   bool        locked;
   FusionLink *local_refs;
+  wait_queue_head_t wait;
 } FusionRef;
 
 /******************************************************************************/
@@ -74,6 +76,8 @@ fusion_ref_new (int *id)
 
   ref->id   = ids++;
   ref->lock = SPIN_LOCK_UNLOCKED;
+
+  init_waitqueue_head (&ref->wait);
 
   fusion_list_prepend (&refs, &ref->link);
 
@@ -157,6 +161,9 @@ fusion_ref_down (int id, Fusionee *fusionee)
       ref->global--;
     }
 
+  if (ref->local + ref->global == 0)
+    wake_up_interruptible_all (&ref->wait);
+
   unlock_ref (ref);
 
   return 0;
@@ -165,28 +172,38 @@ fusion_ref_down (int id, Fusionee *fusionee)
 int
 fusion_ref_zero_lock (int id)
 {
-  FusionRef *ref = lock_ref (id);
+  FusionRef *ref;
 
-  if (!ref)
-    return -EINVAL;
-
-  if (ref->locked)
+  while (true)
     {
-      unlock_ref (ref);
-      return -EAGAIN;
-    }
+      ref = lock_ref (id);
+      if (!ref)
+        return -EINVAL;
 
-#if 0
-  while (ref->global || ref->local)
-    {
+      if (ref->locked)
+        {
+          unlock_ref (ref);
+          return -EAGAIN;
+        }
+
+      if (ref->global || ref->local)
+        {
+          unlock_ref (ref);
+
+          interruptible_sleep_on (&ref->wait);
+
+          if (signal_pending(current))
+            return -ERESTARTSYS;
+        }
+      else
+        break;
     }
 
   ref->locked = true;
-#endif
 
   unlock_ref (ref);
 
-  return -ENOSYS;
+  return 0;
 }
 
 int
@@ -253,6 +270,8 @@ fusion_ref_destroy (int id)
     return -EINVAL;
 
   fusion_list_remove (&refs, &ref->link);
+
+  wake_up_interruptible_all (&ref->wait);
 
   spin_unlock (&refs_lock);
 
@@ -388,6 +407,10 @@ clear_local (FusionRef *ref, Fusionee *fusionee)
       if (local->fusionee == fusionee)
         {
           ref->local -= local->refs;
+
+          if (ref->local + ref->global == 0)
+            wake_up_interruptible_all (&ref->wait);
+
           break;
         }
     }
