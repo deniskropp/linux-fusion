@@ -14,8 +14,7 @@ all:
 		SUBDIRS=`pwd`/$(SUB) modules
 
 install:
-	cp $(SUB)/fusion.$(if $(shell test $(KERNEL_PATCHLEVEL) = 4),o,ko) \
-		$(KERNEL_MODLIB) && depmod -ae
+	(if test $(KERNEL_PATCHLEVEL) = 4; then cp $(SUB)/fusion.o $(KERNEL_MODLIB); else cp $(SUB)/fusion.ko $(KERNEL_MODLIB); fi) && depmod -ae
 
 clean:
 	find $(SUB) -name *.o -o -name *.ko -o -name .*.o.cmd -o \
