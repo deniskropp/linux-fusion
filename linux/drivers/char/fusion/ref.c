@@ -26,6 +26,8 @@
 #include "call.h"
 #include "ref.h"
 
+typedef struct __Fusion_FusionRef FusionRef;
+
 typedef struct {
      FusionLink  link;
      int         fusion_id;
@@ -33,6 +35,11 @@ typedef struct {
 } LocalRef;
 
 typedef struct {
+     FusionLink  link;
+     FusionRef  *ref;
+} Inheritor;
+
+struct __Fusion_FusionRef {
      FusionLink         link;
 
      struct semaphore   lock;
@@ -49,22 +56,31 @@ typedef struct {
      int                call_id;   /* id of call registered with a watch */
      int                call_arg;  /* optional call parameter */
 
+     FusionRef         *inherited;
+     FusionLink        *inheritors;
+
      FusionLink        *local_refs;
 
      wait_queue_head_t  wait;
-} FusionRef;
+};
 
 /******************************************************************************/
 
-static int  lookup_ref (FusionDev *dev, int id, FusionRef **ret_ref);
-static int  lock_ref   (FusionDev *dev, int id, FusionRef **ret_ref);
+static int  lookup_ref (FusionDev *dev, bool locked, int id, FusionRef **ret_ref);
+static int  lock_ref   (FusionDev *dev, bool locked, int id, FusionRef **ret_ref);
 static void unlock_ref (FusionRef *ref);
 
-static int  add_local      (FusionRef *ref, int fusion_id, int add);
-static void clear_local    (FusionDev *dev, FusionRef *ref, int fusion_id);
-static void free_all_local (FusionRef *ref);
+static int  add_local       (FusionRef *ref, int fusion_id, int add);
+static void clear_local     (FusionDev *dev, FusionRef *ref, int fusion_id);
+static void free_all_local  (FusionRef *ref);
 
-static void notify_ref     (FusionDev *dev, FusionRef *ref);
+static int  propagate_local (FusionDev *dev, FusionRef *ref, int diff);
+
+static void notify_ref      (FusionDev *dev, FusionRef *ref);
+
+static int  add_inheritor   (FusionRef *ref, FusionRef *from);
+static void remove_inheritor(FusionRef *ref, FusionRef *from);
+static void drop_inheritors (FusionDev *dev, FusionRef *ref);
 
 /******************************************************************************/
 
@@ -186,34 +202,38 @@ fusion_ref_up (FusionDev *dev, int id, int fusion_id)
      int        ret;
      FusionRef *ref;
 
-     ret = lock_ref (dev, id, &ref);
+     ret = lookup_ref (dev, false, id, &ref);
      if (ret)
           return ret;
+
+     if (down_interruptible (&ref->lock)) {
+          up (&dev->ref.lock);
+          return -EINTR;
+     }
 
      dev->stat.ref_up++;
 
      if (ref->locked) {
-          unlock_ref (ref);
-          return -EAGAIN;
+          ret = -EAGAIN;
+          goto out;
      }
 
      if (fusion_id) {
-          int ret;
-
           ret = add_local (ref, fusion_id, 1);
-          if (ret) {
-               unlock_ref (ref);
-               return ret;
-          }
+          if (ret)
+               goto out;
 
-          ref->local++;
+          ret = propagate_local( dev, ref, 1 );
      }
      else
           ref->global++;
 
+
+out:
+     up (&dev->ref.lock);
      unlock_ref (ref);
 
-     return 0;
+     return ret;
 }
 
 int
@@ -222,44 +242,51 @@ fusion_ref_down (FusionDev *dev, int id, int fusion_id)
      int        ret;
      FusionRef *ref;
 
-     ret = lock_ref (dev, id, &ref);
+     ret = lookup_ref (dev, false, id, &ref);
      if (ret)
           return ret;
+
+     if (down_interruptible (&ref->lock)) {
+          up (&dev->ref.lock);
+          return -EINTR;
+     }
 
      dev->stat.ref_down++;
 
      if (ref->locked) {
-          unlock_ref (ref);
-          return -EAGAIN;
+          ret = -EAGAIN;
+          goto out;
      }
 
      if (fusion_id) {
-          int ret;
-
+          ret = -EIO;
           if (!ref->local)
-               return -EIO;
+               goto out;
 
           ret = add_local (ref, fusion_id, -1);
-          if (ret) {
-               unlock_ref (ref);
-               return ret;
-          }
+          if (ret)
+               goto out;
 
-          ref->local--;
+          ret = propagate_local( dev, ref, -1 );
      }
      else {
-          if (!ref->global)
-               return -EIO;
+          if (!ref->global) {
+               ret = -EIO;
+               goto out;
+          }
 
           ref->global--;
+
+          if (ref->local + ref->global == 0)
+               notify_ref (dev, ref);
      }
 
-     if (ref->local + ref->global == 0)
-          notify_ref (dev, ref);
 
+out:
+     up (&dev->ref.lock);
      unlock_ref (ref);
 
-     return 0;
+     return ret;
 }
 
 int
@@ -269,7 +296,7 @@ fusion_ref_zero_lock (FusionDev *dev, int id, int fusion_id)
      FusionRef *ref;
 
      while (true) {
-          ret = lock_ref (dev, id, &ref);
+          ret = lock_ref (dev, false, id, &ref);
           if (ret)
                return ret;
 
@@ -306,7 +333,7 @@ fusion_ref_zero_trylock (FusionDev *dev, int id, int fusion_id)
      int        ret;
      FusionRef *ref;
 
-     ret = lock_ref (dev, id, &ref);
+     ret = lock_ref (dev, false, id, &ref);
      if (ret)
           return ret;
 
@@ -331,7 +358,7 @@ fusion_ref_unlock (FusionDev *dev, int id, int fusion_id)
      int        ret;
      FusionRef *ref;
 
-     ret = lock_ref (dev, id, &ref);
+     ret = lock_ref (dev, false, id, &ref);
      if (ret)
           return ret;
 
@@ -353,7 +380,7 @@ fusion_ref_stat (FusionDev *dev, int id, int *refs)
      int        ret;
      FusionRef *ref;
 
-     ret = lock_ref (dev, id, &ref);
+     ret = lock_ref (dev, false, id, &ref);
      if (ret)
           return ret;
 
@@ -373,7 +400,7 @@ fusion_ref_watch (FusionDev      *dev,
      int        ret;
      FusionRef *ref;
 
-     ret = lock_ref (dev, id, &ref);
+     ret = lock_ref (dev, false, id, &ref);
      if (ret)
           return ret;
 
@@ -404,12 +431,15 @@ fusion_ref_watch (FusionDev      *dev,
 }
 
 int
-fusion_ref_destroy (FusionDev *dev, int id)
+fusion_ref_inherit (FusionDev *dev,
+                    int        id,
+                    int        from_id)
 {
      int        ret;
      FusionRef *ref;
+     FusionRef *from = NULL;
 
-     ret = lookup_ref (dev, id, &ref);
+     ret = lookup_ref (dev, false, id, &ref);
      if (ret)
           return ret;
 
@@ -417,6 +447,55 @@ fusion_ref_destroy (FusionDev *dev, int id)
           up (&dev->ref.lock);
           return -EINTR;
      }
+
+     ret = -EBUSY;
+     if (ref->inherited)
+          goto out;
+
+     ret = lock_ref (dev, true, from_id, &from);
+     if (ret)
+          goto out;
+
+     ret = add_inheritor( ref, from );
+     if (ret)
+          goto out;
+
+     ret = propagate_local( dev, ref, from->local );
+     if (ret)
+          goto out;
+
+     ref->inherited = from;
+
+out:
+     if (from)
+          unlock_ref (from);
+
+     unlock_ref (ref);
+
+     up (&dev->ref.lock);
+
+     return ret;
+}
+
+int
+fusion_ref_destroy (FusionDev *dev, int id)
+{
+     int        ret;
+     FusionRef *ref;
+
+     ret = lookup_ref (dev, false, id, &ref);
+     if (ret)
+          return ret;
+
+     if (down_interruptible (&ref->lock)) {
+          up (&dev->ref.lock);
+          return -EINTR;
+     }
+
+     drop_inheritors( dev, ref );
+
+     if (ref->inherited)
+          remove_inheritor( ref, ref->inherited );
 
      fusion_list_remove (&dev->ref.list, &ref->link);
 
@@ -452,11 +531,11 @@ fusion_ref_clear_all_local (FusionDev *dev, int fusion_id)
 /******************************************************************************/
 
 static int
-lookup_ref (FusionDev *dev, int id, FusionRef **ret_ref)
+lookup_ref (FusionDev *dev, bool locked, int id, FusionRef **ret_ref)
 {
      FusionLink *l;
 
-     if (down_interruptible (&dev->ref.lock))
+     if (!locked && down_interruptible (&dev->ref.lock))
           return -EINTR;
 
      fusion_list_foreach (l, dev->ref.list) {
@@ -468,18 +547,19 @@ lookup_ref (FusionDev *dev, int id, FusionRef **ret_ref)
           }
      }
 
-     up (&dev->ref.lock);
+     if (!locked)
+          up (&dev->ref.lock);
 
      return -EINVAL;
 }
 
 static int
-lock_ref (FusionDev *dev, int id, FusionRef **ret_ref)
+lock_ref (FusionDev *dev, bool locked, int id, FusionRef **ret_ref)
 {
      int         ret;
      FusionRef *ref;
 
-     ret = lookup_ref (dev, id, &ref);
+     ret = lookup_ref (dev, locked, id, &ref);
      if (ret)
           return ret;
 
@@ -487,11 +567,13 @@ lock_ref (FusionDev *dev, int id, FusionRef **ret_ref)
           fusion_list_move_to_front (&dev->ref.list, &ref->link);
 
           if (down_interruptible (&ref->lock)) {
-               up (&dev->ref.lock);
+               if (!locked)
+                    up (&dev->ref.lock);
                return -EINTR;
           }
 
-          up (&dev->ref.lock);
+          if (!locked)
+               up (&dev->ref.lock);
      }
 
      *ret_ref = ref;
@@ -515,6 +597,8 @@ add_local (FusionRef *ref, int fusion_id, int add)
           local = (LocalRef *) l;
 
           if (local->fusion_id == fusion_id) {
+               fusion_list_move_to_front( &ref->local_refs, l );
+
                if (local->refs + add < 0)
                     return -EIO;
 
@@ -549,13 +633,11 @@ clear_local (FusionDev *dev, FusionRef *ref, int fusion_id)
           LocalRef *local = (LocalRef *) l;
 
           if (local->fusion_id == fusion_id) {
-               ref->local -= local->refs;
+               propagate_local( dev, ref, - local->refs );
 
-               if (ref->local + ref->global == 0)
-                    notify_ref (dev, ref);
+               fusion_list_remove( &ref->local_refs, l );
 
-               fusion_list_remove (&ref->local_refs, l);
-
+               kfree (l);
                break;
           }
      }
@@ -593,5 +675,100 @@ notify_ref (FusionDev *dev, FusionRef *ref)
      }
      else
           wake_up_interruptible_all (&ref->wait);
+}
+
+static int
+propagate_local( FusionDev *dev, FusionRef *ref, int diff )
+{
+     FusionLink *l;
+
+     /* Recurse into inheritors. */
+     fusion_list_foreach (l, ref->inheritors) {
+          FusionRef *inheritor = ((Inheritor*) l)->ref;
+
+          if (down_interruptible( &inheritor->lock )) {
+               printk( KERN_ERR "fusion_ref: propagate_local() interrupted!\n" );
+               //return -EINTR;
+          }
+
+          propagate_local( dev, inheritor, diff );
+
+          up( &inheritor->lock );
+     }
+
+     /* Apply difference. */
+     ref->local += diff;
+
+     /* Notify zero count. */
+     if (ref->local + ref->global == 0)
+          notify_ref( dev, ref );
+
+     return 0;
+}
+
+static int
+add_inheritor(FusionRef *ref, FusionRef *from)
+{
+     Inheritor *inheritor;
+
+     inheritor = kmalloc (sizeof(Inheritor), GFP_KERNEL);
+     if (!inheritor)
+          return -ENOMEM;
+
+     inheritor->ref = ref;
+
+     fusion_list_prepend( &from->inheritors, &inheritor->link );
+
+     return 0;
+}
+
+static void
+remove_inheritor(FusionRef *ref, FusionRef *from)
+{
+     FusionLink *l;
+
+     down( &from->lock );
+
+     fusion_list_foreach (l, from->inheritors) {
+          Inheritor *inheritor = (Inheritor*) l;
+
+          if (inheritor->ref == ref) {
+               fusion_list_remove( &from->inheritors, &inheritor->link );
+
+               kfree( l );
+               break;
+          }
+     }
+
+     up( &from->lock );
+}
+
+static void
+drop_inheritors( FusionDev *dev, FusionRef *ref )
+{
+     FusionLink *l = ref->inheritors;
+
+     while (l) {
+          FusionLink *next      = l->next;
+          FusionRef  *inheritor = ((Inheritor*) l)->ref;
+
+          if (down_interruptible( &inheritor->lock )) {
+               printk( KERN_ERR "fusion_ref: drop_inheritors() interrupted!\n" );
+               //return;
+          }
+
+          propagate_local( dev, inheritor, - ref->local );
+
+          inheritor->inherited = NULL;
+
+          up( &inheritor->lock );
+
+
+          kfree (l);
+
+          l = next;
+     }
+
+     ref->inheritors = NULL;
 }
 

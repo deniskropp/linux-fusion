@@ -11,3 +11,8 @@ by the process. This will avoid rare deadlocks when pressing Ctrl-Z
 in the terminal where a DirectFB slave application has been started.
 
 Maybe implement other Fusion parts like Arena or Object(Pool).
+
+
+Replace kmalloc() usage.
+
+Revert semaphores to spinlocks.

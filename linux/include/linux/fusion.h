@@ -87,7 +87,7 @@ typedef struct {
  * reference count reaches zero. Currently one watch per reference is allowed.
  *
  * The call is made by Fusion and therefor has a caller id of zero.
- * 
+ *
  */
 typedef struct {
      int                id;        /* id of the reference to watch */
@@ -99,6 +99,14 @@ typedef struct {
 } FusionRefWatch;
 
 /*
+ * Inheriting local count from other reference
+ */
+typedef struct {
+     int                id;        /* own reference id */
+     int                from;      /* id of the reference to inherit from */
+} FusionRefInherit;
+
+/*
  * Killing other fusionees (experimental)
  */
 typedef struct {
@@ -108,47 +116,69 @@ typedef struct {
                           max. time to wait until the fusionee(s) terminated */
 } FusionKill;
 
+#define FUSION_API_MAJOR   1  /* Increased if backward compatibility is dropped. */
+#define FUSION_API_MINOR   0  /* Increased if new features are added. */
 
-#define FUSION_GET_ID                   _IOR('F', 0x00, int)
+typedef struct {
+     struct {
+          int major;
+          int minor;
+     } api;
 
-#define FUSION_SEND_MESSAGE             _IOW('F', 0x01, FusionSendMessage)
+     int fusion_id;
+} FusionEnter;
 
-#define FUSION_CALL_NEW                 _IOW('F', 0x02, FusionCallNew)
-#define FUSION_CALL_EXECUTE             _IOW('F', 0x03, FusionCallExecute)
-#define FUSION_CALL_RETURN              _IOW('F', 0x04, FusionCallReturn)
-#define FUSION_CALL_DESTROY             _IOW('F', 0x05, int)
+typedef enum {
+     FT_LOUNGE,
+     FT_MESSAGING,
+     FT_CALL,
+     FT_REF,
+     FT_SKIRMISH,
+     FT_PROPERTY,
+     FT_REACTOR
+} FusionType;
 
-#define FUSION_KILL                     _IOW('F', 0x06, FusionKill)
 
-#define FUSION_REF_NEW                  _IOW('F', 0x07, int)
-#define FUSION_REF_UP                   _IOW('F', 0x08, int)
-#define FUSION_REF_UP_GLOBAL            _IOW('F', 0x09, int)
-#define FUSION_REF_DOWN                 _IOW('F', 0x0A, int)
-#define FUSION_REF_DOWN_GLOBAL          _IOW('F', 0x0B, int)
-#define FUSION_REF_ZERO_LOCK            _IOW('F', 0x0C, int)
-#define FUSION_REF_ZERO_TRYLOCK         _IOW('F', 0x0D, int)
-#define FUSION_REF_UNLOCK               _IOW('F', 0x0E, int)
-#define FUSION_REF_STAT                 _IOW('F', 0x0F, int)
-#define FUSION_REF_WATCH                _IOW('F', 0x10, FusionRefWatch)
-#define FUSION_REF_DESTROY              _IOW('F', 0x11, int)
+#define FUSION_ENTER               _IOR(FT_LOUNGE,    0x00, FusionEnter)
+#define FUSION_KILL                _IOW(FT_LOUNGE,    0x01, FusionKill)
 
-#define FUSION_SKIRMISH_NEW             _IOW('F', 0x12, int)
-#define FUSION_SKIRMISH_PREVAIL         _IOW('F', 0x13, int)
-#define FUSION_SKIRMISH_SWOOP           _IOW('F', 0x14, int)
-#define FUSION_SKIRMISH_DISMISS         _IOW('F', 0x15, int)
-#define FUSION_SKIRMISH_DESTROY         _IOW('F', 0x16, int)
+#define FUSION_SEND_MESSAGE        _IOW(FT_MESSAGING, 0x00, FusionSendMessage)
 
-#define FUSION_PROPERTY_NEW             _IOW('F', 0x17, int)
-#define FUSION_PROPERTY_LEASE           _IOW('F', 0x18, int)
-#define FUSION_PROPERTY_PURCHASE        _IOW('F', 0x19, int)
-#define FUSION_PROPERTY_CEDE            _IOW('F', 0x1A, int)
-#define FUSION_PROPERTY_HOLDUP          _IOW('F', 0x1B, int)
-#define FUSION_PROPERTY_DESTROY         _IOW('F', 0x1C, int)
+#define FUSION_CALL_NEW            _IOW(FT_CALL,      0x00, FusionCallNew)
+#define FUSION_CALL_EXECUTE        _IOW(FT_CALL,      0x01, FusionCallExecute)
+#define FUSION_CALL_RETURN         _IOW(FT_CALL,      0x02, FusionCallReturn)
+#define FUSION_CALL_DESTROY        _IOW(FT_CALL,      0x03, int)
 
-#define FUSION_REACTOR_NEW              _IOW('F', 0x1D, int)
-#define FUSION_REACTOR_ATTACH           _IOW('F', 0x1E, int)
-#define FUSION_REACTOR_DETACH           _IOW('F', 0x1F, int)
-#define FUSION_REACTOR_DISPATCH         _IOW('F', 0x20, FusionReactorDispatch)
-#define FUSION_REACTOR_DESTROY          _IOW('F', 0x21, int)
+#define FUSION_REF_NEW             _IOW(FT_REF,       0x00, int)
+#define FUSION_REF_UP              _IOW(FT_REF,       0x01, int)
+#define FUSION_REF_UP_GLOBAL       _IOW(FT_REF,       0x02, int)
+#define FUSION_REF_DOWN            _IOW(FT_REF,       0x03, int)
+#define FUSION_REF_DOWN_GLOBAL     _IOW(FT_REF,       0x04, int)
+#define FUSION_REF_ZERO_LOCK       _IOW(FT_REF,       0x05, int)
+#define FUSION_REF_ZERO_TRYLOCK    _IOW(FT_REF,       0x06, int)
+#define FUSION_REF_UNLOCK          _IOW(FT_REF,       0x07, int)
+#define FUSION_REF_STAT            _IOW(FT_REF,       0x08, int)
+#define FUSION_REF_WATCH           _IOW(FT_REF,       0x09, FusionRefWatch)
+#define FUSION_REF_INHERIT         _IOW(FT_REF,       0x0A, FusionRefInherit)
+#define FUSION_REF_DESTROY         _IOW(FT_REF,       0x0B, int)
+
+#define FUSION_SKIRMISH_NEW        _IOW(FT_SKIRMISH,  0x00, int)
+#define FUSION_SKIRMISH_PREVAIL    _IOW(FT_SKIRMISH,  0x01, int)
+#define FUSION_SKIRMISH_SWOOP      _IOW(FT_SKIRMISH,  0x02, int)
+#define FUSION_SKIRMISH_DISMISS    _IOW(FT_SKIRMISH,  0x03, int)
+#define FUSION_SKIRMISH_DESTROY    _IOW(FT_SKIRMISH,  0x04, int)
+
+#define FUSION_PROPERTY_NEW        _IOW(FT_PROPERTY,  0x00, int)
+#define FUSION_PROPERTY_LEASE      _IOW(FT_PROPERTY,  0x01, int)
+#define FUSION_PROPERTY_PURCHASE   _IOW(FT_PROPERTY,  0x02, int)
+#define FUSION_PROPERTY_CEDE       _IOW(FT_PROPERTY,  0x03, int)
+#define FUSION_PROPERTY_HOLDUP     _IOW(FT_PROPERTY,  0x04, int)
+#define FUSION_PROPERTY_DESTROY    _IOW(FT_PROPERTY,  0x05, int)
+
+#define FUSION_REACTOR_NEW         _IOW(FT_REACTOR,   0x00, int)
+#define FUSION_REACTOR_ATTACH      _IOW(FT_REACTOR,   0x01, int)
+#define FUSION_REACTOR_DETACH      _IOW(FT_REACTOR,   0x02, int)
+#define FUSION_REACTOR_DISPATCH    _IOW(FT_REACTOR,   0x03, FusionReactorDispatch)
+#define FUSION_REACTOR_DESTROY     _IOW(FT_REACTOR,   0x04, int)
 
 #endif

@@ -11,7 +11,7 @@
  *	as published by the Free Software Foundation; either version
  *	2 of the License, or (at your option) any later version.
  */
- 
+
 #ifndef __FUSION__REF_H__
 #define __FUSION__REF_H__
 
@@ -58,6 +58,10 @@ int fusion_ref_watch        (FusionDev      *dev,
                              int             id,
                              int             call_id,
                              int             call_arg);
+
+int fusion_ref_inherit      (FusionDev      *dev,
+                             int             id,
+                             int             from);
 
 int fusion_ref_destroy      (FusionDev      *dev,
                              int             id);

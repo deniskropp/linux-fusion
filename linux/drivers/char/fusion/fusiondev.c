@@ -372,32 +372,45 @@ fusion_poll (struct file *file, poll_table * wait)
 }
 
 static int
-fusion_ioctl (struct inode *inode, struct file *file,
+lounge_ioctl (FusionDev *dev, int fusion_id,
               unsigned int cmd, unsigned long arg)
 {
-     int                    id;
-     int                    ret;
-     int                    refs;
-     int                    fusion_id = (int) file->private_data;
-     FusionDev             *dev = fusion_devs[MINOR(inode->i_rdev)];
-     FusionSendMessage      send;
-     FusionReactorDispatch  dispatch;
-     FusionRefWatch         watch;
-     FusionKill             kill;
-     FusionCallNew          call;
-     FusionCallExecute      execute;
-     FusionCallReturn       call_ret;
-
-     DEBUG( "fusion_ioctl (0x%08x)\n", cmd );
+     FusionEnter enter;
+     FusionKill  kill;
 
      switch (_IOC_NR(cmd)) {
-          case _IOC_NR(FUSION_GET_ID):
-               if (put_user (fusion_id, (int*) arg))
+          case _IOC_NR(FUSION_ENTER):
+               if (copy_from_user (&enter, (FusionEnter*) arg, sizeof(enter)))
+                    return -EFAULT;
+
+               if (enter.api.major != FUSION_API_MAJOR || enter.api.minor > FUSION_API_MINOR)
+                    return -ENOPROTOOPT;
+
+               enter.fusion_id = fusion_id;
+
+               if (copy_to_user ((FusionEnter*) arg, &enter, sizeof(enter)))
                     return -EFAULT;
 
                return 0;
 
+          case _IOC_NR(FUSION_KILL):
+               if (copy_from_user (&kill, (FusionKill*) arg, sizeof(kill)))
+                    return -EFAULT;
 
+               return fusionee_kill (dev, fusion_id,
+                                     kill.fusion_id, kill.signal, kill.timeout_ms);
+     }
+
+     return -ENOSYS;
+}
+
+static int
+messaging_ioctl (FusionDev *dev, int fusion_id,
+                 unsigned int cmd, unsigned long arg)
+{
+     FusionSendMessage send;
+
+     switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_SEND_MESSAGE):
                if (copy_from_user (&send, (FusionSendMessage*) arg, sizeof(send)))
                     return -EFAULT;
@@ -411,8 +424,22 @@ fusion_ioctl (struct inode *inode, struct file *file,
 
                return fusionee_send_message (dev, fusion_id, send.fusion_id, FMT_SEND,
                                              send.msg_id, send.msg_size, send.msg_data);
+     }
 
+     return -ENOSYS;
+}
 
+static int
+call_ioctl (FusionDev *dev, int fusion_id,
+            unsigned int cmd, unsigned long arg)
+{
+     int               id;
+     int               ret;
+     FusionCallNew     call;
+     FusionCallExecute execute;
+     FusionCallReturn  call_ret;
+
+     switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_CALL_NEW):
                if (copy_from_user (&call, (FusionCallNew*) arg, sizeof(call)))
                     return -EFAULT;
@@ -450,16 +477,22 @@ fusion_ioctl (struct inode *inode, struct file *file,
                     return -EFAULT;
 
                return fusion_call_destroy (dev, fusion_id, id);
+     }
 
+     return -ENOSYS;
+}
 
-          case _IOC_NR(FUSION_KILL):
-               if (copy_from_user (&kill, (FusionKill*) arg, sizeof(kill)))
-                    return -EFAULT;
+static int
+ref_ioctl (FusionDev *dev, int fusion_id,
+           unsigned int cmd, unsigned long arg)
+{
+     int              id;
+     int              ret;
+     int              refs;
+     FusionRefWatch   watch;
+     FusionRefInherit inherit;
 
-               return fusionee_kill (dev, fusion_id,
-                                     kill.fusion_id, kill.signal, kill.timeout_ms);
-
-
+     switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_REF_NEW):
                ret = fusion_ref_new (dev, &id);
                if (ret)
@@ -527,16 +560,32 @@ fusion_ioctl (struct inode *inode, struct file *file,
                if (copy_from_user (&watch, (FusionRefWatch*) arg, sizeof(watch)))
                     return -EFAULT;
 
-               return fusion_ref_watch (dev, watch.id,
-                                        watch.call_id, watch.call_arg);
+               return fusion_ref_watch (dev, watch.id, watch.call_id, watch.call_arg);
+
+          case _IOC_NR(FUSION_REF_INHERIT):
+               if (copy_from_user (&inherit, (FusionRefInherit*) arg, sizeof(inherit)))
+                    return -EFAULT;
+
+               return fusion_ref_inherit (dev, inherit.id, inherit.from);
 
           case _IOC_NR(FUSION_REF_DESTROY):
                if (get_user (id, (int*) arg))
                     return -EFAULT;
 
                return fusion_ref_destroy (dev, id);
+     }
 
+     return -ENOSYS;
+}
 
+static int
+skirmish_ioctl (FusionDev *dev, int fusion_id,
+                unsigned int cmd, unsigned long arg)
+{
+     int id;
+     int ret;
+
+     switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_SKIRMISH_NEW):
                ret = fusion_skirmish_new (dev, &id);
                if (ret)
@@ -571,8 +620,19 @@ fusion_ioctl (struct inode *inode, struct file *file,
                     return -EFAULT;
 
                return fusion_skirmish_destroy (dev, id);
+     }
 
+     return -ENOSYS;
+}
 
+static int
+property_ioctl (FusionDev *dev, int fusion_id,
+                unsigned int cmd, unsigned long arg)
+{
+     int id;
+     int ret;
+
+     switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_PROPERTY_NEW):
                ret = fusion_property_new (dev, &id);
                if (ret)
@@ -613,8 +673,20 @@ fusion_ioctl (struct inode *inode, struct file *file,
                     return -EFAULT;
 
                return fusion_property_destroy (dev, id);
+     }
 
+     return -ENOSYS;
+}
 
+static int
+reactor_ioctl (FusionDev *dev, int fusion_id,
+               unsigned int cmd, unsigned long arg)
+{
+     int                   id;
+     int                   ret;
+     FusionReactorDispatch dispatch;
+
+     switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_REACTOR_NEW):
                ret = fusion_reactor_new (dev, &id);
                if (ret)
@@ -661,7 +733,42 @@ fusion_ioctl (struct inode *inode, struct file *file,
                return fusion_reactor_destroy (dev, id);
      }
 
-     return -ENOTTY;
+     return -ENOSYS;
+}
+
+static int
+fusion_ioctl (struct inode *inode, struct file *file,
+              unsigned int cmd, unsigned long arg)
+{
+     int        id  = (int) file->private_data;
+     FusionDev *dev = fusion_devs[MINOR(inode->i_rdev)];
+
+     DEBUG( "fusion_ioctl (0x%08x)\n", cmd );
+
+     switch (_IOC_TYPE(cmd)) {
+          case FT_LOUNGE:
+               return lounge_ioctl( dev, id, cmd, arg );
+
+          case FT_MESSAGING:
+               return messaging_ioctl( dev, id, cmd, arg );
+
+          case FT_CALL:
+               return call_ioctl( dev, id, cmd, arg );
+
+          case FT_REF:
+               return ref_ioctl( dev, id, cmd, arg );
+
+          case FT_SKIRMISH:
+               return skirmish_ioctl( dev, id, cmd, arg );
+
+          case FT_PROPERTY:
+               return property_ioctl( dev, id, cmd, arg );
+
+          case FT_REACTOR:
+               return reactor_ioctl( dev, id, cmd, arg );
+     }
+
+     return -ENOSYS;
 }
 
 static struct file_operations fusion_fops = {
