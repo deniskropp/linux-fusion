@@ -679,7 +679,7 @@ fusion_exit(void)
      remove_proc_entry ("fusion", NULL);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-     devfs_remove ("sound");
+     devfs_remove ("fusion");
 #endif
 }
 
