@@ -1,0 +1,45 @@
+diff -uraN linux-2.5.64.orig/drivers/char/Kconfig linux-2.5.64/drivers/char/Kconfig
+--- linux-2.5.64.orig/drivers/char/Kconfig	2003-02-15 00:51:08.000000000 +0100
++++ linux-2.5.64/drivers/char/Kconfig	2003-03-17 22:58:14.000000000 +0100
+@@ -999,5 +999,10 @@
+ 	  out to lunch past a certain margin.  It can reboot the system
+ 	  or merely print a warning.
+ 
+-endmenu
++config FUSION_DEVICE
++	tristate "Fusion Kernel Device (for DirectFB)"
++	help
++	  The Fusion Kernel Device is needed to use DirectFB's multi
++	  application core.
+ 
++endmenu
+diff -uraN linux-2.5.64.orig/drivers/char/Makefile linux-2.5.64/drivers/char/Makefile
+--- linux-2.5.64.orig/drivers/char/Makefile	2003-03-17 20:40:37.000000000 +0100
++++ linux-2.5.64/drivers/char/Makefile	2003-03-17 22:54:56.000000000 +0100
+@@ -77,6 +77,8 @@
+ obj-$(CONFIG_PCMCIA) += pcmcia/
+ obj-$(CONFIG_IPMI_HANDLER) += ipmi/
+ 
++obj-$(CONFIG_FUSION_DEVICE) += fusion/
++
+ obj-$(CONFIG_HANGCHECK_TIMER) += hangcheck-timer.o
+ 
+ # Files generated that shall be removed upon make clean
+diff -uraN linux-2.5.64.orig/drivers/char/fusion/Makefile linux-2.5.64/drivers/char/fusion/Makefile
+--- linux-2.5.64.orig/drivers/char/fusion/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.5.64/drivers/char/fusion/Makefile	2003-03-17 23:08:54.000000000 +0100
+@@ -0,0 +1,3 @@
++obj-$(CONFIG_FUSION_DEVICE) := fusion.o
++
++fusion-objs := fifo.o fusiondev.o fusionee.o list.o property.o reactor.o ref.o skirmish.o
+diff -uraN linux-2.5.64.orig/include/linux/miscdevice.h linux-2.5.64/include/linux/miscdevice.h
+--- linux-2.5.64.orig/include/linux/miscdevice.h	2003-02-15 00:51:50.000000000 +0100
++++ linux-2.5.64/include/linux/miscdevice.h	2003-03-17 22:50:42.000000000 +0100
+@@ -13,6 +13,7 @@
+ #define APOLLO_MOUSE_MINOR 7
+ #define PC110PAD_MINOR 9
+ /*#define ADB_MOUSE_MINOR 10	FIXME OBSOLETE */
++#define FUSION_MINOR		23	/* Fusion Device */
+ #define WATCHDOG_MINOR		130	/* Watchdog timer     */
+ #define TEMP_MINOR		131	/* Temperature Sensor */
+ #define RTC_MINOR 135
