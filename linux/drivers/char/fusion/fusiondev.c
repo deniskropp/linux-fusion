@@ -28,6 +28,7 @@
 #include "fusiondev.h"
 #include "fusionee.h"
 #include "ref.h"
+#include "skirmish.h"
 
 #define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
 
@@ -134,6 +135,34 @@ fusion_ioctl (struct inode *inode, struct file *file,
 
       return fusion_ref_destroy (id);
 
+    case FUSION_SKIRMISH_NEW:
+      ret = fusion_skirmish_new (&id);
+      if (ret)
+        return ret;
+
+      put_user (id, (int*) arg);
+      break;
+
+    case FUSION_SKIRMISH_PREVAIL:
+      get_user (id, (int*) arg);
+
+      return fusion_skirmish_prevail (id, fusion_id);
+
+    case FUSION_SKIRMISH_SWOOP:
+      get_user (id, (int*) arg);
+
+      return fusion_skirmish_swoop (id, fusion_id);
+
+    case FUSION_SKIRMISH_DISMISS:
+      get_user (id, (int*) arg);
+
+      return fusion_skirmish_dismiss (id, fusion_id);
+
+    case FUSION_SKIRMISH_DESTROY:
+      get_user (id, (int*) arg);
+
+      return fusion_skirmish_destroy (id);
+
     default:
       return -ENOTTY;
     }
@@ -171,6 +200,10 @@ fusion_init(void)
   if (ret)
     goto error_ref;
 
+  ret = fusion_skirmish_init();
+  if (ret)
+    goto error_skirmish;
+
   ret = misc_register (&fusion_miscdev);
   if (ret)
     goto error_misc;
@@ -179,6 +212,9 @@ fusion_init(void)
 
 
  error_misc:
+  fusion_skirmish_cleanup();
+
+ error_skirmish:
   fusion_ref_cleanup();
 
  error_ref:
@@ -193,6 +229,7 @@ fusion_exit(void)
 {
   misc_deregister (&fusion_miscdev);
   
+  fusion_skirmish_cleanup();
   fusion_ref_cleanup();
   fusionee_cleanup();
 }

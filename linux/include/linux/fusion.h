@@ -17,5 +17,11 @@
 #define FUSION_REF_STAT                 _IOR('F', 0x18, sizeof(int))
 #define FUSION_REF_DESTROY              _IOW('F', 0x19, sizeof(int))
 
+#define FUSION_SKIRMISH_NEW             _IOW('F', 0x20, sizeof(int))
+#define FUSION_SKIRMISH_PREVAIL         _IOW('F', 0x21, sizeof(int))
+#define FUSION_SKIRMISH_SWOOP           _IOW('F', 0x22, sizeof(int))
+#define FUSION_SKIRMISH_DISMISS         _IOW('F', 0x23, sizeof(int))
+#define FUSION_SKIRMISH_DESTROY         _IOW('F', 0x24, sizeof(int))
+
 #endif
 

@@ -24,6 +24,7 @@
 #include "fusiondev.h"
 #include "fusionee.h"
 #include "ref.h"
+#include "skirmish.h"
 
 
 typedef struct {
@@ -159,6 +160,7 @@ fusionee_destroy (int id)
 
   fusion_list_remove (&fusionees, &fusionee->link);
 
+  fusion_skirmish_dismiss_all (id);
   fusion_ref_clear_all_local (id);
 
   spin_unlock (&fusionees_lock);
