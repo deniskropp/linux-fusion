@@ -225,7 +225,10 @@ fusion_reactor_detach (int id, int fusion_id)
     }
 
   if (! --node->count)
-    fusion_list_remove (&reactor->nodes, &node->link);
+    {
+      fusion_list_remove (&reactor->nodes, &node->link);
+      kfree (node);
+    }
 
   unlock_reactor (reactor);
 
