@@ -1,0 +1,27 @@
+diff -uraN linux-2.4.21/drivers/char/Config.in linux-2.4.21-fusion/drivers/char/Config.in
+--- linux-2.4.21/drivers/char/Config.in	2003-06-13 16:51:32.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/Config.in	2003-06-16 19:15:00.000000000 +0200
+@@ -266,6 +266,7 @@
+ fi
+ dep_tristate 'AMD 76x native power management (Experimental)' CONFIG_AMD_PM768 $CONFIG_PCI
+ tristate '/dev/nvram support' CONFIG_NVRAM
++tristate 'Fusion Kernel Device' CONFIG_FUSION_DEVICE
+ tristate 'Enhanced Real Time Clock Support' CONFIG_RTC
+ if [ "$CONFIG_IA64" = "y" ]; then
+    bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
+diff -uraN linux-2.4.21/drivers/char/Makefile linux-2.4.21-fusion/drivers/char/Makefile
+--- linux-2.4.21/drivers/char/Makefile	2003-06-13 16:51:32.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/Makefile	2003-06-16 19:15:00.000000000 +0200
+@@ -312,6 +312,12 @@
+   obj-y += ipmi/ipmi.o
+ endif
+ 
++subdir-$(CONFIG_FUSION_DEVICE) += fusion
++ifeq ($(CONFIG_FUSION_DEVICE),y)
++  obj-y += fusion/fusion.o
++endif
++
++
+ include $(TOPDIR)/Rules.make
+ 
+ fastdep:

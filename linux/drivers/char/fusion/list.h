@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -15,12 +15,9 @@
 #ifndef __FUSION__LIST_H__
 #define __FUSION__LIST_H__
 
-#include "types.h"
-
-
 typedef struct _FusionLink {
-  struct _FusionLink *next;
-  struct _FusionLink *prev;
+     struct _FusionLink *next;
+     struct _FusionLink *prev;
 } FusionLink;
 
 void fusion_list_prepend       (FusionLink **list, FusionLink *link);

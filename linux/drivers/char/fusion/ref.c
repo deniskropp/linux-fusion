@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -11,7 +11,7 @@
  *	as published by the Free Software Foundation; either version
  *	2 of the License, or (at your option) any later version.
  */
- 
+
 #include <linux/config.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -26,34 +26,34 @@
 #include "ref.h"
 
 typedef struct {
-  FusionLink  link;
-  int         fusion_id;
-  int         refs;
+     FusionLink  link;
+     int         fusion_id;
+     int         refs;
 } LocalRef;
 
 typedef struct {
-  FusionLink         link;
+     FusionLink         link;
 
-  spinlock_t         lock;
+     spinlock_t         lock;
 
-  int                id;
-  int                pid;
+     int                id;
+     int                pid;
 
-  int                global;
-  int                local;
+     int                global;
+     int                local;
 
-  int                locked;    /* non-zero fusion id of lock owner */
+     int                locked;    /* non-zero fusion id of lock owner */
 
-  FusionLink        *local_refs;
+     FusionLink        *local_refs;
 
-  wait_queue_head_t  wait;
+     wait_queue_head_t  wait;
 } FusionRef;
 
 /******************************************************************************/
 
-static FusionRef *lookup_ref     (int id);
+static FusionRef *lookup_ref     (FusionDev *dev, int id);
 
-static FusionRef *lock_ref       (int id);
+static FusionRef *lock_ref       (FusionDev *dev, int id);
 static void       unlock_ref     (FusionRef *ref);
 
 static int        add_local      (FusionRef *ref, int fusion_id, int add);
@@ -62,468 +62,432 @@ static void       free_all_local (FusionRef *ref);
 
 /******************************************************************************/
 
-static int         ids       = 0;
-static FusionLink *refs      = NULL;
-static spinlock_t  refs_lock = SPIN_LOCK_UNLOCKED;
-
-/******************************************************************************/
-
 static int
-fusion_ref_read_proc(char *buf, char **start, off_t offset,
-                     int len, int *eof, void *private)
+refs_read_proc(char *buf, char **start, off_t offset,
+               int len, int *eof, void *private)
 {
-  FusionLink *l;
-  int written = 0;
+     FusionLink *l;
+     FusionDev  *dev     = private;
+     int         written = 0;
 
-  spin_lock (&refs_lock);
+     spin_lock (&dev->ref.lock);
 
-  fusion_list_foreach (l, refs)
-    {
-      FusionRef *ref = (FusionRef*) l;
+     fusion_list_foreach (l, dev->ref.list) {
+          FusionRef *ref = (FusionRef*) l;
 
-      if (ref->locked)
-        written += sprintf(buf+written, "(%5d) 0x%08x %2d %2d (locked by %d)\n",
-                           ref->pid, ref->id, ref->global, ref->local,
-                           ref->locked);
-      else
-        written += sprintf(buf+written, "(%5d) 0x%08x %2d %2d\n",
-                           ref->pid, ref->id, ref->global, ref->local);
-      if (written < offset)
-        {
-          offset -= written;
-          written = 0;
-        }
+          if (ref->locked)
+               written += sprintf(buf+written, "(%5d) 0x%08x %2d %2d (locked by %d)\n",
+                                  ref->pid, ref->id, ref->global, ref->local,
+                                  ref->locked);
+          else
+               written += sprintf(buf+written, "(%5d) 0x%08x %2d %2d\n",
+                                  ref->pid, ref->id, ref->global, ref->local);
+          if (written < offset) {
+               offset -= written;
+               written = 0;
+          }
 
-      if (written >= len)
-        break;
-    }
+          if (written >= len)
+               break;
+     }
 
-  spin_unlock (&refs_lock);
+     spin_unlock (&dev->ref.lock);
 
-  *start = buf + offset;
-  written -= offset;
-  if(written > len)
-    {
-      *eof = 0;
-      return len;
-    }
+     *start = buf + offset;
+     written -= offset;
+     if (written > len) {
+          *eof = 0;
+          return len;
+     }
 
-  *eof = 1;
-  return (written<0) ? 0 : written;
+     *eof = 1;
+     return(written<0) ? 0 : written;
 }
 
 int
-fusion_ref_init()
+fusion_ref_init (FusionDev *dev)
 {
-  create_proc_read_entry("refs", 0, proc_fusion_dir,
-                         fusion_ref_read_proc, NULL);
+     dev->ref.lock = SPIN_LOCK_UNLOCKED;
 
-  return 0;
+     create_proc_read_entry("refs", 0, dev->proc_dir,
+                            refs_read_proc, dev);
+
+     return 0;
 }
 
 void
-fusion_ref_reset()
+fusion_ref_deinit (FusionDev *dev)
 {
-  FusionLink *l;
+     FusionLink *l;
 
-  spin_lock (&refs_lock);
+     spin_lock (&dev->ref.lock);
 
-  l = refs;
-  while (l)
-    {
-      FusionLink *next = l->next;
-      FusionRef  *ref  = (FusionRef *) l;
+     remove_proc_entry ("refs", dev->proc_dir);
+     
+     l = dev->ref.list;
+     while (l) {
+          FusionLink *next = l->next;
+          FusionRef  *ref  = (FusionRef *) l;
 
-      free_all_local (ref);
+          free_all_local (ref);
 
-      kfree (ref);
+          kfree (ref);
 
-      l = next;
-    }
+          l = next;
+     }
 
-  ids  = 0;
-  refs = NULL;
-
-  spin_unlock (&refs_lock);
-}
-
-void
-fusion_ref_cleanup()
-{
-  fusion_ref_reset();
-
-  remove_proc_entry ("refs", proc_fusion_dir);
+     spin_unlock (&dev->ref.lock);
 }
 
 /******************************************************************************/
 
 int
-fusion_ref_new (int *id)
+fusion_ref_new (FusionDev *dev, int *id)
 {
-  FusionRef *ref;
+     FusionRef *ref;
 
-  ref = kmalloc (sizeof(FusionRef), GFP_ATOMIC);
-  if (!ref)
-    return -ENOMEM;
+     ref = kmalloc (sizeof(FusionRef), GFP_ATOMIC);
+     if (!ref)
+          return -ENOMEM;
 
-  memset (ref, 0, sizeof(FusionRef));
+     memset (ref, 0, sizeof(FusionRef));
 
-  spin_lock (&refs_lock);
+     spin_lock (&dev->ref.lock);
 
-  ref->id   = ids++;
-  ref->pid  = current->pid;
-  ref->lock = SPIN_LOCK_UNLOCKED;
+     ref->id   = dev->ref.ids++;
+     ref->pid  = current->pid;
+     ref->lock = SPIN_LOCK_UNLOCKED;
 
-  init_waitqueue_head (&ref->wait);
+     init_waitqueue_head (&ref->wait);
 
-  fusion_list_prepend (&refs, &ref->link);
+     fusion_list_prepend (&dev->ref.list, &ref->link);
 
-  spin_unlock (&refs_lock);
+     spin_unlock (&dev->ref.lock);
 
-  *id = ref->id;
+     *id = ref->id;
 
-  return 0;
+     return 0;
 }
 
 int
-fusion_ref_up (int id, int fusion_id)
+fusion_ref_up (FusionDev *dev, int id, int fusion_id)
 {
-  FusionRef *ref = lock_ref (id);
+     FusionRef *ref = lock_ref (dev, id);
 
-  if (!ref)
-    return -EINVAL;
+     if (!ref)
+          return -EINVAL;
 
-  if (ref->locked)
-    {
-      unlock_ref (ref);
-      return -EAGAIN;
-    }
-
-  if (fusion_id)
-    {
-      int ret;
-
-      ret = add_local (ref, fusion_id, 1);
-      if (ret)
-        {
+     if (ref->locked) {
           unlock_ref (ref);
-          return ret;
-        }
+          return -EAGAIN;
+     }
 
-      ref->local++;
-    }
-  else
-    ref->global++;
+     if (fusion_id) {
+          int ret;
 
-  unlock_ref (ref);
+          ret = add_local (ref, fusion_id, 1);
+          if (ret) {
+               unlock_ref (ref);
+               return ret;
+          }
 
-  return 0;
+          ref->local++;
+     }
+     else
+          ref->global++;
+
+     unlock_ref (ref);
+
+     return 0;
 }
 
 int
-fusion_ref_down (int id, int fusion_id)
+fusion_ref_down (FusionDev *dev, int id, int fusion_id)
 {
-  FusionRef *ref = lock_ref (id);
+     FusionRef *ref = lock_ref (dev, id);
 
-  if (!ref)
-    return -EINVAL;
+     if (!ref)
+          return -EINVAL;
 
-  if (ref->locked)
-    {
-      unlock_ref (ref);
-      return -EAGAIN;
-    }
-
-  if (fusion_id)
-    {
-      int ret;
-
-      if (!ref->local)
-        return -EIO;
-
-      ret = add_local (ref, fusion_id, -1);
-      if (ret)
-        {
+     if (ref->locked) {
           unlock_ref (ref);
-          return ret;
-        }
+          return -EAGAIN;
+     }
 
-      ref->local--;
-    }
-  else
-    {
-      if (!ref->global)
-        return -EIO;
+     if (fusion_id) {
+          int ret;
 
-      ref->global--;
-    }
+          if (!ref->local)
+               return -EIO;
 
-  if (ref->local + ref->global == 0)
-    wake_up_interruptible_all (&ref->wait);
+          ret = add_local (ref, fusion_id, -1);
+          if (ret) {
+               unlock_ref (ref);
+               return ret;
+          }
 
-  unlock_ref (ref);
+          ref->local--;
+     }
+     else {
+          if (!ref->global)
+               return -EIO;
 
-  return 0;
+          ref->global--;
+     }
+
+     if (ref->local + ref->global == 0)
+          wake_up_interruptible_all (&ref->wait);
+
+     unlock_ref (ref);
+
+     return 0;
 }
 
 int
-fusion_ref_zero_lock (int id, int fusion_id)
+fusion_ref_zero_lock (FusionDev *dev, int id, int fusion_id)
 {
-  FusionRef *ref;
+     FusionRef *ref;
 
-  while (true)
-    {
-      ref = lock_ref (id);
-      if (!ref)
-        return -EINVAL;
+     while (true) {
+          ref = lock_ref (dev, id);
+          if (!ref)
+               return -EINVAL;
 
-      if (ref->locked)
-        {
+          if (ref->locked) {
+               unlock_ref (ref);
+
+               return ref->locked == fusion_id ? -EIO : -EAGAIN;
+          }
+
+          if (ref->global || ref->local) {
+               fusion_sleep_on (&ref->wait, &ref->lock, 0);
+
+               if (signal_pending(current))
+                    return -ERESTARTSYS;
+          }
+          else
+               break;
+     }
+
+     ref->locked = fusion_id;
+
+     unlock_ref (ref);
+
+     return 0;
+}
+
+int
+fusion_ref_zero_trylock (FusionDev *dev, int id, int fusion_id)
+{
+     int        ret = 0;
+     FusionRef *ref = lock_ref (dev, id);
+
+     if (!ref)
+          return -EINVAL;
+
+     if (ref->locked) {
           unlock_ref (ref);
-
           return ref->locked == fusion_id ? -EIO : -EAGAIN;
-        }
+     }
 
-      if (ref->global || ref->local)
-        {
-          fusion_sleep_on (&ref->wait, &ref->lock, 0);
+     if (ref->global || ref->local)
+          ret = -ETOOMANYREFS;
+     else
+          ref->locked = fusion_id;
 
-          if (signal_pending(current))
-            return -ERESTARTSYS;
-        }
-      else
-        break;
-    }
+     unlock_ref (ref);
 
-  ref->locked = fusion_id;
-
-  unlock_ref (ref);
-
-  return 0;
+     return ret;
 }
 
 int
-fusion_ref_zero_trylock (int id, int fusion_id)
+fusion_ref_unlock (FusionDev *dev, int id, int fusion_id)
 {
-  int        ret = 0;
-  FusionRef *ref = lock_ref (id);
+     FusionRef *ref = lock_ref (dev, id);
 
-  if (!ref)
-    return -EINVAL;
+     if (!ref)
+          return -EINVAL;
 
-  if (ref->locked)
-    {
-      unlock_ref (ref);
-      return ref->locked == fusion_id ? -EIO : -EAGAIN;
-    }
+     if (ref->locked != fusion_id) {
+          unlock_ref (ref);
+          return -EIO;
+     }
 
-  if (ref->global || ref->local)
-    ret = -ETOOMANYREFS;
-  else
-    ref->locked = fusion_id;
+     ref->locked = 0;
 
-  unlock_ref (ref);
+     unlock_ref (ref);
 
-  return ret;
+     return 0;
 }
 
 int
-fusion_ref_unlock (int id, int fusion_id)
+fusion_ref_stat (FusionDev *dev, int id, int *refs)
 {
-  FusionRef *ref = lock_ref (id);
+     FusionRef *ref = lock_ref (dev, id);
 
-  if (!ref)
-    return -EINVAL;
+     if (!ref)
+          return -EINVAL;
 
-  if (ref->locked != fusion_id)
-    {
-      unlock_ref (ref);
-      return -EIO;
-    }
+     *refs = ref->global + ref->local;
 
-  ref->locked = 0;
+     unlock_ref (ref);
 
-  unlock_ref (ref);
-
-  return 0;
+     return 0;
 }
 
 int
-fusion_ref_stat (int id, int *refs)
+fusion_ref_destroy (FusionDev *dev, int id)
 {
-  FusionRef *ref = lock_ref (id);
+     FusionRef *ref = lookup_ref (dev, id);
 
-  if (!ref)
-    return -EINVAL;
+     if (!ref)
+          return -EINVAL;
 
-  *refs = ref->global + ref->local;
+     spin_lock (&ref->lock);
 
-  unlock_ref (ref);
+     fusion_list_remove (&dev->ref.list, &ref->link);
 
-  return 0;
-}
+     wake_up_interruptible_all (&ref->wait);
 
-int
-fusion_ref_destroy (int id)
-{
-  FusionRef *ref = lookup_ref (id);
+     spin_unlock (&dev->ref.lock);
 
-  if (!ref)
-    return -EINVAL;
+     free_all_local (ref);
 
-  spin_lock (&ref->lock);
+     spin_unlock (&ref->lock);
 
-  fusion_list_remove (&refs, &ref->link);
+     kfree (ref);
 
-  wake_up_interruptible_all (&ref->wait);
-
-  spin_unlock (&refs_lock);
-
-  free_all_local (ref);
-
-  spin_unlock (&ref->lock);
-  
-  kfree (ref);
-
-  return 0;
+     return 0;
 }
 
 void
-fusion_ref_clear_all_local (int fusion_id)
+fusion_ref_clear_all_local (FusionDev *dev, int fusion_id)
 {
-  FusionLink *l;
+     FusionLink *l;
 
-  spin_lock (&refs_lock);
+     spin_lock (&dev->ref.lock);
 
-  fusion_list_foreach (l, refs)
-    {
-      FusionRef *ref = (FusionRef *) l;
+     fusion_list_foreach (l, dev->ref.list) {
+          FusionRef *ref = (FusionRef *) l;
 
-      clear_local (ref, fusion_id);
-    }
+          clear_local (ref, fusion_id);
+     }
 
-  spin_unlock (&refs_lock);
+     spin_unlock (&dev->ref.lock);
 }
 
 /******************************************************************************/
 
 static FusionRef *
-lookup_ref (int id)
+lookup_ref (FusionDev *dev, int id)
 {
-  FusionLink *l;
+     FusionLink *l;
 
-  spin_lock (&refs_lock);
+     spin_lock (&dev->ref.lock);
 
-  fusion_list_foreach (l, refs)
-    {
-      FusionRef *ref = (FusionRef *) l;
+     fusion_list_foreach (l, dev->ref.list) {
+          FusionRef *ref = (FusionRef *) l;
 
-      if (ref->id == id)
-        return ref;
-    }
+          if (ref->id == id)
+               return ref;
+     }
 
-  spin_unlock (&refs_lock);
+     spin_unlock (&dev->ref.lock);
 
-  return NULL;
+     return NULL;
 }
 
 static FusionRef *
-lock_ref (int id)
+lock_ref (FusionDev *dev, int id)
 {
-  FusionRef *ref = lookup_ref (id);
+     FusionRef *ref = lookup_ref (dev, id);
 
-  if (ref)
-    {
-      fusion_list_move_to_front (&refs, &ref->link);
+     if (ref) {
+          fusion_list_move_to_front (&dev->ref.list, &ref->link);
 
-      spin_lock (&ref->lock);
-      spin_unlock (&refs_lock);
-    }
+          spin_lock (&ref->lock);
+          spin_unlock (&dev->ref.lock);
+     }
 
-  return ref;
+     return ref;
 }
 
 static void
 unlock_ref (FusionRef *ref)
 {
-  spin_unlock (&ref->lock);
+     spin_unlock (&ref->lock);
 }
 
 static int
 add_local (FusionRef *ref, int fusion_id, int add)
 {
-  FusionLink *l;
-  LocalRef   *local;
+     FusionLink *l;
+     LocalRef   *local;
 
-  fusion_list_foreach (l, ref->local_refs)
-    {
-      local = (LocalRef *) l;
+     fusion_list_foreach (l, ref->local_refs) {
+          local = (LocalRef *) l;
 
-      if (local->fusion_id == fusion_id)
-        {
-          if (local->refs + add < 0)
-            return -EIO;
+          if (local->fusion_id == fusion_id) {
+               if (local->refs + add < 0)
+                    return -EIO;
 
-          local->refs += add;
-          return 0;
-        }
-    }
+               local->refs += add;
+               return 0;
+          }
+     }
 
-  local = kmalloc (sizeof(LocalRef), GFP_ATOMIC);
-  if (!local)
-    return -ENOMEM;
+     local = kmalloc (sizeof(LocalRef), GFP_ATOMIC);
+     if (!local)
+          return -ENOMEM;
 
-  local->fusion_id = fusion_id;
-  local->refs      = add;
+     local->fusion_id = fusion_id;
+     local->refs      = add;
 
-  fusion_list_prepend (&ref->local_refs, &local->link);
+     fusion_list_prepend (&ref->local_refs, &local->link);
 
-  return 0;
+     return 0;
 }
 
 static void
 clear_local (FusionRef *ref, int fusion_id)
 {
-  FusionLink *l;
+     FusionLink *l;
 
-  spin_lock (&ref->lock);
+     spin_lock (&ref->lock);
 
-  if (ref->locked == fusion_id)
-    ref->locked = 0;
+     if (ref->locked == fusion_id)
+          ref->locked = 0;
 
-  fusion_list_foreach (l, ref->local_refs)
-    {
-      LocalRef *local = (LocalRef *) l;
+     fusion_list_foreach (l, ref->local_refs) {
+          LocalRef *local = (LocalRef *) l;
 
-      if (local->fusion_id == fusion_id)
-        {
-          ref->local -= local->refs;
+          if (local->fusion_id == fusion_id) {
+               ref->local -= local->refs;
 
-          if (ref->local + ref->global == 0)
-            wake_up_interruptible_all (&ref->wait);
+               if (ref->local + ref->global == 0)
+                    wake_up_interruptible_all (&ref->wait);
 
-          fusion_list_remove (&ref->local_refs, l);
+               fusion_list_remove (&ref->local_refs, l);
 
-          break;
-        }
-    }
+               break;
+          }
+     }
 
-  spin_unlock (&ref->lock);
+     spin_unlock (&ref->lock);
 }
 
 static void
 free_all_local (FusionRef *ref)
 {
-  FusionLink *l = ref->local_refs;
+     FusionLink *l = ref->local_refs;
 
-  while (l)
-    {
-      FusionLink *next = l->next;
+     while (l) {
+          FusionLink *next = l->next;
 
-      kfree (l);
+          kfree (l);
 
-      l = next;
-    }
+          l = next;
+     }
 
-  ref->local_refs = NULL;
+     ref->local_refs = NULL;
 }

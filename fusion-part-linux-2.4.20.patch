@@ -25,14 +25,3 @@ diff -uraN linux-2.4.20/drivers/char/Makefile linux-2.4.20-fusion/drivers/char/M
  include $(TOPDIR)/Rules.make
  
  fastdep:
-diff -uraN linux-2.4.20/include/linux/miscdevice.h linux-2.4.20-fusion/include/linux/miscdevice.h
---- linux-2.4.20/include/linux/miscdevice.h	2002-11-01 13:33:02.000000000 +0100
-+++ linux-2.4.20-fusion/include/linux/miscdevice.h	2002-12-05 18:39:08.000000000 +0100
-@@ -14,6 +14,7 @@
- #define PC110PAD_MINOR 9
- #define ADB_MOUSE_MINOR 10
- #define MK712_MINOR 15			/* MK712 touch screen */
-+#define FUSION_MINOR		 23	/* Fusion Device      */
- #define WATCHDOG_MINOR		130	/* Watchdog timer     */
- #define TEMP_MINOR		131	/* Temperature Sensor */
- #define RTC_MINOR 135

@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -18,29 +18,48 @@
 #include <linux/poll.h>
 #include <linux/fusion.h>
 
+#include "fusiondev.h"
 #include "types.h"
 
 
 /* module init/cleanup */
 
-int  fusionee_init (void);
-void fusionee_reset (void);
-void fusionee_cleanup (void);
+int  fusionee_init   (FusionDev *dev);
+void fusionee_deinit (FusionDev *dev);
 
 
 /* internal functions */
 
-int fusionee_new (int *id);
+int fusionee_new           (FusionDev         *dev,
+                            int               *id);
 
-int fusionee_send_message (int id, int recipient, FusionMessageType msg_type,
-                           int msg_id, int msg_size, const void *msg_data);
+int fusionee_send_message  (FusionDev         *dev,
+                            int                id,
+                            int                recipient,
+                            FusionMessageType  msg_type,
+                            int                msg_id,
+                            int                msg_size,
+                            const void        *msg_data);
 
-int fusionee_get_messages (int id, void *buf, int buf_size, int block);
+int fusionee_get_messages  (FusionDev         *dev,
+                            int                id,
+                            void              *buf,
+                            int                buf_size,
+                            bool               block);
 
-unsigned int fusionee_poll (int id, struct file *file, poll_table * wait);
+unsigned
+int fusionee_poll          (FusionDev         *dev,
+                            int                id,
+                            struct file       *file,
+                            poll_table        *wait);
 
-int fusionee_kill (int id, int target, int signal, int timeout_ms);
+int fusionee_kill          (FusionDev         *dev,
+                            int                id,
+                            int                target,
+                            int                signal,
+                            int                timeout_ms);
 
-int fusionee_destroy (int id);
+int fusionee_destroy       (FusionDev         *dev,
+                            int                id);
 
 #endif

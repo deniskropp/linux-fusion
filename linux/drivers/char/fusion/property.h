@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -15,28 +15,44 @@
 #ifndef __FUSION__PROPERTY_H__
 #define __FUSION__PROPERTY_H__
 
+#include "fusiondev.h"
 #include "types.h"
 
 
 /* module init/cleanup */
 
-int  fusion_property_init (void);
-void fusion_property_reset (void);
-void fusion_property_cleanup (void);
+int  fusion_property_init   (FusionDev *dev);
+void fusion_property_deinit (FusionDev *dev);
 
 
 /* public API */
 
-int fusion_property_new (int *id);
-int fusion_property_lease (int id, int fusion_id);
-int fusion_property_purchase (int id, int fusion_id);
-int fusion_property_cede (int id, int fusion_id);
-int fusion_property_holdup (int id, int fusion_id);
-int fusion_property_destroy (int id);
+int fusion_property_new      (FusionDev *dev,
+                              int       *id);
+
+int fusion_property_lease    (FusionDev *dev,
+                              int        id,
+                              int        fusion_id);
+
+int fusion_property_purchase (FusionDev *dev,
+                              int        id,
+                              int        fusion_id);
+
+int fusion_property_cede     (FusionDev *dev,
+                              int        id,
+                              int        fusion_id);
+
+int fusion_property_holdup   (FusionDev *dev,
+                              int        id,
+                              int        fusion_id);
+
+int fusion_property_destroy  (FusionDev *dev,
+                              int        id);
 
 
 /* internal functions */
 
-void fusion_property_cede_all (int fusion_id);
+void fusion_property_cede_all (FusionDev *dev,
+                               int        fusion_id);
 
 #endif

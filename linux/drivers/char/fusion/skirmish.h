@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -15,27 +15,40 @@
 #ifndef __FUSION__SKIRMISH_H__
 #define __FUSION__SKIRMISH_H__
 
+#include "fusiondev.h"
 #include "types.h"
 
 
 /* module init/cleanup */
 
-int  fusion_skirmish_init (void);
-void fusion_skirmish_reset (void);
-void fusion_skirmish_cleanup (void);
+int  fusion_skirmish_init   (FusionDev *dev);
+void fusion_skirmish_deinit (FusionDev *dev);
 
 
 /* public API */
 
-int fusion_skirmish_new (int *id);
-int fusion_skirmish_prevail (int id, int fusion_id);
-int fusion_skirmish_swoop (int id, int fusion_id);
-int fusion_skirmish_dismiss (int id, int fusion_id);
-int fusion_skirmish_destroy (int id);
+int fusion_skirmish_new     (FusionDev *dev,
+                             int       *id);
+
+int fusion_skirmish_prevail (FusionDev *dev,
+                             int        id,
+                             int        fusion_id);
+
+int fusion_skirmish_swoop   (FusionDev *dev,
+                             int        id,
+                             int        fusion_id);
+
+int fusion_skirmish_dismiss (FusionDev *dev,
+                             int        id,
+                             int        fusion_id);
+
+int fusion_skirmish_destroy (FusionDev *dev,
+                             int        id);
 
 
 /* internal functions */
 
-void fusion_skirmish_dismiss_all (int fusion_id);
+void fusion_skirmish_dismiss_all (FusionDev *dev,
+                                  int        fusion_id);
 
 #endif

@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -15,28 +15,42 @@
 #ifndef __FUSION__REACTOR_H__
 #define __FUSION__REACTOR_H__
 
+#include "fusiondev.h"
 #include "types.h"
 
 
 /* module init/cleanup */
 
-int  fusion_reactor_init (void);
-void fusion_reactor_reset (void);
-void fusion_reactor_cleanup (void);
+int  fusion_reactor_init   (FusionDev *dev);
+void fusion_reactor_deinit (FusionDev *dev);
 
 
 /* public API */
 
-int fusion_reactor_new (int *id);
-int fusion_reactor_attach (int id, int fusion_id);
-int fusion_reactor_detach (int id, int fusion_id);
-int fusion_reactor_dispatch (int id, int fusion_id,
-                             int msg_size, const void *msg_data);
-int fusion_reactor_destroy (int id);
+int fusion_reactor_new      (FusionDev  *dev,
+                             int        *id);
+
+int fusion_reactor_attach   (FusionDev  *dev,
+                             int         id,
+                             int         fusion_id);
+
+int fusion_reactor_detach   (FusionDev  *dev,
+                             int         id,
+                             int         fusion_id);
+
+int fusion_reactor_dispatch (FusionDev  *dev,
+                             int         id,
+                             int         fusion_id,
+                             int         msg_size,
+                             const void *msg_data);
+
+int fusion_reactor_destroy  (FusionDev  *dev,
+                             int         id);
 
 
 /* internal functions */
 
-void fusion_reactor_detach_all (int fusion_id);
+void fusion_reactor_detach_all (FusionDev *dev,
+                                int        fusion_id);
 
 #endif

@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -15,30 +15,52 @@
 #ifndef __FUSION__REF_H__
 #define __FUSION__REF_H__
 
+#include "fusiondev.h"
 #include "types.h"
 
 
 /* module init/cleanup */
 
-int  fusion_ref_init (void);
-void fusion_ref_reset (void);
-void fusion_ref_cleanup (void);
+int  fusion_ref_init   (FusionDev *dev);
+void fusion_ref_deinit (FusionDev *dev);
 
 
 /* public API */
 
-int fusion_ref_new (int *id);
-int fusion_ref_up (int id, int fusion_id);
-int fusion_ref_down (int id, int fusion_id);
-int fusion_ref_zero_lock (int id, int fusion_id);
-int fusion_ref_zero_trylock (int id, int fusion_id);
-int fusion_ref_unlock (int id, int fusion_id);
-int fusion_ref_stat (int id, int *refs);
-int fusion_ref_destroy (int id);
+int fusion_ref_new          (FusionDev *dev,
+                             int       *id);
+
+int fusion_ref_up           (FusionDev *dev,
+                             int        id,
+                             int        fusion_id);
+
+int fusion_ref_down         (FusionDev *dev,
+                             int        id,
+                             int        fusion_id);
+
+int fusion_ref_zero_lock    (FusionDev *dev,
+                             int        id,
+                             int        fusion_id);
+
+int fusion_ref_zero_trylock (FusionDev *dev,
+                             int        id,
+                             int        fusion_id);
+
+int fusion_ref_unlock       (FusionDev *dev,
+                             int        id,
+                             int        fusion_id);
+
+int fusion_ref_stat         (FusionDev *dev,
+                             int        id,
+                             int       *refs);
+
+int fusion_ref_destroy      (FusionDev *dev,
+                             int        id);
 
 
 /* internal functions */
 
-void fusion_ref_clear_all_local (int fusion_id);
+void fusion_ref_clear_all_local (FusionDev *dev,
+                                 int        fusion_id);
 
 #endif

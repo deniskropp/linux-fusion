@@ -123,7 +123,7 @@ main (int argc, char *argv[])
   int fusion_id; /* Our own fusion id. */
 
   /* Open the Fusion Kernel Device. */
-  fd = open ("/dev/fusion", O_RDWR);
+  fd = open ("/dev/fusion/0", O_RDWR);
   if (fd < 0)
     {
       perror ("opening /dev/fusion failed");

@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -17,24 +17,36 @@
 
 #include <linux/fusion.h>
 
+#include "fusiondev.h"
 
 /* module init/cleanup */
 
-int  fusion_call_init (void);
-void fusion_call_reset (void);
-void fusion_call_cleanup (void);
+int  fusion_call_init   (FusionDev *dev);
+void fusion_call_deinit (FusionDev *dev);
 
 
 /* public API */
 
-int fusion_call_new (int fusion_id, FusionCallNew *call);
-int fusion_call_execute (int fusion_id, FusionCallExecute *execute);
-int fusion_call_return (int fusion_id, FusionCallReturn *call_ret);
-int fusion_call_destroy (int fusion_id, int call_id);
+int fusion_call_new     (FusionDev         *dev,
+                         int                fusion_id,
+                         FusionCallNew     *call);
+
+int fusion_call_execute (FusionDev         *dev,
+                         int                fusion_id,
+                         FusionCallExecute *execute);
+
+int fusion_call_return  (FusionDev         *dev,
+                         int                fusion_id,
+                         FusionCallReturn  *call_ret);
+
+int fusion_call_destroy (FusionDev         *dev,
+                         int                fusion_id,
+                         int                call_id);
 
 
 /* internal functions */
 
-void fusion_call_destroy_all (int fusion_id);
+void fusion_call_destroy_all (FusionDev *dev,
+                              int        fusion_id);
 
 #endif

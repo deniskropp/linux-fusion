@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -45,18 +45,18 @@ fusion_list_remove (FusionLink **list, FusionLink *link)
 void
 fusion_list_move_to_front (FusionLink **list, FusionLink *link)
 {
-  if (*list == link)
-    return;
+     if (*list == link)
+          return;
 
-  link->prev->next = link->next;
+     link->prev->next = link->next;
 
-  if (link->next)
-    link->next->prev = link->prev;
+     if (link->next)
+          link->next->prev = link->prev;
 
-  link->prev = NULL;
-  link->next = *list;
+     link->prev = NULL;
+     link->next = *list;
 
-  (*list)->prev = link;
+     (*list)->prev = link;
 
-  *list = link;
+     *list = link;
 }

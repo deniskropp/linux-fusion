@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -17,14 +17,57 @@
 
 #include <linux/proc_fs.h>
 
-extern struct proc_dir_entry *proc_fusion_dir;
+#include "list.h"
+
+typedef struct {
+     int refs;
+     
+     struct proc_dir_entry *proc_dir;
+     
+     struct {
+          int         ids;
+          FusionLink *list;
+          spinlock_t  lock;
+     } call;
+
+     struct {
+          int                last_id;
+          FusionLink        *list;
+          spinlock_t         lock;
+          wait_queue_head_t  wait;
+     } fusionee;
+     
+     struct {
+          int         ids;
+          FusionLink *list;
+          spinlock_t  lock;
+     } property;
+     
+     struct {
+          int         ids;
+          FusionLink *list;
+          spinlock_t  lock;
+     } reactor;
+     
+     struct {
+          int         ids;
+          FusionLink *list;
+          spinlock_t  lock;
+     } ref;
+     
+     struct {
+          int         ids;
+          FusionLink *list;
+          spinlock_t  lock;
+     } skirmish;
+} FusionDev;
 
 /*
  * Special version of interruptible_sleep_on() that unlocks the spinlock
  * after adding the entry to the queue (just before schedule).
  */
-void fusion_sleep_on(wait_queue_head_t *q,
-                     spinlock_t        *lock,
-                     signed long       *timeout_ms);
+void fusion_sleep_on (wait_queue_head_t *q,
+                      spinlock_t        *lock,
+                      signed long       *timeout_ms);
 
 #endif

@@ -131,7 +131,7 @@ main (int argc, char *argv[])
   struct timeval    t1, t2;
 
   /* Open the Fusion Kernel Device. */
-  fd = open ("/dev/fusion", O_RDWR);
+  fd = open ("/dev/fusion/0", O_RDWR);
   if (fd < 0)
     {
       perror ("opening /dev/fusion failed");

@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -19,35 +19,35 @@
 void
 fusion_fifo_put (FusionFifo *fifo, FusionLink *link)
 {
-  link->prev = fifo->last;
-  link->next = NULL;
+     link->prev = fifo->last;
+     link->next = NULL;
 
-  if (fifo->last)
-    fifo->last->next = link;
-  else
-    fifo->first = link;
+     if (fifo->last)
+          fifo->last->next = link;
+     else
+          fifo->first = link;
 
-  fifo->last = link;
+     fifo->last = link;
 
-  fifo->count++;
+     fifo->count++;
 }
 
 FusionLink *
 fusion_fifo_get (FusionFifo *fifo)
 {
-  FusionLink *first = fifo->first;
+     FusionLink *first = fifo->first;
 
-  if (!first)
-    return NULL;
+     if (!first)
+          return NULL;
 
-  fifo->first = first->next;
+     fifo->first = first->next;
 
-  if (fifo->last == first)
-    fifo->last = NULL;
-  else
-    fifo->first->prev = NULL;
+     if (fifo->last == first)
+          fifo->last = NULL;
+     else
+          fifo->first->prev = NULL;
 
-  fifo->count--;
+     fifo->count--;
 
-  return first;
+     return first;
 }

@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -19,10 +19,10 @@
 #include "list.h"
 
 typedef struct {
-  FusionLink *first;
-  FusionLink *last;
+     FusionLink *first;
+     FusionLink *last;
 
-  int         count;
+     int         count;
 } FusionFifo;
 
 void        fusion_fifo_put   (FusionFifo *fifo,
@@ -31,8 +31,6 @@ void        fusion_fifo_put   (FusionFifo *fifo,
 FusionLink *fusion_fifo_get   (FusionFifo *fifo);
 
 int         fusion_fifo_count (FusionFifo *fifo);
-
-//#define fusion_list_foreach(link, list)  for (link = list; link; link = link->next)
 
 #endif /* __FUSION__LIST_H__ */
 

@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  Convergence GmbH
+ *	(c) Copyright 2002-2003  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *
@@ -11,7 +11,7 @@
  *	as published by the Free Software Foundation; either version
  *	2 of the License, or (at your option) any later version.
  */
- 
+
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/config.h>
@@ -19,7 +19,7 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
-#include <linux/miscdevice.h>
+#include <linux/devfs_fs_kernel.h>
 #include <linux/proc_fs.h>
 #include <linux/poll.h>
 #include <linux/init.h>
@@ -37,73 +37,128 @@
 
 #define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
 
-#ifndef FUSION_MINOR
-#define FUSION_MINOR 23
+#ifndef FUSION_MAJOR
+#define FUSION_MAJOR 253
 #endif
 
 MODULE_LICENSE("GPL");
 
 struct proc_dir_entry *proc_fusion_dir;
 
-static int        refs      = 0;
-static spinlock_t refs_lock = SPIN_LOCK_UNLOCKED;
+#define NUM_MINORS 8
+
+static FusionDev  *fusion_devs[NUM_MINORS] = { 0 };
+static spinlock_t  devs_lock               = SPIN_LOCK_UNLOCKED;
+
+static devfs_handle_t devfs_handles[NUM_MINORS];
 
 /******************************************************************************/
 
 void
 fusion_sleep_on(wait_queue_head_t *q, spinlock_t *lock, signed long *timeout)
 {
-  unsigned long flags;
-  wait_queue_t  wait;
-  
-  init_waitqueue_entry (&wait, current);
+     unsigned long flags;
+     wait_queue_t  wait;
 
-  current->state = TASK_INTERRUPTIBLE;
+     init_waitqueue_entry (&wait, current);
+
+     current->state = TASK_INTERRUPTIBLE;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 5, 0)
-  write_lock_irqsave (&q->lock,flags);
-  __add_wait_queue (q, &wait);
-  write_unlock (&q->lock);
+     write_lock_irqsave (&q->lock,flags);
+     __add_wait_queue (q, &wait);
+     write_unlock (&q->lock);
 
-  spin_unlock (lock);
+     spin_unlock (lock);
 
-  if (timeout)
-       *timeout = schedule_timeout(*timeout);
-  else
-       schedule();
+     if (timeout)
+          *timeout = schedule_timeout(*timeout);
+     else
+          schedule();
 
-  write_lock_irq (&q->lock);
-  __remove_wait_queue (q, &wait);
-  write_unlock_irqrestore (&q->lock,flags);
+     write_lock_irq (&q->lock);
+     __remove_wait_queue (q, &wait);
+     write_unlock_irqrestore (&q->lock,flags);
 #else
-  wq_write_lock_irqsave (&q->lock,flags);
-  __add_wait_queue (q, &wait);
-  wq_write_unlock (&q->lock);
+     wq_write_lock_irqsave (&q->lock,flags);
+     __add_wait_queue (q, &wait);
+     wq_write_unlock (&q->lock);
 
-  spin_unlock (lock);
+     spin_unlock (lock);
 
-  if (timeout)
-       *timeout = schedule_timeout(*timeout);
-  else
-       schedule();
+     if (timeout)
+          *timeout = schedule_timeout(*timeout);
+     else
+          schedule();
 
-  wq_write_lock_irq (&q->lock);
-  __remove_wait_queue (q, &wait);
-  wq_write_unlock_irqrestore (&q->lock,flags);
+     wq_write_lock_irq (&q->lock);
+     __remove_wait_queue (q, &wait);
+     wq_write_unlock_irqrestore (&q->lock,flags);
 #endif
 }
 
 /******************************************************************************/
 
-static void
-fusion_reset (void)
+static int
+fusiondev_init (FusionDev *dev)
 {
-  fusion_call_reset();
-  fusion_reactor_reset();
-  fusion_property_reset();
-  fusion_skirmish_reset();
-  fusion_ref_reset();
-  fusionee_reset();
+     int ret;
+
+     ret = fusionee_init (dev);
+     if (ret)
+          goto error_fusionee;
+
+     ret = fusion_ref_init (dev);
+     if (ret)
+          goto error_ref;
+
+     ret = fusion_skirmish_init (dev);
+     if (ret)
+          goto error_skirmish;
+
+     ret = fusion_property_init (dev);
+     if (ret)
+          goto error_property;
+
+     ret = fusion_reactor_init (dev);
+     if (ret)
+          goto error_reactor;
+
+     ret = fusion_call_init (dev);
+     if (ret)
+          goto error_call;
+
+     return 0;
+
+
+error_call:
+     fusion_reactor_deinit (dev);
+
+error_reactor:
+     fusion_property_deinit (dev);
+
+error_property:
+     fusion_skirmish_deinit (dev);
+
+error_skirmish:
+     fusion_ref_deinit (dev);
+
+error_ref:
+     fusionee_deinit (dev);
+
+error_fusionee:
+     return ret;
+}
+
+static void
+fusiondev_deinit (FusionDev *dev)
+{
+     fusion_call_deinit (dev);
+     fusion_reactor_deinit (dev);
+     fusion_property_deinit (dev);
+     fusion_skirmish_deinit (dev);
+     fusion_ref_deinit (dev);
+     fusionee_deinit (dev);
 }
 
 /******************************************************************************/
@@ -111,443 +166,471 @@ fusion_reset (void)
 static int
 fusion_open (struct inode *inode, struct file *file)
 {
-  int ret;
-  int fusion_id;
+     int ret;
+     int fusion_id;
+     int minor = minor(inode->i_rdev);
 
-  spin_lock (&refs_lock);
+     spin_lock (&devs_lock);
 
-  ret = fusionee_new (&fusion_id);
-  if (ret)
-    {
-      spin_unlock (&refs_lock);
+     if (!fusion_devs[minor]) {
+          char buf[4];
 
-      return ret;
-    }
+          fusion_devs[minor] = kmalloc (sizeof(FusionDev), GFP_ATOMIC);
+          if (!fusion_devs[minor]) {
+               spin_unlock (&devs_lock);
+               return -ENOMEM;
+          }
 
-  refs++;
+          memset (fusion_devs[minor], 0, sizeof(FusionDev));
 
-  spin_unlock (&refs_lock);
+          snprintf (buf, 4, "%d", minor);
+
+          fusion_devs[minor]->proc_dir = proc_mkdir (buf, proc_fusion_dir);
+          
+          ret = fusiondev_init (fusion_devs[minor]);
+          if (ret) {
+               remove_proc_entry (buf, proc_fusion_dir);
+
+               kfree (fusion_devs[minor]);
+               fusion_devs[minor] = NULL;
+
+               spin_unlock (&devs_lock);
+               
+               return ret;
+          }
+     }
+     else if (file->f_flags & O_EXCL) {
+          spin_unlock (&devs_lock);
+          return -EBUSY;
+     }
+
+     ret = fusionee_new (fusion_devs[minor], &fusion_id);
+     if (ret) {
+          if (!fusion_devs[minor]->refs) {
+               fusiondev_deinit (fusion_devs[minor]);
+
+               remove_proc_entry (fusion_devs[minor]->proc_dir->name,
+                                  proc_fusion_dir);
+               
+               kfree (fusion_devs[minor]);
+               fusion_devs[minor] = NULL;
+          }
+
+          spin_unlock (&devs_lock);
+
+          return ret;
+     }
+
+     fusion_devs[minor]->refs++;
+
+     spin_unlock (&devs_lock);
 
 
-  file->private_data = (void*) fusion_id;
+     file->private_data = (void*) fusion_id;
 
-  return 0;
+     return 0;
 }
 
 static int
 fusion_release (struct inode *inode, struct file *file)
 {
-  int fusion_id = (int) file->private_data;
+     int minor     = minor(inode->i_rdev);
+     int fusion_id = (int) file->private_data;
 
-  fusionee_destroy (fusion_id);
+     fusionee_destroy (fusion_devs[minor], fusion_id);
 
-  spin_lock (&refs_lock);
+     spin_lock (&devs_lock);
 
-  if (! --refs)
-    fusion_reset();
+     if (! --fusion_devs[minor]->refs) {
+          fusiondev_deinit (fusion_devs[minor]);
 
-  spin_unlock (&refs_lock);
+          remove_proc_entry (fusion_devs[minor]->proc_dir->name,
+                             proc_fusion_dir);
+          
+          kfree (fusion_devs[minor]);
+          fusion_devs[minor] = NULL;
+     }
 
-  return 0;
+     spin_unlock (&devs_lock);
+
+     return 0;
 }
 
 static ssize_t
 fusion_read (struct file *file, char *buf, size_t count, loff_t *ppos)
 {
-  int fusion_id = (int) file->private_data;
+     int        fusion_id = (int) file->private_data;
+     FusionDev *dev       = fusion_devs[minor(file->f_dentry->d_inode->i_rdev)];
 
-  return fusionee_get_messages (fusion_id, buf, count,
-                                !(file->f_flags & O_NONBLOCK));
+     return fusionee_get_messages (dev, fusion_id, buf, count,
+                                   !(file->f_flags & O_NONBLOCK));
 }
 
 static unsigned int
 fusion_poll (struct file *file, poll_table * wait)
 {
-  int fusion_id = (int) file->private_data;
+     int        fusion_id = (int) file->private_data;
+     FusionDev *dev       = fusion_devs[minor(file->f_dentry->d_inode->i_rdev)];
 
-  return fusionee_poll (fusion_id, file, wait);
+     return fusionee_poll (dev, fusion_id, file, wait);
 }
 
 static int
 fusion_ioctl (struct inode *inode, struct file *file,
               unsigned int cmd, unsigned long arg)
 {
-  int id;
-  int ret;
-  int refs;
-  int fusion_id = (int) file->private_data;
-  FusionSendMessage     send;
-  FusionReactorDispatch dispatch;
-  FusionKill            kill;
-  FusionCallNew         call;
-  FusionCallExecute     execute;
-  FusionCallReturn      call_ret;
+     int                    id;
+     int                    ret;
+     int                    refs;
+     int                    fusion_id = (int) file->private_data;
+     FusionDev             *dev = fusion_devs[minor(inode->i_rdev)];
+     FusionSendMessage      send;
+     FusionReactorDispatch  dispatch;
+     FusionKill             kill;
+     FusionCallNew          call;
+     FusionCallExecute      execute;
+     FusionCallReturn       call_ret;
 
-  switch (cmd)
-    {
-    case FUSION_GET_ID:
-      if (put_user (fusion_id, (int*) arg))
-        return -EFAULT;
+     switch (cmd) {
+          case FUSION_GET_ID:
+               if (put_user (fusion_id, (int*) arg))
+                    return -EFAULT;
 
-      break;
+               break;
 
 
-    case FUSION_SEND_MESSAGE:
-      if (copy_from_user (&send, (FusionSendMessage*) arg, sizeof(send)))
-        return -EFAULT;
+          case FUSION_SEND_MESSAGE:
+               if (copy_from_user (&send, (FusionSendMessage*) arg, sizeof(send)))
+                    return -EFAULT;
 
-      if (send.msg_size <= 0)
-        return -EINVAL;
+               if (send.msg_size <= 0)
+                    return -EINVAL;
 
-      /* message data > 64k should be stored in shared memory */
-      if (send.msg_size > 0x10000)
-        return -EMSGSIZE;
+               /* message data > 64k should be stored in shared memory */
+               if (send.msg_size > 0x10000)
+                    return -EMSGSIZE;
 
-      return fusionee_send_message (fusion_id, send.fusion_id, FMT_SEND, send.msg_id,
-                                    send.msg_size, send.msg_data);
+               return fusionee_send_message (dev, fusion_id, send.fusion_id, FMT_SEND,
+                                             send.msg_id, send.msg_size, send.msg_data);
 
 
-    case FUSION_CALL_NEW:
-      if (copy_from_user (&call, (FusionCallNew*) arg, sizeof(call)))
-        return -EFAULT;
+          case FUSION_CALL_NEW:
+               if (copy_from_user (&call, (FusionCallNew*) arg, sizeof(call)))
+                    return -EFAULT;
 
-      ret = fusion_call_new (fusion_id, &call);
-      if (ret)
-        return ret;
+               ret = fusion_call_new (dev, fusion_id, &call);
+               if (ret)
+                    return ret;
 
-      if (put_user (call.call_id, (int*) arg))
-        {
-          fusion_call_destroy (fusion_id, call.call_id);
-          return -EFAULT;
-        }
-      break;
+               if (put_user (call.call_id, (int*) arg)) {
+                    fusion_call_destroy (dev, fusion_id, call.call_id);
+                    return -EFAULT;
+               }
+               break;
 
-    case FUSION_CALL_EXECUTE:
-      if (copy_from_user (&execute, (FusionCallExecute*) arg, sizeof(execute)))
-        return -EFAULT;
+          case FUSION_CALL_EXECUTE:
+               if (copy_from_user (&execute, (FusionCallExecute*) arg, sizeof(execute)))
+                    return -EFAULT;
 
-      ret = fusion_call_execute (fusion_id, &execute);
-      if (ret)
-        return ret;
+               ret = fusion_call_execute (dev, fusion_id, &execute);
+               if (ret)
+                    return ret;
 
-      if (put_user (execute.ret_val, (int*) arg))
-        return -EFAULT;
-      break;
+               if (put_user (execute.ret_val, (int*) arg))
+                    return -EFAULT;
+               break;
 
-    case FUSION_CALL_RETURN:
-      if (copy_from_user (&call_ret, (FusionCallReturn*) arg, sizeof(call_ret)))
-        return -EFAULT;
+          case FUSION_CALL_RETURN:
+               if (copy_from_user (&call_ret, (FusionCallReturn*) arg, sizeof(call_ret)))
+                    return -EFAULT;
 
-      return fusion_call_return (fusion_id, &call_ret);
+               return fusion_call_return (dev, fusion_id, &call_ret);
 
-    case FUSION_CALL_DESTROY:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_CALL_DESTROY:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_call_destroy (fusion_id, id);
+               return fusion_call_destroy (dev, fusion_id, id);
 
 
-    case FUSION_KILL:
-      if (copy_from_user (&kill, (FusionKill*) arg, sizeof(kill)))
-        return -EFAULT;
+          case FUSION_KILL:
+               if (copy_from_user (&kill, (FusionKill*) arg, sizeof(kill)))
+                    return -EFAULT;
 
-      return fusionee_kill (fusion_id,
-                            kill.fusion_id, kill.signal, kill.timeout_ms);
+               return fusionee_kill (dev, fusion_id,
+                                     kill.fusion_id, kill.signal, kill.timeout_ms);
 
 
-    case FUSION_REF_NEW:
-      ret = fusion_ref_new (&id);
-      if (ret)
-        return ret;
+          case FUSION_REF_NEW:
+               ret = fusion_ref_new (dev, &id);
+               if (ret)
+                    return ret;
 
-      if (put_user (id, (int*) arg))
-        {
-          fusion_ref_destroy (id);
-          return -EFAULT;
-        }
-      break;
+               if (put_user (id, (int*) arg)) {
+                    fusion_ref_destroy (dev, id);
+                    return -EFAULT;
+               }
+               break;
 
-    case FUSION_REF_UP:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REF_UP:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_ref_up (id, fusion_id);
+               return fusion_ref_up (dev, id, fusion_id);
 
-    case FUSION_REF_UP_GLOBAL:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REF_UP_GLOBAL:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_ref_up (id, 0);
+               return fusion_ref_up (dev, id, 0);
 
-    case FUSION_REF_DOWN:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REF_DOWN:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_ref_down (id, fusion_id);
+               return fusion_ref_down (dev, id, fusion_id);
 
-    case FUSION_REF_DOWN_GLOBAL:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REF_DOWN_GLOBAL:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_ref_down (id, 0);
+               return fusion_ref_down (dev, id, 0);
 
-    case FUSION_REF_ZERO_LOCK:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REF_ZERO_LOCK:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_ref_zero_lock (id, fusion_id);
+               return fusion_ref_zero_lock (dev, id, fusion_id);
 
-    case FUSION_REF_ZERO_TRYLOCK:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REF_ZERO_TRYLOCK:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_ref_zero_trylock (id, fusion_id);
+               return fusion_ref_zero_trylock (dev, id, fusion_id);
 
-    case FUSION_REF_UNLOCK:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REF_UNLOCK:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_ref_unlock (id, fusion_id);
+               return fusion_ref_unlock (dev, id, fusion_id);
 
-    case FUSION_REF_STAT:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REF_STAT:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      ret = fusion_ref_stat (id, &refs);
-      if (ret)
-        return ret;
+               ret = fusion_ref_stat (dev, id, &refs);
+               if (ret)
+                    return ret;
 
-      return refs;
+               return refs;
 
-    case FUSION_REF_DESTROY:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REF_DESTROY:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_ref_destroy (id);
+               return fusion_ref_destroy (dev, id);
 
 
-    case FUSION_SKIRMISH_NEW:
-      ret = fusion_skirmish_new (&id);
-      if (ret)
-        return ret;
+          case FUSION_SKIRMISH_NEW:
+               ret = fusion_skirmish_new (dev, &id);
+               if (ret)
+                    return ret;
 
-      if (put_user (id, (int*) arg))
-        {
-          fusion_skirmish_destroy (id);
-          return -EFAULT;
-        }
-      break;
+               if (put_user (id, (int*) arg)) {
+                    fusion_skirmish_destroy (dev, id);
+                    return -EFAULT;
+               }
+               break;
 
-    case FUSION_SKIRMISH_PREVAIL:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_SKIRMISH_PREVAIL:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_skirmish_prevail (id, fusion_id);
+               return fusion_skirmish_prevail (dev, id, fusion_id);
 
-    case FUSION_SKIRMISH_SWOOP:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_SKIRMISH_SWOOP:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_skirmish_swoop (id, fusion_id);
+               return fusion_skirmish_swoop (dev, id, fusion_id);
 
-    case FUSION_SKIRMISH_DISMISS:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_SKIRMISH_DISMISS:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_skirmish_dismiss (id, fusion_id);
+               return fusion_skirmish_dismiss (dev, id, fusion_id);
 
-    case FUSION_SKIRMISH_DESTROY:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_SKIRMISH_DESTROY:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_skirmish_destroy (id);
+               return fusion_skirmish_destroy (dev, id);
 
 
-    case FUSION_PROPERTY_NEW:
-      ret = fusion_property_new (&id);
-      if (ret)
-        return ret;
+          case FUSION_PROPERTY_NEW:
+               ret = fusion_property_new (dev, &id);
+               if (ret)
+                    return ret;
 
-      if (put_user (id, (int*) arg))
-        {
-          fusion_property_destroy (id);
-          return -EFAULT;
-        }
-      break;
+               if (put_user (id, (int*) arg)) {
+                    fusion_property_destroy (dev, id);
+                    return -EFAULT;
+               }
+               break;
 
-    case FUSION_PROPERTY_LEASE:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_PROPERTY_LEASE:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_property_lease (id, fusion_id);
+               return fusion_property_lease (dev, id, fusion_id);
 
-    case FUSION_PROPERTY_PURCHASE:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_PROPERTY_PURCHASE:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_property_purchase (id, fusion_id);
+               return fusion_property_purchase (dev, id, fusion_id);
 
-    case FUSION_PROPERTY_CEDE:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_PROPERTY_CEDE:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_property_cede (id, fusion_id);
+               return fusion_property_cede (dev, id, fusion_id);
 
-    case FUSION_PROPERTY_HOLDUP:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_PROPERTY_HOLDUP:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_property_holdup (id, fusion_id);
+               return fusion_property_holdup (dev, id, fusion_id);
 
-    case FUSION_PROPERTY_DESTROY:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_PROPERTY_DESTROY:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_property_destroy (id);
+               return fusion_property_destroy (dev, id);
 
 
-    case FUSION_REACTOR_NEW:
-      ret = fusion_reactor_new (&id);
-      if (ret)
-        return ret;
+          case FUSION_REACTOR_NEW:
+               ret = fusion_reactor_new (dev, &id);
+               if (ret)
+                    return ret;
 
-      if (put_user (id, (int*) arg))
-        {
-          fusion_reactor_destroy (id);
-          return -EFAULT;
-        }
-      break;
+               if (put_user (id, (int*) arg)) {
+                    fusion_reactor_destroy (dev, id);
+                    return -EFAULT;
+               }
+               break;
 
-    case FUSION_REACTOR_ATTACH:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REACTOR_ATTACH:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_reactor_attach (id, fusion_id);
+               return fusion_reactor_attach (dev, id, fusion_id);
 
-    case FUSION_REACTOR_DETACH:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REACTOR_DETACH:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_reactor_detach (id, fusion_id);
+               return fusion_reactor_detach (dev, id, fusion_id);
 
-    case FUSION_REACTOR_DISPATCH:
-      if (copy_from_user (&dispatch,
-                          (FusionReactorDispatch*) arg, sizeof(dispatch)))
-        return -EFAULT;
+          case FUSION_REACTOR_DISPATCH:
+               if (copy_from_user (&dispatch,
+                                   (FusionReactorDispatch*) arg, sizeof(dispatch)))
+                    return -EFAULT;
 
-      if (dispatch.msg_size <= 0)
-        return -EINVAL;
+               if (dispatch.msg_size <= 0)
+                    return -EINVAL;
 
-      /* message data > 64k should be stored in shared memory */
-      if (dispatch.msg_size > 0x10000)
-        return -EMSGSIZE;
+               /* message data > 64k should be stored in shared memory */
+               if (dispatch.msg_size > 0x10000)
+                    return -EMSGSIZE;
 
-      return fusion_reactor_dispatch (dispatch.reactor_id,
-                                      dispatch.self ? 0 : fusion_id,
-                                      dispatch.msg_size, dispatch.msg_data);
+               return fusion_reactor_dispatch (dev, dispatch.reactor_id,
+                                               dispatch.self ? 0 : fusion_id,
+                                               dispatch.msg_size, dispatch.msg_data);
 
-    case FUSION_REACTOR_DESTROY:
-      if (get_user (id, (int*) arg))
-        return -EFAULT;
+          case FUSION_REACTOR_DESTROY:
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
 
-      return fusion_reactor_destroy (id);
+               return fusion_reactor_destroy (dev, id);
 
 
-    default:
-      return -ENOTTY;
-    }
+          default:
+               return -ENOTTY;
+     }
 
-  return 0;
+     return 0;
 }
 
 static struct file_operations fusion_fops = {
-  .owner   = THIS_MODULE,
-  .open    = fusion_open,
-  .release = fusion_release,
-  .read    = fusion_read,
-  .poll    = fusion_poll,
-  .ioctl   = fusion_ioctl
-};
-
-static struct miscdevice fusion_miscdev = {
-  .minor   = FUSION_MINOR,
-  .name    = "fusion",
-  .fops    = &fusion_fops
+     .owner   = THIS_MODULE,
+     .open    = fusion_open,
+     .release = fusion_release,
+     .read    = fusion_read,
+     .poll    = fusion_poll,
+     .ioctl   = fusion_ioctl
 };
 
 /******************************************************************************/
 
+static int __init
+register_devices(void)
+{
+     int  i;
+     char buf[16];
+
+     if (devfs_register_chrdev (FUSION_MAJOR, "fusion", &fusion_fops)) {
+          printk (KERN_ERR "fusion: unable to get major %d\n", FUSION_MAJOR);
+          return -EIO;
+     }
+
+     for (i=0; i<NUM_MINORS; i++) {
+          snprintf (buf, 16, "fusion/%d", i);
+
+          devfs_handles[i] = devfs_register (NULL, buf, DEVFS_FL_DEFAULT,
+                                             FUSION_MAJOR, i,
+                                             S_IFCHR | S_IRUSR | S_IWUSR,
+                                             &fusion_fops, NULL);
+     }
+
+     return 0;
+}
+
 int __init
 fusion_init(void)
 {
-  int ret;
+     int ret;
 
-  proc_fusion_dir = proc_mkdir ("fusion", NULL);
+     ret = register_devices();
+     if (ret)
+          return ret;
 
-  ret = fusionee_init();
-  if (ret)
-    goto error_fusionee;
+     proc_fusion_dir = proc_mkdir ("fusion", NULL);
+     
+     return 0;
+}
 
-  ret = fusion_ref_init();
-  if (ret)
-    goto error_ref;
+/******************************************************************************/
 
-  ret = fusion_skirmish_init();
-  if (ret)
-    goto error_skirmish;
+static void __exit
+deregister_devices(void)
+{
+     int i;
 
-  ret = fusion_property_init();
-  if (ret)
-    goto error_property;
+     devfs_unregister_chrdev (FUSION_MAJOR, "fusion");
 
-  ret = fusion_reactor_init();
-  if (ret)
-    goto error_reactor;
-
-  ret = fusion_call_init();
-  if (ret)
-    goto error_call;
-
-  ret = misc_register (&fusion_miscdev);
-  if (ret)
-    goto error_misc;
-
-  return 0;
-
-
- error_misc:
-  fusion_call_cleanup();
-
- error_call:
-  fusion_reactor_cleanup();
-
- error_reactor:
-  fusion_property_cleanup();
-
- error_property:
-  fusion_skirmish_cleanup();
-
- error_skirmish:
-  fusion_ref_cleanup();
-
- error_ref:
-  fusionee_cleanup();
-
- error_fusionee:
-  return ret;
+     for (i=0; i<NUM_MINORS; i++)
+          devfs_unregister (devfs_handles[i]);
 }
 
 void __exit
 fusion_exit(void)
 {
-  fusion_reactor_cleanup();
-  fusion_property_cleanup();
-  fusion_skirmish_cleanup();
-  fusion_ref_cleanup();
-  fusionee_cleanup();
+     deregister_devices();
 
-  misc_deregister (&fusion_miscdev);
+     remove_proc_entry ("fusion", NULL);
 }
 
 module_init(fusion_init);
 module_exit(fusion_exit);
+
