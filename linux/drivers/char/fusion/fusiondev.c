@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/miscdevice.h>
 #include <linux/proc_fs.h>
+#include <linux/poll.h>
 #include <linux/init.h>
 #include <asm/uaccess.h>
 
@@ -105,6 +106,14 @@ fusion_read (struct file *file, char *buf, size_t count, loff_t *ppos)
 
   return fusionee_get_messages (fusion_id, buf, count,
                                 !(file->f_flags & O_NONBLOCK));
+}
+
+static unsigned int
+fusion_poll (struct file *file, poll_table * wait)
+{
+  int fusion_id = (int) file->private_data;
+
+  return fusionee_poll (fusion_id, file, wait);
 }
 
 static int
@@ -345,6 +354,7 @@ static struct file_operations fusion_fops = {
   .open    = fusion_open,
   .release = fusion_release,
   .read    = fusion_read,
+  .poll    = fusion_poll,
   .ioctl   = fusion_ioctl
 };
 

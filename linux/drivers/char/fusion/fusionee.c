@@ -303,6 +303,37 @@ fusionee_get_messages (int id, void *buf, int buf_size, int block)
   return written;
 }
 
+unsigned int
+fusionee_poll (int id, struct file *file, poll_table * wait)
+{
+  Fusionee *fusionee = lock_fusionee (id);
+
+  if (!fusionee)
+    return -EINVAL;
+
+  unlock_fusionee (fusionee);
+
+
+  poll_wait (file, &fusionee->wait, wait);
+
+  
+  fusionee = lock_fusionee (id);
+
+  if (!fusionee)
+    return -EINVAL;
+
+  if (fusionee->messages.count)
+    {
+      unlock_fusionee (fusionee);
+
+      return POLLIN | POLLRDNORM;
+    }
+
+  unlock_fusionee (fusionee);
+
+  return 0;
+}
+
 int
 fusionee_destroy (int id)
 {
