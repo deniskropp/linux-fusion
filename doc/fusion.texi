@@ -1,0 +1,69 @@
+\input texinfo
+@c
+@c Copyright 2003 Denis Oliver Kropp
+@c Licensed under the Gnu Public License, Version 2
+@c
+@c Fusion IPC
+@c
+@setfilename fusion.info
+@settitle Fusion
+@c
+@titlepage
+@title Fusion
+@subtitle High level IPC
+@subtitle June 2003
+@author by Denis Oliver Kropp <dok@@directfb.org>
+@end titlepage
+
+@contents
+
+@chapter Introduction
+
+@section What is Fusion?
+
+Fusion is a high level IPC API providing mechanisms
+for master/slave environments.
+
+@section Master/Slave vs. Client/Server
+
+In client/server environments clients delegate every operation
+to the server which has sole access to shared resources.
+Such environments suffer from the overhead caused by
+
+@itemize @bullet
+@item Command encoding, decoding
+@item Transport of command packets
+@item Transport of data referenced by commands
+@item Context switches between client and server processes
+@item Strict seperation of client and server implementation
+@end itemize
+
+The master/slave approach eliminates this overhead by virtually
+merging the processes at the lower level of their implementation.
+This way of making multiple processes look like multiple threads
+gave Fusion its name and includes
+
+@itemize @bullet
+@item Shared memory for data normally held solely by the server
+@item Fine grained messaging for virtually local event handlers and callbacks
+@item Advanced locking techniques for synchronization and access control
+@item Framework for distributed allocation and cleanup of resources
+@end itemize
+
+
+@chapter Design
+
+This chapter will explain some fundamental concepts of Fusion.
+
+@section Shared memory
+@section Arena
+@section Skirmish
+@section Reference Counter
+@section Reactor
+@section Object
+@section Property
+@section Call
+
+
+
+@bye
