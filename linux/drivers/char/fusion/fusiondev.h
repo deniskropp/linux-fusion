@@ -57,11 +57,7 @@ typedef struct {
 
      FusionEntries  properties;
 
-     struct {
-          int                ids;
-          FusionLink        *list;
-          struct semaphore   lock;
-     } reactor;
+     FusionEntries  reactor;
 
      struct {
           int                ids;

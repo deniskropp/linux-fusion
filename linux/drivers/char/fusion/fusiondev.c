@@ -413,6 +413,9 @@ lounge_ioctl (FusionDev *dev, int fusion_id,
                     case FT_PROPERTY:
                          return fusion_entry_set_info (&dev->properties, &info);
 
+                    case FT_REACTOR:
+                         return fusion_entry_set_info (&dev->reactor, &info);
+
                     default:
                          return -ENOSYS;
                }
@@ -428,6 +431,10 @@ lounge_ioctl (FusionDev *dev, int fusion_id,
 
                     case FT_PROPERTY:
                          ret = fusion_entry_get_info (&dev->properties, &info);
+                         break;
+
+                    case FT_REACTOR:
+                         ret = fusion_entry_get_info (&dev->reactor, &info);
                          break;
 
                     default:

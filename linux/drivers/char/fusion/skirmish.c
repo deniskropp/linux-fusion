@@ -33,6 +33,8 @@ typedef struct {
      int                lock_fid;  /* non-zero if locked */
      int                lock_pid;
      int                lock_count;
+
+     int                lock_total;
 } FusionSkirmish;
 
 static int
@@ -40,13 +42,16 @@ fusion_skirmish_print( FusionEntry *entry,
                        void        *ctx,
                        char        *buf )
 {
+     int             written;
      FusionSkirmish *skirmish = (FusionSkirmish*) entry;
 
-     if (skirmish->lock_fid)
-          return sprintf( buf, "locked by 0x%08x (%d) %dx\n",
-                          skirmish->lock_fid, skirmish->lock_pid, skirmish->lock_count);
+     written = sprintf( buf, "%6dx total", skirmish->lock_total );
 
-     return sprintf( buf, "\n" );
+     if (skirmish->lock_fid)
+          return sprintf( buf + written, ", now %dx by 0x%08x (%d)\n",
+                          skirmish->lock_count, skirmish->lock_fid, skirmish->lock_pid) + written;
+
+     return sprintf( buf + written, "\n" ) + written;
 }
 
 FUSION_ENTRY_CLASS( FusionSkirmish, skirmish, NULL, NULL, fusion_skirmish_print )
@@ -94,6 +99,7 @@ fusion_skirmish_prevail (FusionDev *dev, int id, int fusion_id)
 
      if (skirmish->lock_pid == current->pid) {
           skirmish->lock_count++;
+          skirmish->lock_total++;
           fusion_skirmish_unlock( skirmish );
           return 0;
      }
@@ -107,6 +113,8 @@ fusion_skirmish_prevail (FusionDev *dev, int id, int fusion_id)
      skirmish->lock_fid   = fusion_id;
      skirmish->lock_pid   = current->pid;
      skirmish->lock_count = 1;
+
+     skirmish->lock_total++;
 
      fusion_skirmish_unlock( skirmish );
 
@@ -128,6 +136,7 @@ fusion_skirmish_swoop (FusionDev *dev, int id, int fusion_id)
      if (skirmish->lock_fid) {
           if (skirmish->lock_pid == current->pid) {
                skirmish->lock_count++;
+               skirmish->lock_total++;
                fusion_skirmish_unlock( skirmish );
                return 0;
           }
@@ -140,6 +149,8 @@ fusion_skirmish_swoop (FusionDev *dev, int id, int fusion_id)
      skirmish->lock_fid   = fusion_id;
      skirmish->lock_pid   = current->pid;
      skirmish->lock_count = 1;
+
+     skirmish->lock_total++;
 
      fusion_skirmish_unlock( skirmish );
 
