@@ -185,7 +185,7 @@ static struct miscdevice fusion_miscdev = {
 
 /******************************************************************************/
 
-static int __init
+int __init
 fusion_init(void)
 {
   int ret;
@@ -224,7 +224,7 @@ fusion_init(void)
   return ret;
 }
 
-static void __exit
+void __exit
 fusion_exit(void)
 {
   misc_deregister (&fusion_miscdev);
