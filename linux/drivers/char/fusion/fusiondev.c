@@ -40,13 +40,14 @@ struct proc_dir_entry *proc_fusion_dir;
 static int
 fusion_open (struct inode *inode, struct file *file)
 {
-  Fusionee *fusionee;
+  int ret;
+  int fusion_id;
 
-  fusionee = fusionee_new();
-  if (!fusionee)
-    return -ENOMEM;
+  ret = fusionee_new (&fusion_id);
+  if (ret)
+    return ret;
 
-  file->private_data = fusionee;
+  file->private_data = (void*) fusion_id;
 
   return 0;
 }
@@ -54,11 +55,9 @@ fusion_open (struct inode *inode, struct file *file)
 static int
 fusion_release (struct inode *inode, struct file *file)
 {
-  Fusionee *fusionee = (Fusionee*) file->private_data;
+  int fusion_id = (int) file->private_data;
 
-  fusion_ref_clear_all_local (fusionee);
-
-  fusionee_destroy (fusionee);
+  fusionee_destroy (fusion_id);
 
   return 0;
 }
@@ -67,15 +66,15 @@ static int
 fusion_ioctl (struct inode *inode, struct file *file,
               unsigned int cmd, unsigned long arg)
 {
-  int       id;
-  int       ret;
-  int       refs;
-  Fusionee *fusionee = (Fusionee*) file->private_data;
+  int id;
+  int ret;
+  int refs;
+  int fusion_id = (int) file->private_data;
 
   switch (cmd)
     {
     case FUSION_GET_ID:
-      put_user (fusionee->fusion_id, (int*) arg);
+      put_user (fusion_id, (int*) arg);
       break;
 
     case FUSION_REF_NEW:
@@ -89,22 +88,22 @@ fusion_ioctl (struct inode *inode, struct file *file,
     case FUSION_REF_UP:
       get_user (id, (int*) arg);
 
-      return fusion_ref_up (id, fusionee);
+      return fusion_ref_up (id, fusion_id);
 
     case FUSION_REF_UP_GLOBAL:
       get_user (id, (int*) arg);
 
-      return fusion_ref_up (id, NULL);
+      return fusion_ref_up (id, 0);
 
     case FUSION_REF_DOWN:
       get_user (id, (int*) arg);
 
-      return fusion_ref_down (id, fusionee);
+      return fusion_ref_down (id, fusion_id);
 
     case FUSION_REF_DOWN_GLOBAL:
       get_user (id, (int*) arg);
 
-      return fusion_ref_down (id, NULL);
+      return fusion_ref_down (id, 0);
 
     case FUSION_REF_ZERO_LOCK:
       get_user (id, (int*) arg);
@@ -164,18 +163,29 @@ fusion_init(void)
 
   proc_fusion_dir = proc_mkdir ("fusion", NULL);
 
+  ret = fusionee_init();
+  if (ret)
+    goto error_fusionee;
+
   ret = fusion_ref_init();
   if (ret)
-    return ret;
+    goto error_ref;
 
   ret = misc_register (&fusion_miscdev);
   if (ret)
-    {
-      fusion_ref_cleanup();
-      return ret;
-    }
+    goto error_misc;
 
   return 0;
+
+
+ error_misc:
+  fusion_ref_cleanup();
+
+ error_ref:
+  fusionee_cleanup();
+
+ error_fusionee:
+  return ret;
 }
 
 static void __exit
@@ -184,6 +194,7 @@ fusion_exit(void)
   misc_deregister (&fusion_miscdev);
   
   fusion_ref_cleanup();
+  fusionee_cleanup();
 }
 
 module_init(fusion_init);

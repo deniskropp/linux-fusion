@@ -15,12 +15,19 @@
 #ifndef __FUSIONEE_H__
 #define __FUSIONEE_H__
 
-typedef struct {
-  int fusion_id;
-} Fusionee;
+#include "types.h"
 
-Fusionee *fusionee_new (void);
-void      fusionee_destroy (Fusionee *fusionee);
+
+/* module init/cleanup */
+
+int  fusionee_init (void);
+void fusionee_cleanup (void);
+
+
+/* internal functions */
+
+int fusionee_new (int *id);
+int fusionee_destroy (int id);
 
 
 

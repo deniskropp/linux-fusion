@@ -15,6 +15,9 @@
 #ifndef __FUSION__LIST_H__
 #define __FUSION__LIST_H__
 
+#include "types.h"
+
+
 typedef struct _FusionLink {
   struct _FusionLink *next;
   struct _FusionLink *prev;

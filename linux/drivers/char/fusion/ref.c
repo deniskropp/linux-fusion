@@ -28,7 +28,7 @@
 
 typedef struct {
   FusionLink  link;
-  Fusionee   *fusionee;
+  int         fusion_id;
   int         refs;
 } LocalRef;
 
@@ -57,8 +57,8 @@ static FusionRef *lookup_ref     (int id);
 static FusionRef *lock_ref       (int id);
 static void       unlock_ref     (FusionRef *ref);
 
-static int        add_local      (FusionRef *ref, Fusionee *fusionee, int add);
-static void       clear_local    (FusionRef *ref, Fusionee *fusionee);
+static int        add_local      (FusionRef *ref, int fusion_id, int add);
+static void       clear_local    (FusionRef *ref, int fusion_id);
 static void       free_all_local (FusionRef *ref);
 
 /******************************************************************************/
@@ -75,6 +75,8 @@ fusion_ref_read_proc(char *buf, char **start, off_t offset,
 {
   FusionLink *l;
   int written = 0;
+
+  spin_lock (&refs_lock);
 
   fusion_list_foreach (l, refs)
     {
@@ -93,6 +95,8 @@ fusion_ref_read_proc(char *buf, char **start, off_t offset,
         break;
     }
 
+  spin_unlock (&refs_lock);
+
   *start = buf + offset;
   written -= offset;
   if(written > len)
@@ -108,7 +112,8 @@ fusion_ref_read_proc(char *buf, char **start, off_t offset,
 int
 fusion_ref_init()
 {
-  create_proc_read_entry("refs", 0, proc_fusion_dir, fusion_ref_read_proc, NULL);
+  create_proc_read_entry("refs", 0, proc_fusion_dir,
+                         fusion_ref_read_proc, NULL);
 
   return 0;
 }
@@ -166,7 +171,7 @@ fusion_ref_new (int *id)
 }
 
 int
-fusion_ref_up (int id, Fusionee *fusionee)
+fusion_ref_up (int id, int fusion_id)
 {
   FusionRef *ref = lock_ref (id);
 
@@ -179,11 +184,11 @@ fusion_ref_up (int id, Fusionee *fusionee)
       return -EAGAIN;
     }
 
-  if (fusionee)
+  if (fusion_id)
     {
       int ret;
 
-      ret = add_local (ref, fusionee, 1);
+      ret = add_local (ref, fusion_id, 1);
       if (ret)
         {
           unlock_ref (ref);
@@ -201,7 +206,7 @@ fusion_ref_up (int id, Fusionee *fusionee)
 }
 
 int
-fusion_ref_down (int id, Fusionee *fusionee)
+fusion_ref_down (int id, int fusion_id)
 {
   FusionRef *ref = lock_ref (id);
 
@@ -214,14 +219,14 @@ fusion_ref_down (int id, Fusionee *fusionee)
       return -EAGAIN;
     }
 
-  if (fusionee)
+  if (fusion_id)
     {
       int ret;
 
       if (!ref->local)
         return -EIO;
 
-      ret = add_local (ref, fusionee, -1);
+      ret = add_local (ref, fusion_id, -1);
       if (ret)
         {
           unlock_ref (ref);
@@ -362,7 +367,7 @@ fusion_ref_destroy (int id)
 }
 
 void
-fusion_ref_clear_all_local (Fusionee *fusionee)
+fusion_ref_clear_all_local (int fusion_id)
 {
   FusionLink *l;
 
@@ -372,7 +377,7 @@ fusion_ref_clear_all_local (Fusionee *fusionee)
     {
       FusionRef *ref = (FusionRef *) l;
 
-      clear_local (ref, fusionee);
+      clear_local (ref, fusion_id);
     }
 
   spin_unlock (&refs_lock);
@@ -421,7 +426,7 @@ unlock_ref (FusionRef *ref)
 }
 
 static int
-add_local (FusionRef *ref, Fusionee *fusionee, int add)
+add_local (FusionRef *ref, int fusion_id, int add)
 {
   FusionLink *l;
   LocalRef   *local;
@@ -430,7 +435,7 @@ add_local (FusionRef *ref, Fusionee *fusionee, int add)
     {
       local = (LocalRef *) l;
 
-      if (local->fusionee == fusionee)
+      if (local->fusion_id == fusion_id)
         {
           if (local->refs + add < 0)
             return -EIO;
@@ -444,8 +449,8 @@ add_local (FusionRef *ref, Fusionee *fusionee, int add)
   if (!local)
     return -ENOMEM;
 
-  local->fusionee = fusionee;
-  local->refs     = add;
+  local->fusion_id = fusion_id;
+  local->refs      = add;
 
   fusion_list_prepend (&ref->local_refs, &local->link);
 
@@ -453,7 +458,7 @@ add_local (FusionRef *ref, Fusionee *fusionee, int add)
 }
 
 static void
-clear_local (FusionRef *ref, Fusionee *fusionee)
+clear_local (FusionRef *ref, int fusion_id)
 {
   FusionLink *l;
 
@@ -463,7 +468,7 @@ clear_local (FusionRef *ref, Fusionee *fusionee)
     {
       LocalRef *local = (LocalRef *) l;
 
-      if (local->fusionee == fusionee)
+      if (local->fusion_id == fusion_id)
         {
           ref->local -= local->refs;
 
