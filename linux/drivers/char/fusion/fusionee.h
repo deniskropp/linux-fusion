@@ -15,6 +15,8 @@
 #ifndef __FUSIONEE_H__
 #define __FUSIONEE_H__
 
+#include <linux/fusion.h>
+
 #include "types.h"
 
 
@@ -27,8 +29,12 @@ void fusionee_cleanup (void);
 /* internal functions */
 
 int fusionee_new (int *id);
+
+int fusionee_send_message (int id, FusionMessageType msg_type,
+                           int msg_id, int msg_size, const void *msg_data);
+
+int fusionee_get_messages (int id, void *buf, int buf_size, int block);
+
 int fusionee_destroy (int id);
-
-
 
 #endif

@@ -34,7 +34,9 @@ typedef struct {
   int                id;
   int                pid;
 
-  int                fusion_id;  /* non-zero if locked */
+  int                lock_fid;  /* non-zero if locked */
+  int                lock_pid;
+  int                lock_count;
 
   wait_queue_head_t  wait;
 } FusionSkirmish;
@@ -69,7 +71,7 @@ fusion_skirmish_read_proc(char *buf, char **start, off_t offset,
 
       written += sprintf(buf+written, "(%5d) 0x%08x %s\n",
                          skirmish->pid, skirmish->id,
-                         skirmish->fusion_id ? "(locked)" : "");
+                         skirmish->lock_fid ? "(locked)" : "");
       if (written < offset)
         {
           offset -= written;
@@ -164,8 +166,15 @@ fusion_skirmish_prevail (int id, int fusion_id)
       if (!skirmish)
         return -EINVAL;
 
-      if (skirmish->fusion_id)
+      if (skirmish->lock_fid)
         {
+          if (skirmish->lock_pid == current->pid)
+            {
+              skirmish->lock_count++;
+              unlock_skirmish (skirmish);
+              return 0;
+            }
+
           unlock_skirmish (skirmish);
 
           interruptible_sleep_on (&skirmish->wait);
@@ -177,7 +186,9 @@ fusion_skirmish_prevail (int id, int fusion_id)
         break;
     }
 
-  skirmish->fusion_id = fusion_id;
+  skirmish->lock_fid   = fusion_id;
+  skirmish->lock_pid   = current->pid;
+  skirmish->lock_count = 1;
 
   unlock_skirmish (skirmish);
 
@@ -192,13 +203,23 @@ fusion_skirmish_swoop (int id, int fusion_id)
   if (!skirmish)
     return -EINVAL;
 
-  if (skirmish->fusion_id)
+  if (skirmish->lock_fid)
     {
+      if (skirmish->lock_pid == current->pid)
+        {
+          skirmish->lock_count++;
+          unlock_skirmish (skirmish);
+          return 0;
+        }
+
       unlock_skirmish (skirmish);
+
       return -EAGAIN;
     }
 
-  skirmish->fusion_id = fusion_id;
+  skirmish->lock_fid   = fusion_id;
+  skirmish->lock_pid   = current->pid;
+  skirmish->lock_count = 1;
 
   unlock_skirmish (skirmish);
 
@@ -213,15 +234,19 @@ fusion_skirmish_dismiss (int id, int fusion_id)
   if (!skirmish)
     return -EINVAL;
 
-  if (skirmish->fusion_id != fusion_id)
+  if (skirmish->lock_pid != current->pid)
     {
       unlock_skirmish (skirmish);
       return -EIO;
     }
 
-  skirmish->fusion_id = 0;
+  if (--skirmish->lock_count == 0)
+    {
+      skirmish->lock_fid = 0;
+      skirmish->lock_pid = 0;
 
-  wake_up_interruptible_all (&skirmish->wait);
+      wake_up_interruptible_all (&skirmish->wait);
+    }
 
   unlock_skirmish (skirmish);
 
@@ -240,9 +265,9 @@ fusion_skirmish_destroy (int id)
 
   fusion_list_remove (&skirmishs, &skirmish->link);
 
-  wake_up_interruptible_all (&skirmish->wait);
-
   spin_unlock (&skirmishs_lock);
+
+  wake_up_interruptible_all (&skirmish->wait);
 
   kfree (skirmish);
 
@@ -262,9 +287,11 @@ fusion_skirmish_dismiss_all (int fusion_id)
 
       spin_lock (&skirmish->lock);
 
-      if (skirmish->fusion_id == fusion_id)
+      if (skirmish->lock_fid == fusion_id)
         {
-          skirmish->fusion_id = 0;
+          skirmish->lock_fid   = 0;
+          skirmish->lock_pid   = 0;
+          skirmish->lock_count = 0;
 
           wake_up_interruptible_all (&skirmish->wait);
         }

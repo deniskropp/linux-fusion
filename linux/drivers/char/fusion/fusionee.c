@@ -17,26 +17,41 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/smp_lock.h>
+#include <asm/uaccess.h>
 
 #include <linux/fusion.h>
 
+#include "fifo.h"
 #include "list.h"
 #include "fusiondev.h"
 #include "fusionee.h"
 #include "property.h"
+#include "reactor.h"
 #include "ref.h"
 #include "skirmish.h"
 
 
 typedef struct {
-  FusionLink link;
+  FusionLink        link;
 
-  spinlock_t lock;
+  spinlock_t        lock;
 
-  int        id;
-  int        pid;
+  int               id;
+  int               pid;
+
+  FusionFifo        messages;
+
+  wait_queue_head_t wait;
 } Fusionee;
 
+typedef struct {
+  FusionLink         link;
+
+  FusionMessageType  type;
+  int                id;
+  int                size;
+  void              *data;
+} Message;
 
 /******************************************************************************/
 
@@ -47,7 +62,7 @@ static void      unlock_fusionee (Fusionee *fusionee);
 
 /******************************************************************************/
 
-static int         ids            = 1;
+static int         last_id        = 0;
 static FusionLink *fusionees      = NULL;
 static spinlock_t  fusionees_lock = SPIN_LOCK_UNLOCKED;
 
@@ -66,8 +81,8 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
     {
       Fusionee *fusionee = (Fusionee*) l;
 
-      written += sprintf(buf+written, "(%5d) 0x%08x\n",
-                         fusionee->pid, fusionee->id);
+      written += sprintf(buf+written, "(%5d) 0x%08x (%3d messages waiting)\n",
+                         fusionee->pid, fusionee->id, fusionee->messages.count);
       if (written < offset)
         {
           offset -= written;
@@ -111,6 +126,14 @@ fusionee_cleanup()
       FusionLink *next     = l->next;
       Fusionee   *fusionee = (Fusionee *) l;
 
+      while (fusionee->messages.count)
+        {
+          Message *message = (Message*) fusion_fifo_get (&fusionee->messages);
+
+          kfree (message->data);
+          kfree (message);
+        }
+
       kfree (fusionee);
 
       l = next;
@@ -136,9 +159,14 @@ fusionee_new (int *id)
 
   spin_lock (&fusionees_lock);
 
-  fusionee->id   = ids++;
+  if (!fusionees)
+    last_id = 0;
+
+  fusionee->id   = ++last_id;
   fusionee->pid  = current->pid;
   fusionee->lock = SPIN_LOCK_UNLOCKED;
+
+  init_waitqueue_head (&fusionee->wait);
 
   fusion_list_prepend (&fusionees, &fusionee->link);
 
@@ -147,6 +175,121 @@ fusionee_new (int *id)
   *id = fusionee->id;
 
   return 0;
+}
+
+int
+fusionee_send_message (int id, FusionMessageType msg_type,
+                       int msg_id, int msg_size, const void *msg_data)
+{
+  Message  *message;
+  Fusionee *fusionee = lock_fusionee (id);
+
+  if (!fusionee)
+    return -EINVAL;
+
+  message = kmalloc (sizeof(Message), GFP_KERNEL);
+  if (!message)
+    {
+      unlock_fusionee (fusionee);
+      return -ENOMEM;
+    }
+
+  message->data = kmalloc (msg_size, GFP_KERNEL);
+  if (!message->data)
+    {
+      kfree (message);
+      unlock_fusionee (fusionee);
+      return -ENOMEM;
+    }
+
+  if (copy_from_user (message->data, msg_data, msg_size))
+    {
+      kfree (message->data);
+      kfree (message);
+      unlock_fusionee (fusionee);
+      return -EFAULT;
+    }
+
+  message->type = msg_type;
+  message->id   = msg_id;
+  message->size = msg_size;
+
+  fusion_fifo_put (&fusionee->messages, &message->link);
+
+  wake_up_interruptible_all (&fusionee->wait);
+
+  unlock_fusionee (fusionee);
+
+  return 0;
+}
+
+int
+fusionee_get_messages (int id, void *buf, int buf_size, int block)
+{
+  int       written  = 0;
+  Fusionee *fusionee = lock_fusionee (id);
+
+  if (!fusionee)
+    return -EINVAL;
+
+  while (!fusionee->messages.count)
+    {
+      unlock_fusionee (fusionee);
+
+      if (!block)
+        return -EAGAIN;
+
+      interruptible_sleep_on (&fusionee->wait);
+
+      if (signal_pending(current))
+        return -ERESTARTSYS;
+
+      fusionee = lock_fusionee (id);
+      if (!fusionee)
+        return -EINVAL;
+    }
+
+  while (fusionee->messages.count)
+    {
+      FusionReadMessage  header;
+      Message           *message = (Message*) fusionee->messages.first;
+      int                bytes   = message->size + sizeof(header);
+
+      if (bytes > buf_size)
+        {
+          if (!written)
+            {
+              unlock_fusionee (fusionee);
+              return -EMSGSIZE;
+            }
+
+          break;
+        }
+
+      header.msg_type = message->type;
+      header.msg_id   = message->id;
+      header.msg_size = message->size;
+
+      if (copy_to_user (buf, &header, sizeof(header)) ||
+          copy_to_user (buf + sizeof(header), message->data, message->size))
+        {
+          unlock_fusionee (fusionee);
+          return -EFAULT;
+        }
+        
+      written  += bytes;
+      buf      += bytes;
+      buf_size -= bytes;
+
+      fusion_fifo_get (&fusionee->messages);
+
+      kfree (message->data);
+      kfree (message);
+    }
+
+  unlock_fusionee (fusionee);
+
+  return written;
 }
 
 int
@@ -161,11 +304,20 @@ fusionee_destroy (int id)
 
   fusion_list_remove (&fusionees, &fusionee->link);
 
+  spin_unlock (&fusionees_lock);
+
   fusion_skirmish_dismiss_all (id);
+  fusion_reactor_detach_all (id);
   fusion_property_cede_all (id);
   fusion_ref_clear_all_local (id);
 
-  spin_unlock (&fusionees_lock);
+  while (fusionee->messages.count)
+    {
+      Message *message = (Message*) fusion_fifo_get (&fusionee->messages);
+
+      kfree (message->data);
+      kfree (message);
+    }
 
   kfree (fusionee);
 

@@ -28,6 +28,7 @@
 #include "fusiondev.h"
 #include "fusionee.h"
 #include "property.h"
+#include "reactor.h"
 #include "ref.h"
 #include "skirmish.h"
 
@@ -64,6 +65,15 @@ fusion_release (struct inode *inode, struct file *file)
   return 0;
 }
 
+static ssize_t
+fusion_read (struct file *file, char *buf, size_t count, loff_t *ppos)
+{
+  int fusion_id = (int) file->private_data;
+
+  return fusionee_get_messages (fusion_id, buf, count,
+                                !(file->f_flags & O_NONBLOCK));
+}
+
 static int
 fusion_ioctl (struct inode *inode, struct file *file,
               unsigned int cmd, unsigned long arg)
@@ -72,12 +82,30 @@ fusion_ioctl (struct inode *inode, struct file *file,
   int ret;
   int refs;
   int fusion_id = (int) file->private_data;
+  FusionSendMessage send;
+  FusionReactorDispatch dispatch;
 
   switch (cmd)
     {
     case FUSION_GET_ID:
-      put_user (fusion_id, (int*) arg);
+      if (put_user (fusion_id, (int*) arg))
+        return -EFAULT;
+
       break;
+
+    case FUSION_SEND_MESSAGE:
+      if (copy_from_user (&send, (FusionSendMessage*) arg, sizeof(send)))
+        return -EFAULT;
+
+      if (send.msg_size <= 0)
+        return -EINVAL;
+
+      /* message data > 64k should be stored in shared memory */
+      if (send.msg_size > 0x10000)
+        return -EMSGSIZE;
+
+      return fusionee_send_message (send.fusion_id, FMT_SEND, send.msg_id,
+                                    send.msg_size, send.msg_data);
 
 
     case FUSION_REF_NEW:
@@ -85,46 +113,58 @@ fusion_ioctl (struct inode *inode, struct file *file,
       if (ret)
         return ret;
 
-      put_user (id, (int*) arg);
+      if (put_user (id, (int*) arg))
+        {
+          fusion_ref_destroy (id);
+          return -EFAULT;
+        }
       break;
 
     case FUSION_REF_UP:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_ref_up (id, fusion_id);
 
     case FUSION_REF_UP_GLOBAL:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_ref_up (id, 0);
 
     case FUSION_REF_DOWN:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_ref_down (id, fusion_id);
 
     case FUSION_REF_DOWN_GLOBAL:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_ref_down (id, 0);
 
     case FUSION_REF_ZERO_LOCK:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_ref_zero_lock (id);
 
     case FUSION_REF_ZERO_TRYLOCK:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_ref_zero_trylock (id);
 
     case FUSION_REF_UNLOCK:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_ref_unlock (id);
 
     case FUSION_REF_STAT:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       ret = fusion_ref_stat (id, &refs);
       if (ret)
@@ -133,7 +173,8 @@ fusion_ioctl (struct inode *inode, struct file *file,
       return refs;
 
     case FUSION_REF_DESTROY:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_ref_destroy (id);
 
@@ -143,26 +184,34 @@ fusion_ioctl (struct inode *inode, struct file *file,
       if (ret)
         return ret;
 
-      put_user (id, (int*) arg);
+      if (put_user (id, (int*) arg))
+        {
+          fusion_skirmish_destroy (id);
+          return -EFAULT;
+        }
       break;
 
     case FUSION_SKIRMISH_PREVAIL:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_skirmish_prevail (id, fusion_id);
 
     case FUSION_SKIRMISH_SWOOP:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_skirmish_swoop (id, fusion_id);
 
     case FUSION_SKIRMISH_DISMISS:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_skirmish_dismiss (id, fusion_id);
 
     case FUSION_SKIRMISH_DESTROY:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_skirmish_destroy (id);
 
@@ -172,28 +221,84 @@ fusion_ioctl (struct inode *inode, struct file *file,
       if (ret)
         return ret;
 
-      put_user (id, (int*) arg);
+      if (put_user (id, (int*) arg))
+        {
+          fusion_property_destroy (id);
+          return -EFAULT;
+        }
       break;
 
     case FUSION_PROPERTY_LEASE:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_property_lease (id, fusion_id);
 
     case FUSION_PROPERTY_PURCHASE:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_property_purchase (id, fusion_id);
 
     case FUSION_PROPERTY_CEDE:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_property_cede (id, fusion_id);
 
     case FUSION_PROPERTY_DESTROY:
-      get_user (id, (int*) arg);
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
 
       return fusion_property_destroy (id);
+
+
+    case FUSION_REACTOR_NEW:
+      ret = fusion_reactor_new (&id);
+      if (ret)
+        return ret;
+
+      if (put_user (id, (int*) arg))
+        {
+          fusion_reactor_destroy (id);
+          return -EFAULT;
+        }
+      break;
+
+    case FUSION_REACTOR_ATTACH:
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
+
+      return fusion_reactor_attach (id, fusion_id);
+
+    case FUSION_REACTOR_DETACH:
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
+
+      return fusion_reactor_detach (id, fusion_id);
+
+    case FUSION_REACTOR_DISPATCH:
+      if (copy_from_user (&dispatch,
+                          (FusionReactorDispatch*) arg, sizeof(dispatch)))
+        return -EFAULT;
+
+      if (dispatch.msg_size <= 0)
+        return -EINVAL;
+
+      /* message data > 64k should be stored in shared memory */
+      if (dispatch.msg_size > 0x10000)
+        return -EMSGSIZE;
+
+      return fusion_reactor_dispatch (dispatch.reactor_id,
+                                      dispatch.self ? 0 : fusion_id,
+                                      dispatch.msg_size, dispatch.msg_data);
+
+    case FUSION_REACTOR_DESTROY:
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
+
+      return fusion_reactor_destroy (id);
+
 
     default:
       return -ENOTTY;
@@ -204,15 +309,16 @@ fusion_ioctl (struct inode *inode, struct file *file,
 
 static struct file_operations fusion_fops = {
   .owner   = THIS_MODULE,
-  .ioctl   = fusion_ioctl,
   .open    = fusion_open,
   .release = fusion_release,
+  .read    = fusion_read,
+  .ioctl   = fusion_ioctl
 };
 
 static struct miscdevice fusion_miscdev = {
   .minor   = FUSION_MINOR,
   .name    = "fusion",
-  .fops    = &fusion_fops,
+  .fops    = &fusion_fops
 };
 
 /******************************************************************************/
@@ -240,6 +346,10 @@ fusion_init(void)
   if (ret)
     goto error_property;
 
+  ret = fusion_reactor_init();
+  if (ret)
+    goto error_reactor;
+
   ret = misc_register (&fusion_miscdev);
   if (ret)
     goto error_misc;
@@ -248,6 +358,9 @@ fusion_init(void)
 
 
  error_misc:
+  fusion_reactor_cleanup();
+
+ error_reactor:
   fusion_property_cleanup();
 
  error_property:
@@ -266,12 +379,13 @@ fusion_init(void)
 void __exit
 fusion_exit(void)
 {
-  misc_deregister (&fusion_miscdev);
-  
+  fusion_reactor_cleanup();
   fusion_property_cleanup();
   fusion_skirmish_cleanup();
   fusion_ref_cleanup();
   fusionee_cleanup();
+
+  misc_deregister (&fusion_miscdev);
 }
 
 module_init(fusion_init);

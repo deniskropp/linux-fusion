@@ -22,7 +22,6 @@
 #include <linux/fusion.h>
 
 #include "fusiondev.h"
-#include "fusionee.h"
 #include "list.h"
 #include "ref.h"
 
@@ -475,12 +474,11 @@ clear_local (FusionRef *ref, int fusion_id)
           if (ref->local + ref->global == 0)
             wake_up_interruptible_all (&ref->wait);
 
+          fusion_list_remove (&ref->local_refs, l);
+
           break;
         }
     }
-
-  if (l)
-    fusion_list_remove (&ref->local_refs, l);
 
   spin_unlock (&ref->lock);
 }
