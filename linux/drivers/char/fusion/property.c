@@ -43,6 +43,7 @@ typedef struct {
      FusionPropertyState state;
      int                 fusion_id; /* non-zero if leased/purchased */
      unsigned long       purchase_stamp;
+     int                 lock_pid;
 
      wait_queue_head_t   wait;
 } FusionProperty;
@@ -69,12 +70,18 @@ properties_read_proc(char *buf, char **start, off_t offset,
      fusion_list_foreach (l, dev->property.list) {
           FusionProperty *property = (FusionProperty*) l;
 
-          written += sprintf(buf+written, "(%5d) 0x%08x %s\n",
-                             property->pid, property->id,
-                             property->state ?
-                             (property->state == FUSION_PROPERTY_LEASED ?
-                              "leased" : "purchased") :
-                             "");
+          if (property->state != FUSION_PROPERTY_AVAILABLE) {
+               written += sprintf(buf+written, "(%5d) 0x%08x %s (0x%08x %d)\n",
+                                  property->pid, property->id,
+                                  property->state == FUSION_PROPERTY_LEASED ?
+                                  "leased" : "purchased", property->fusion_id,
+                                  property->lock_pid);
+          }
+          else {
+               written += sprintf(buf+written, "(%5d) 0x%08x\n",
+                                  property->pid, property->id);
+          }
+
           if (written < offset) {
                offset -= written;
                written = 0;
@@ -177,6 +184,7 @@ fusion_property_lease (FusionDev *dev, int id, int fusion_id)
                case FUSION_PROPERTY_AVAILABLE:
                     property->state     = FUSION_PROPERTY_LEASED;
                     property->fusion_id = fusion_id;
+                    property->lock_pid  = current->pid;
 
                     unlock_property (property);
                     return 0;
@@ -237,6 +245,7 @@ fusion_property_purchase (FusionDev *dev, int id, int fusion_id)
                     property->state          = FUSION_PROPERTY_PURCHASED;
                     property->fusion_id      = fusion_id;
                     property->purchase_stamp = jiffies;
+                    property->lock_pid       = current->pid;
 
                     wake_up_interruptible_all (&property->wait);
 
@@ -301,6 +310,7 @@ fusion_property_cede (FusionDev *dev, int id, int fusion_id)
 
      property->state     = FUSION_PROPERTY_AVAILABLE;
      property->fusion_id = 0;
+     property->lock_pid  = 0;
 
      wake_up_interruptible_all (&property->wait);
 
@@ -372,6 +382,7 @@ fusion_property_cede_all (FusionDev *dev, int fusion_id)
           if (property->fusion_id == fusion_id) {
                property->state     = FUSION_PROPERTY_AVAILABLE;
                property->fusion_id = 0;
+               property->lock_pid  = 0;
 
                wake_up_interruptible_all (&property->wait);
           }
