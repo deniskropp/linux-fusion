@@ -1,40 +1,6 @@
-diff -uraN linux-2.6.0-test1/drivers/char/Kconfig linux-2.6.0-test1-fusion/drivers/char/Kconfig
---- linux-2.6.0-test1/drivers/char/Kconfig	2003-07-23 23:24:11.000000000 +0200
-+++ linux-2.6.0-test1-fusion/drivers/char/Kconfig	2003-07-24 02:37:03.000000000 +0200
-@@ -1006,5 +1006,10 @@
- 	  out to lunch past a certain margin.  It can reboot the system
- 	  or merely print a warning.
- 
--endmenu
-+config FUSION_DEVICE
-+	tristate "Fusion Kernel Device (for DirectFB)"
-+	help
-+	  The Fusion Kernel Device is needed to use DirectFB's multi
-+	  application core.
- 
-+endmenu
-diff -uraN linux-2.6.0-test1/drivers/char/Makefile linux-2.6.0-test1-fusion/drivers/char/Makefile
---- linux-2.6.0-test1/drivers/char/Makefile	2003-07-23 23:29:37.000000000 +0200
-+++ linux-2.6.0-test1-fusion/drivers/char/Makefile	2003-07-24 02:37:03.000000000 +0200
-@@ -78,6 +78,8 @@
- obj-$(CONFIG_PCMCIA) += pcmcia/
- obj-$(CONFIG_IPMI_HANDLER) += ipmi/
- 
-+obj-$(CONFIG_FUSION_DEVICE) += fusion/
-+
- obj-$(CONFIG_HANGCHECK_TIMER) += hangcheck-timer.o
- 
- # Files generated that shall be removed upon make clean
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/Makefile linux-2.6.0-test1-fusion/drivers/char/fusion/Makefile
---- linux-2.6.0-test1/drivers/char/fusion/Makefile	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/Makefile	2003-07-24 02:37:03.000000000 +0200
-@@ -0,0 +1,3 @@
-+obj-$(CONFIG_FUSION_DEVICE) := fusion.o
-+
-+fusion-objs := call.o fifo.o fusiondev.o fusionee.o list.o property.o reactor.o ref.o skirmish.o
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/call.c linux-2.6.0-test1-fusion/drivers/char/fusion/call.c
---- linux-2.6.0-test1/drivers/char/fusion/call.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/call.c	2003-07-24 02:37:55.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/call.c linux-2.6.0-test7-fusion/drivers/char/fusion/call.c
+--- linux-2.6.0-test7/drivers/char/fusion/call.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/call.c	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,444 @@
 +/*
 + *	Fusion Kernel Module
@@ -480,9 +446,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/call.c linux-2.6.0-test1-fusion
 +          kfree (execution);
 +     }
 +}
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/call.h linux-2.6.0-test1-fusion/drivers/char/fusion/call.h
---- linux-2.6.0-test1/drivers/char/fusion/call.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/call.h	2003-07-24 02:38:00.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/call.h linux-2.6.0-test7-fusion/drivers/char/fusion/call.h
+--- linux-2.6.0-test7/drivers/char/fusion/call.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/call.h	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,53 @@
 +/*
 + *	Fusion Kernel Module
@@ -537,9 +503,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/call.h linux-2.6.0-test1-fusion
 +                              int        fusion_id);
 +
 +#endif
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/fifo.c linux-2.6.0-test1-fusion/drivers/char/fusion/fifo.c
---- linux-2.6.0-test1/drivers/char/fusion/fifo.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/fifo.c	2003-07-24 02:37:55.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/fifo.c linux-2.6.0-test7-fusion/drivers/char/fusion/fifo.c
+--- linux-2.6.0-test7/drivers/char/fusion/fifo.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/fifo.c	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,53 @@
 +/*
 + *	Fusion Kernel Module
@@ -594,9 +560,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fifo.c linux-2.6.0-test1-fusion
 +
 +     return first;
 +}
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/fifo.h linux-2.6.0-test1-fusion/drivers/char/fusion/fifo.h
---- linux-2.6.0-test1/drivers/char/fusion/fifo.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/fifo.h	2003-07-24 02:38:00.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/fifo.h linux-2.6.0-test7-fusion/drivers/char/fusion/fifo.h
+--- linux-2.6.0-test7/drivers/char/fusion/fifo.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/fifo.h	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,36 @@
 +/*
 + *	Fusion Kernel Module
@@ -634,25 +600,10 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fifo.h linux-2.6.0-test1-fusion
 +
 +#endif /* __FUSION__LIST_H__ */
 +
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusion.mod.c linux-2.6.0-test1-fusion/drivers/char/fusion/fusion.mod.c
---- linux-2.6.0-test1/drivers/char/fusion/fusion.mod.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/fusion.mod.c	2003-07-24 02:37:55.000000000 +0200
-@@ -0,0 +1,11 @@
-+#include <linux/module.h>
-+#include <linux/vermagic.h>
-+#include <linux/compiler.h>
-+
-+MODULE_INFO(vermagic, VERMAGIC_STRING);
-+
-+static const char __module_depends[]
-+__attribute_used__
-+__attribute__((section(".modinfo"))) =
-+"depends=";
-+
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-fusion/drivers/char/fusion/fusiondev.c
---- linux-2.6.0-test1/drivers/char/fusion/fusiondev.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/fusiondev.c	2003-07-24 02:37:55.000000000 +0200
-@@ -0,0 +1,688 @@
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/fusiondev.c linux-2.6.0-test7-fusion/drivers/char/fusion/fusiondev.c
+--- linux-2.6.0-test7/drivers/char/fusion/fusiondev.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/fusiondev.c	2003-10-14 09:44:30.000000000 +0200
+@@ -0,0 +1,752 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -690,7 +641,11 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +#include "ref.h"
 +#include "skirmish.h"
 +
++#if 0
 +#define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
++#else
++#define DEBUG(x...)  do {} while (0)
++#endif
 +
 +#ifndef FUSION_MAJOR
 +#define FUSION_MAJOR 253
@@ -757,6 +712,51 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +/******************************************************************************/
 +
 +static int
++fusiondev_stat_read_proc(char *buf, char **start, off_t offset,
++                         int len, int *eof, void *private)
++{
++     FusionDev *dev     = private;
++     int        written = 0;
++
++     written += snprintf( buf, len,
++                          "lease/purchase   cede      attach     detach      "
++                          "ref up   ref down  prevail/swoop dismiss\n" );
++     if (written < offset) {
++          offset -= written;
++          written = 0;
++     }
++     
++     if (written < len) {
++          written += snprintf( buf+written, len - written,
++                               "%10d %10d  %10d %10d  %10d %10d  %10d %10d\n",
++                               dev->stat.property_lease_purchase,
++                               dev->stat.property_cede,
++                               dev->stat.reactor_attach,
++                               dev->stat.reactor_detach,
++                               dev->stat.ref_up,
++                               dev->stat.ref_down,
++                               dev->stat.skirmish_prevail_swoop,
++                               dev->stat.skirmish_dismiss );
++          if (written < offset) {
++               offset -= written;
++               written = 0;
++          }
++     }
++     
++     *start = buf + offset;
++     written -= offset;
++     if (written > len) {
++          *eof = 0;
++          return len;
++     }
++
++     *eof = 1;
++     return(written<0) ? 0 : written;
++}
++
++/******************************************************************************/
++
++static int
 +fusiondev_init (FusionDev *dev)
 +{
 +     int ret;
@@ -785,6 +785,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +     if (ret)
 +          goto error_call;
 +
++     create_proc_read_entry("stat", 0, dev->proc_dir,
++                            fusiondev_stat_read_proc, dev);
++     
 +     return 0;
 +
 +
@@ -810,6 +813,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +static void
 +fusiondev_deinit (FusionDev *dev)
 +{
++     remove_proc_entry ("stat", dev->proc_dir);
++     
 +     fusion_call_deinit (dev);
 +     fusion_reactor_deinit (dev);
 +     fusion_property_deinit (dev);
@@ -826,6 +831,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +     int ret;
 +     int fusion_id;
 +     int minor = minor(inode->i_rdev);
++
++     DEBUG( "fusion_open\n" );
 +
 +     spin_lock (&devs_lock);
 +
@@ -894,6 +901,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +     int minor     = minor(inode->i_rdev);
 +     int fusion_id = (int) file->private_data;
 +
++     DEBUG( "fusion_release\n" );
++     
 +     fusionee_destroy (fusion_devs[minor], fusion_id);
 +
 +     spin_lock (&devs_lock);
@@ -919,6 +928,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +     int        fusion_id = (int) file->private_data;
 +     FusionDev *dev       = fusion_devs[minor(file->f_dentry->d_inode->i_rdev)];
 +
++     DEBUG( "fusion_read (%d)\n", count );
++
 +     return fusionee_get_messages (dev, fusion_id, buf, count,
 +                                   !(file->f_flags & O_NONBLOCK));
 +}
@@ -929,6 +940,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +     int        fusion_id = (int) file->private_data;
 +     FusionDev *dev       = fusion_devs[minor(file->f_dentry->d_inode->i_rdev)];
 +
++     DEBUG( "fusion_poll\n" );
++     
 +     return fusionee_poll (dev, fusion_id, file, wait);
 +}
 +
@@ -949,6 +962,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +     FusionCallExecute      execute;
 +     FusionCallReturn       call_ret;
 +
++     DEBUG( "fusion_ioctl (0x%08x)\n", cmd );
++     
 +     switch (cmd) {
 +          case FUSION_GET_ID:
 +               if (put_user (fusion_id, (int*) arg))
@@ -1296,7 +1311,7 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +          return ret;
 +
 +     proc_fusion_dir = proc_mkdir ("fusion", NULL);
-+
++     
 +     return 0;
 +}
 +
@@ -1341,10 +1356,10 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.c linux-2.6.0-test1-f
 +module_init(fusion_init);
 +module_exit(fusion_exit);
 +
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.h linux-2.6.0-test1-fusion/drivers/char/fusion/fusiondev.h
---- linux-2.6.0-test1/drivers/char/fusion/fusiondev.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/fusiondev.h	2003-07-24 02:38:00.000000000 +0200
-@@ -0,0 +1,73 @@
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/fusiondev.h linux-2.6.0-test7-fusion/drivers/char/fusion/fusiondev.h
+--- linux-2.6.0-test7/drivers/char/fusion/fusiondev.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/fusiondev.h	2003-10-14 09:44:30.000000000 +0200
+@@ -0,0 +1,87 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -1370,6 +1385,20 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.h linux-2.6.0-test1-f
 +     int refs;
 +     
 +     struct proc_dir_entry *proc_dir;
++     
++     struct {
++          int         property_lease_purchase;
++          int         property_cede;
++
++          int         reactor_attach;
++          int         reactor_detach;
++
++          int         ref_up;
++          int         ref_down;
++
++          int         skirmish_prevail_swoop;
++          int         skirmish_dismiss;
++     } stat;
 +     
 +     struct {
 +          int         ids;
@@ -1418,10 +1447,10 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusiondev.h linux-2.6.0-test1-f
 +                      signed long       *timeout_ms);
 +
 +#endif
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusionee.c linux-2.6.0-test1-fusion/drivers/char/fusion/fusionee.c
---- linux-2.6.0-test1/drivers/char/fusion/fusionee.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/fusionee.c	2003-07-24 02:37:55.000000000 +0200
-@@ -0,0 +1,461 @@
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/fusionee.c linux-2.6.0-test7-fusion/drivers/char/fusion/fusionee.c
+--- linux-2.6.0-test7/drivers/char/fusion/fusionee.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/fusionee.c	2003-10-14 09:44:30.000000000 +0200
+@@ -0,0 +1,475 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -1455,6 +1484,11 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusionee.c linux-2.6.0-test1-fu
 +#include "ref.h"
 +#include "skirmish.h"
 +
++#if 0
++#define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
++#else
++#define DEBUG(x...)  do {} while (0)
++#endif
 +
 +typedef struct {
 +     FusionLink        link;
@@ -1607,20 +1641,28 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusionee.c linux-2.6.0-test1-fu
 +     Fusionee *sender   = NULL;
 +     Fusionee *fusionee = lock_fusionee (dev, recipient);
 +
++     DEBUG( "fusionee_send_message (%d -> %d, type %d, id %d, size %d)\n",
++            id, recipient, msg_type, msg_id, msg_size );
++
 +     if (!fusionee)
 +          return -EINVAL;
 +
 +     if (id) {
-+          sender = lock_fusionee (dev, id);
-+          if (!sender) {
-+               unlock_fusionee (fusionee);
-+               return -EIO;
++          if (id == recipient) {
++               sender = fusionee;
++          }
++          else {
++               sender = lock_fusionee (dev, id);
++               if (!sender) {
++                    unlock_fusionee (fusionee);
++                    return -EIO;
++               }
 +          }
 +     }
 +
 +     message = kmalloc (sizeof(Message) + msg_size, GFP_ATOMIC);
 +     if (!message) {
-+          if (sender)
++          if (sender && sender != fusionee)
 +               unlock_fusionee (sender);
 +          unlock_fusionee (fusionee);
 +          return -ENOMEM;
@@ -1632,7 +1674,7 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusionee.c linux-2.6.0-test1-fu
 +          memcpy (message->data, msg_data, msg_size);
 +     else if (copy_from_user (message->data, msg_data, msg_size)) {
 +          kfree (message);
-+          if (sender)
++          if (sender && sender != fusionee)
 +               unlock_fusionee (sender);
 +          unlock_fusionee (fusionee);
 +          return -EFAULT;
@@ -1650,8 +1692,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusionee.c linux-2.6.0-test1-fu
 +
 +     wake_up_interruptible_all (&fusionee->wait);
 +
-+     if (sender)
++     if (sender && sender != fusionee)
 +          unlock_fusionee (sender);
++
 +     unlock_fusionee (fusionee);
 +
 +     return 0;
@@ -1883,9 +1926,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusionee.c linux-2.6.0-test1-fu
 +     spin_unlock (&fusionee->lock);
 +}
 +
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusionee.h linux-2.6.0-test1-fusion/drivers/char/fusion/fusionee.h
---- linux-2.6.0-test1/drivers/char/fusion/fusionee.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/fusionee.h	2003-07-24 02:38:00.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/fusionee.h linux-2.6.0-test7-fusion/drivers/char/fusion/fusionee.h
+--- linux-2.6.0-test7/drivers/char/fusion/fusionee.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/fusionee.h	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,65 @@
 +/*
 + *	Fusion Kernel Module
@@ -1952,9 +1995,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/fusionee.h linux-2.6.0-test1-fu
 +                            int                id);
 +
 +#endif
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/list.c linux-2.6.0-test1-fusion/drivers/char/fusion/list.c
---- linux-2.6.0-test1/drivers/char/fusion/list.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/list.c	2003-07-24 02:37:55.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/list.c linux-2.6.0-test7-fusion/drivers/char/fusion/list.c
+--- linux-2.6.0-test7/drivers/char/fusion/list.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/list.c	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,62 @@
 +/*
 + *	Fusion Kernel Module
@@ -2018,9 +2061,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/list.c linux-2.6.0-test1-fusion
 +
 +     *list = link;
 +}
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/list.h linux-2.6.0-test1-fusion/drivers/char/fusion/list.h
---- linux-2.6.0-test1/drivers/char/fusion/list.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/list.h	2003-07-24 02:38:00.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/list.h linux-2.6.0-test7-fusion/drivers/char/fusion/list.h
+--- linux-2.6.0-test7/drivers/char/fusion/list.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/list.h	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,30 @@
 +/*
 + *	Fusion Kernel Module
@@ -2052,10 +2095,17 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/list.h linux-2.6.0-test1-fusion
 +
 +#endif /* __FUSION__LIST_H__ */
 +
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/property.c linux-2.6.0-test1-fusion/drivers/char/fusion/property.c
---- linux-2.6.0-test1/drivers/char/fusion/property.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/property.c	2003-07-24 02:37:55.000000000 +0200
-@@ -0,0 +1,419 @@
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/Makefile linux-2.6.0-test7-fusion/drivers/char/fusion/Makefile
+--- linux-2.6.0-test7/drivers/char/fusion/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/Makefile	2003-10-14 09:44:07.000000000 +0200
+@@ -0,0 +1,3 @@
++obj-$(CONFIG_FUSION_DEVICE) := fusion.o
++
++fusion-objs := call.o fifo.o fusiondev.o fusionee.o list.o property.o reactor.o ref.o skirmish.o
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/property.c linux-2.6.0-test7-fusion/drivers/char/fusion/property.c
+--- linux-2.6.0-test7/drivers/char/fusion/property.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/property.c	2003-10-14 09:44:30.000000000 +0200
+@@ -0,0 +1,425 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -2224,6 +2274,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/property.c linux-2.6.0-test1-fu
 +     FusionProperty *property;
 +     signed long     timeout = -1;
 +
++     dev->stat.property_lease_purchase++;
++     
 +     while (true) {
 +          property = lock_property (dev, id);
 +          if (!property)
@@ -2272,7 +2324,7 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/property.c linux-2.6.0-test1-fu
 +     }
 +
 +     /* won't reach this */
-+     return 0;
++     return -1;
 +}
 +
 +int
@@ -2281,6 +2333,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/property.c linux-2.6.0-test1-fu
 +     FusionProperty *property;
 +     signed long     timeout = -1;
 +
++     dev->stat.property_lease_purchase++;
++     
 +     while (true) {
 +          property = lock_property (dev, id);
 +          if (!property)
@@ -2332,7 +2386,7 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/property.c linux-2.6.0-test1-fu
 +     }
 +
 +     /* won't reach this */
-+     return 0;
++     return -1;
 +}
 +
 +int
@@ -2341,6 +2395,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/property.c linux-2.6.0-test1-fu
 +     bool            purchased;
 +     FusionProperty *property = lock_property (dev, id);
 +
++     dev->stat.property_cede++;
++     
 +     if (!property)
 +          return -EINVAL;
 +
@@ -2475,9 +2531,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/property.c linux-2.6.0-test1-fu
 +{
 +     spin_unlock (&property->lock);
 +}
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/property.h linux-2.6.0-test1-fusion/drivers/char/fusion/property.h
---- linux-2.6.0-test1/drivers/char/fusion/property.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/property.h	2003-07-24 02:38:00.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/property.h linux-2.6.0-test7-fusion/drivers/char/fusion/property.h
+--- linux-2.6.0-test7/drivers/char/fusion/property.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/property.h	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,58 @@
 +/*
 + *	Fusion Kernel Module
@@ -2537,10 +2593,10 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/property.h linux-2.6.0-test1-fu
 +                               int        fusion_id);
 +
 +#endif
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/reactor.c linux-2.6.0-test1-fusion/drivers/char/fusion/reactor.c
---- linux-2.6.0-test1/drivers/char/fusion/reactor.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/reactor.c	2003-07-24 02:37:55.000000000 +0200
-@@ -0,0 +1,374 @@
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/reactor.c linux-2.6.0-test7-fusion/drivers/char/fusion/reactor.c
+--- linux-2.6.0-test7/drivers/char/fusion/reactor.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/reactor.c	2003-10-14 09:44:30.000000000 +0200
+@@ -0,0 +1,378 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -2709,6 +2765,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/reactor.c linux-2.6.0-test1-fus
 +     ReactorNode   *node;
 +     FusionReactor *reactor = lock_reactor (dev, id);
 +
++     dev->stat.reactor_attach++;
++
 +     if (!reactor)
 +          return -EINVAL;
 +
@@ -2739,6 +2797,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/reactor.c linux-2.6.0-test1-fus
 +     ReactorNode   *node;
 +     FusionReactor *reactor = lock_reactor (dev, id);
 +
++     dev->stat.reactor_detach++;
++     
 +     if (!reactor)
 +          return -EINVAL;
 +
@@ -2915,9 +2975,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/reactor.c linux-2.6.0-test1-fus
 +
 +     reactor->nodes = NULL;
 +}
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/reactor.h linux-2.6.0-test1-fusion/drivers/char/fusion/reactor.h
---- linux-2.6.0-test1/drivers/char/fusion/reactor.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/reactor.h	2003-07-24 02:38:00.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/reactor.h linux-2.6.0-test7-fusion/drivers/char/fusion/reactor.h
+--- linux-2.6.0-test7/drivers/char/fusion/reactor.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/reactor.h	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,56 @@
 +/*
 + *	Fusion Kernel Module
@@ -2975,10 +3035,10 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/reactor.h linux-2.6.0-test1-fus
 +                                int        fusion_id);
 +
 +#endif
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/ref.c linux-2.6.0-test1-fusion/drivers/char/fusion/ref.c
---- linux-2.6.0-test1/drivers/char/fusion/ref.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/ref.c	2003-07-24 02:37:55.000000000 +0200
-@@ -0,0 +1,558 @@
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/ref.c linux-2.6.0-test7-fusion/drivers/char/fusion/ref.c
+--- linux-2.6.0-test7/drivers/char/fusion/ref.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/ref.c	2003-10-14 09:44:30.000000000 +0200
+@@ -0,0 +1,562 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -3162,6 +3222,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/ref.c linux-2.6.0-test1-fusion/
 +{
 +     FusionRef *ref = lock_ref (dev, id);
 +
++     dev->stat.ref_up++;
++     
 +     if (!ref)
 +          return -EINVAL;
 +
@@ -3194,6 +3256,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/ref.c linux-2.6.0-test1-fusion/
 +{
 +     FusionRef *ref = lock_ref (dev, id);
 +
++     dev->stat.ref_down++;
++     
 +     if (!ref)
 +          return -EINVAL;
 +
@@ -3537,9 +3601,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/ref.c linux-2.6.0-test1-fusion/
 +          wake_up_interruptible_all (&ref->wait);
 +}
 +
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/ref.h linux-2.6.0-test1-fusion/drivers/char/fusion/ref.h
---- linux-2.6.0-test1/drivers/char/fusion/ref.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/ref.h	2003-07-24 02:38:00.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/ref.h linux-2.6.0-test7-fusion/drivers/char/fusion/ref.h
+--- linux-2.6.0-test7/drivers/char/fusion/ref.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/ref.h	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,71 @@
 +/*
 + *	Fusion Kernel Module
@@ -3612,10 +3676,10 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/ref.h linux-2.6.0-test1-fusion/
 +                                 int        fusion_id);
 +
 +#endif
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/skirmish.c linux-2.6.0-test1-fusion/drivers/char/fusion/skirmish.c
---- linux-2.6.0-test1/drivers/char/fusion/skirmish.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/skirmish.c	2003-07-24 02:37:55.000000000 +0200
-@@ -0,0 +1,338 @@
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/skirmish.c linux-2.6.0-test7-fusion/drivers/char/fusion/skirmish.c
+--- linux-2.6.0-test7/drivers/char/fusion/skirmish.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/skirmish.c	2003-10-14 09:44:30.000000000 +0200
+@@ -0,0 +1,344 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -3780,6 +3844,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/skirmish.c linux-2.6.0-test1-fu
 +{
 +     FusionSkirmish *skirmish;
 +
++     dev->stat.skirmish_prevail_swoop++;
++     
 +     while (true) {
 +          skirmish = lock_skirmish (dev, id);
 +          if (!skirmish)
@@ -3815,6 +3881,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/skirmish.c linux-2.6.0-test1-fu
 +{
 +     FusionSkirmish *skirmish = lock_skirmish (dev, id);
 +
++     dev->stat.skirmish_prevail_swoop++;
++     
 +     if (!skirmish)
 +          return -EINVAL;
 +
@@ -3844,6 +3912,8 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/skirmish.c linux-2.6.0-test1-fu
 +{
 +     FusionSkirmish *skirmish = lock_skirmish (dev, id);
 +
++     dev->stat.skirmish_dismiss++;
++     
 +     if (!skirmish)
 +          return -EINVAL;
 +
@@ -3954,9 +4024,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/skirmish.c linux-2.6.0-test1-fu
 +{
 +     spin_unlock (&skirmish->lock);
 +}
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/skirmish.h linux-2.6.0-test1-fusion/drivers/char/fusion/skirmish.h
---- linux-2.6.0-test1/drivers/char/fusion/skirmish.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/skirmish.h	2003-07-24 02:38:00.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/skirmish.h linux-2.6.0-test7-fusion/drivers/char/fusion/skirmish.h
+--- linux-2.6.0-test7/drivers/char/fusion/skirmish.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/skirmish.h	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,54 @@
 +/*
 + *	Fusion Kernel Module
@@ -4012,9 +4082,9 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/skirmish.h linux-2.6.0-test1-fu
 +                                  int        fusion_id);
 +
 +#endif
-diff -uraN linux-2.6.0-test1/drivers/char/fusion/types.h linux-2.6.0-test1-fusion/drivers/char/fusion/types.h
---- linux-2.6.0-test1/drivers/char/fusion/types.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/drivers/char/fusion/types.h	2003-07-24 02:38:00.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/fusion/types.h linux-2.6.0-test7-fusion/drivers/char/fusion/types.h
+--- linux-2.6.0-test7/drivers/char/fusion/types.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/drivers/char/fusion/types.h	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,23 @@
 +/*
 + *	Fusion Kernel Module
@@ -4039,9 +4109,36 @@ diff -uraN linux-2.6.0-test1/drivers/char/fusion/types.h linux-2.6.0-test1-fusio
 +} bool;
 +
 +#endif
-diff -uraN linux-2.6.0-test1/include/linux/fusion.h linux-2.6.0-test1-fusion/include/linux/fusion.h
---- linux-2.6.0-test1/include/linux/fusion.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.0-test1-fusion/include/linux/fusion.h	2003-07-24 02:38:24.000000000 +0200
+diff -uraN linux-2.6.0-test7/drivers/char/Kconfig linux-2.6.0-test7-fusion/drivers/char/Kconfig
+--- linux-2.6.0-test7/drivers/char/Kconfig	2003-10-08 21:24:01.000000000 +0200
++++ linux-2.6.0-test7-fusion/drivers/char/Kconfig	2003-10-14 09:44:07.000000000 +0200
+@@ -971,5 +971,10 @@
+ 	  out to lunch past a certain margin.  It can reboot the system
+ 	  or merely print a warning.
+ 
+-endmenu
++config FUSION_DEVICE
++	tristate "Fusion Kernel Device (for DirectFB)"
++	help
++	  The Fusion Kernel Device is needed to use DirectFB's multi
++	  application core.
+ 
++endmenu
+diff -uraN linux-2.6.0-test7/drivers/char/Makefile linux-2.6.0-test7-fusion/drivers/char/Makefile
+--- linux-2.6.0-test7/drivers/char/Makefile	2003-10-08 21:24:50.000000000 +0200
++++ linux-2.6.0-test7-fusion/drivers/char/Makefile	2003-10-14 09:44:07.000000000 +0200
+@@ -78,6 +78,8 @@
+ obj-$(CONFIG_PCMCIA) += pcmcia/
+ obj-$(CONFIG_IPMI_HANDLER) += ipmi/
+ 
++obj-$(CONFIG_FUSION_DEVICE) += fusion/
++
+ obj-$(CONFIG_HANGCHECK_TIMER) += hangcheck-timer.o
+ 
+ # Files generated that shall be removed upon make clean
+diff -uraN linux-2.6.0-test7/include/linux/fusion.h linux-2.6.0-test7-fusion/include/linux/fusion.h
+--- linux-2.6.0-test7/include/linux/fusion.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.0-test7-fusion/include/linux/fusion.h	2003-10-14 09:44:30.000000000 +0200
 @@ -0,0 +1,154 @@
 +#ifndef __LINUX__FUSION_H__
 +#define __LINUX__FUSION_H__
