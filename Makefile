@@ -5,4 +5,4 @@ all:
 	cp -f linux/drivers/char/fusion/fusion.o .
 
 clean:
-	rm -rf linux/drivers/char/fusion/*.o
+	rm -rf linux/drivers/char/fusion/*.o fusion.o
