@@ -27,6 +27,7 @@
 
 #include "fusiondev.h"
 #include "fusionee.h"
+#include "property.h"
 #include "ref.h"
 #include "skirmish.h"
 
@@ -77,6 +78,7 @@ fusion_ioctl (struct inode *inode, struct file *file,
     case FUSION_GET_ID:
       put_user (fusion_id, (int*) arg);
       break;
+
 
     case FUSION_REF_NEW:
       ret = fusion_ref_new (&id);
@@ -135,6 +137,7 @@ fusion_ioctl (struct inode *inode, struct file *file,
 
       return fusion_ref_destroy (id);
 
+
     case FUSION_SKIRMISH_NEW:
       ret = fusion_skirmish_new (&id);
       if (ret)
@@ -162,6 +165,35 @@ fusion_ioctl (struct inode *inode, struct file *file,
       get_user (id, (int*) arg);
 
       return fusion_skirmish_destroy (id);
+
+
+    case FUSION_PROPERTY_NEW:
+      ret = fusion_property_new (&id);
+      if (ret)
+        return ret;
+
+      put_user (id, (int*) arg);
+      break;
+
+    case FUSION_PROPERTY_LEASE:
+      get_user (id, (int*) arg);
+
+      return fusion_property_lease (id, fusion_id);
+
+    case FUSION_PROPERTY_PURCHASE:
+      get_user (id, (int*) arg);
+
+      return fusion_property_purchase (id, fusion_id);
+
+    case FUSION_PROPERTY_CEDE:
+      get_user (id, (int*) arg);
+
+      return fusion_property_cede (id, fusion_id);
+
+    case FUSION_PROPERTY_DESTROY:
+      get_user (id, (int*) arg);
+
+      return fusion_property_destroy (id);
 
     default:
       return -ENOTTY;
@@ -204,6 +236,10 @@ fusion_init(void)
   if (ret)
     goto error_skirmish;
 
+  ret = fusion_property_init();
+  if (ret)
+    goto error_property;
+
   ret = misc_register (&fusion_miscdev);
   if (ret)
     goto error_misc;
@@ -212,6 +248,9 @@ fusion_init(void)
 
 
  error_misc:
+  fusion_property_cleanup();
+
+ error_property:
   fusion_skirmish_cleanup();
 
  error_skirmish:
@@ -229,6 +268,7 @@ fusion_exit(void)
 {
   misc_deregister (&fusion_miscdev);
   
+  fusion_property_cleanup();
   fusion_skirmish_cleanup();
   fusion_ref_cleanup();
   fusionee_cleanup();

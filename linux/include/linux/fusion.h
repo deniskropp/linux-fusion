@@ -23,5 +23,11 @@
 #define FUSION_SKIRMISH_DISMISS         _IOW('F', 0x23, sizeof(int))
 #define FUSION_SKIRMISH_DESTROY         _IOW('F', 0x24, sizeof(int))
 
+#define FUSION_PROPERTY_NEW             _IOW('F', 0x30, sizeof(int))
+#define FUSION_PROPERTY_LEASE           _IOW('F', 0x31, sizeof(int))
+#define FUSION_PROPERTY_PURCHASE        _IOW('F', 0x32, sizeof(int))
+#define FUSION_PROPERTY_CEDE            _IOW('F', 0x33, sizeof(int))
+#define FUSION_PROPERTY_DESTROY         _IOW('F', 0x34, sizeof(int))
+
 #endif
 
