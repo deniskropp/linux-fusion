@@ -1,0 +1,896 @@
+diff -uraN linux-2.4.20-pre11/drivers/char/Config.in linux-2.4.20-pre11-fusion/drivers/char/Config.in
+--- linux-2.4.20-pre11/drivers/char/Config.in	2002-10-16 14:04:12.000000000 +0200
++++ linux-2.4.20-pre11-fusion/drivers/char/Config.in	2002-10-16 14:14:41.000000000 +0200
+@@ -244,6 +244,7 @@
+    dep_tristate 'Intel i8x0 Random Number Generator support' CONFIG_INTEL_RNG $CONFIG_PCI
+ fi
+ tristate '/dev/nvram support' CONFIG_NVRAM
++tristate 'Fusion Kernel Device' CONFIG_FUSION_DEVICE
+ tristate 'Enhanced Real Time Clock Support' CONFIG_RTC
+ if [ "$CONFIG_IA64" = "y" ]; then
+    bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
+diff -uraN linux-2.4.20-pre11/drivers/char/Makefile linux-2.4.20-pre11-fusion/drivers/char/Makefile
+--- linux-2.4.20-pre11/drivers/char/Makefile	2002-10-16 14:04:12.000000000 +0200
++++ linux-2.4.20-pre11-fusion/drivers/char/Makefile	2002-10-16 14:15:19.000000000 +0200
+@@ -288,6 +288,9 @@
+   obj-y += mwave/mwave.o
+ endif
+ 
++subdir-$(CONFIG_FUSION_DEVICE) += fusion
++
++
+ include $(TOPDIR)/Rules.make
+ 
+ fastdep:
+diff -uraN linux-2.4.20-pre11/drivers/char/fusion/Makefile linux-2.4.20-pre11-fusion/drivers/char/fusion/Makefile
+--- linux-2.4.20-pre11/drivers/char/fusion/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-pre11-fusion/drivers/char/fusion/Makefile	2002-10-16 07:00:41.000000000 +0200
+@@ -0,0 +1,6 @@
++O_TARGET := fusion.o
++
++obj-y   := fusiondev.o fusionee.o list.o ref.o
++obj-m   := $(O_TARGET)
++
++include $(TOPDIR)/Rules.make
+diff -uraN linux-2.4.20-pre11/drivers/char/fusion/fusiondev.c linux-2.4.20-pre11-fusion/drivers/char/fusion/fusiondev.c
+--- linux-2.4.20-pre11/drivers/char/fusion/fusiondev.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-pre11-fusion/drivers/char/fusion/fusiondev.c	2002-10-16 09:39:16.000000000 +0200
+@@ -0,0 +1,178 @@
++/*
++ *	Fusion Kernel Module
++ *
++ *	(c) Copyright 2002  convergence integrated media GmbH
++ *
++ *      Written by Denis Oliver Kropp <dok@directfb.org>
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++ 
++#include <linux/module.h>
++#include <linux/config.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/fs.h>
++#include <linux/slab.h>
++#include <linux/miscdevice.h>
++#include <linux/init.h>
++#include <asm/uaccess.h>
++
++#include <linux/fusion.h>
++
++#include "fusionee.h"
++#include "ref.h"
++
++#define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
++
++MODULE_LICENSE("GPL");
++
++/******************************************************************************/
++
++static int
++fusion_open (struct inode *inode, struct file *file)
++{
++  Fusionee *fusionee;
++
++  fusionee = fusionee_new();
++  if (!fusionee)
++    return -ENOMEM;
++
++  file->private_data = fusionee;
++
++  return 0;
++}
++
++static int
++fusion_release (struct inode *inode, struct file *file)
++{
++  Fusionee *fusionee = (Fusionee*) file->private_data;
++
++  fusion_ref_clear_all_local (fusionee);
++
++  fusionee_destroy (fusionee);
++
++  return 0;
++}
++
++static int
++fusion_ioctl (struct inode *inode, struct file *file,
++              unsigned int cmd, unsigned long arg)
++{
++  int       id;
++  int       ret;
++  int       refs;
++  Fusionee *fusionee = (Fusionee*) file->private_data;
++
++  switch (cmd)
++    {
++    case FUSION_GET_ID:
++      put_user (fusionee->fusion_id, (int*) arg);
++      break;
++
++    case FUSION_REF_NEW:
++      ret = fusion_ref_new (&id);
++      if (ret)
++        return ret;
++
++      put_user (id, (int*) arg);
++      break;
++
++    case FUSION_REF_UP:
++      get_user (id, (int*) arg);
++
++      return fusion_ref_up (id, fusionee);
++
++    case FUSION_REF_UP_GLOBAL:
++      get_user (id, (int*) arg);
++
++      return fusion_ref_up (id, NULL);
++
++    case FUSION_REF_DOWN:
++      get_user (id, (int*) arg);
++
++      return fusion_ref_down (id, fusionee);
++
++    case FUSION_REF_DOWN_GLOBAL:
++      get_user (id, (int*) arg);
++
++      return fusion_ref_down (id, NULL);
++
++    case FUSION_REF_ZERO_LOCK:
++      get_user (id, (int*) arg);
++
++      return fusion_ref_zero_lock (id);
++
++    case FUSION_REF_ZERO_TRYLOCK:
++      get_user (id, (int*) arg);
++
++      return fusion_ref_zero_trylock (id);
++
++    case FUSION_REF_UNLOCK:
++      get_user (id, (int*) arg);
++
++      return fusion_ref_unlock (id);
++
++    case FUSION_REF_STAT:
++      get_user (id, (int*) arg);
++
++      ret = fusion_ref_stat (id, &refs);
++      if (ret)
++        return ret;
++
++      return refs;
++
++    case FUSION_REF_DESTROY:
++      get_user (id, (int*) arg);
++
++      return fusion_ref_destroy (id);
++
++    default:
++      return -ENOTTY;
++    }
++
++  return 0;
++}
++
++static struct file_operations fusion_fops = {
++  owner:    THIS_MODULE,
++  ioctl:    fusion_ioctl,
++  open:     fusion_open,
++  release:  fusion_release,
++};
++
++static struct miscdevice fusion_miscdev = {
++  minor:    FUSION_MINOR,
++  name:     "fusion",
++  fops:     &fusion_fops,
++};
++
++/******************************************************************************/
++
++static int __init
++fusion_init(void)
++{
++  int ret;
++
++  ret = misc_register (&fusion_miscdev);
++  
++  if (ret)
++    return ret;
++
++  return 0;
++}
++
++static void __exit
++fusion_exit(void)
++{
++  misc_deregister (&fusion_miscdev);
++  
++  fusion_ref_cleanup();
++}
++
++module_init(fusion_init);
++module_exit(fusion_exit);
+diff -uraN linux-2.4.20-pre11/drivers/char/fusion/fusionee.c linux-2.4.20-pre11-fusion/drivers/char/fusion/fusionee.c
+--- linux-2.4.20-pre11/drivers/char/fusion/fusionee.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-pre11-fusion/drivers/char/fusion/fusionee.c	2002-10-16 06:48:07.000000000 +0200
+@@ -0,0 +1,45 @@
++/*
++ *	Fusion Kernel Module
++ *
++ *	(c) Copyright 2002  convergence integrated media GmbH
++ *
++ *      Written by Denis Oliver Kropp <dok@directfb.org>
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++ 
++#include <linux/config.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/smp_lock.h>
++
++#include <linux/fusion.h>
++
++#include "fusionee.h"
++
++static int fid = 1;
++
++Fusionee *
++fusionee_new()
++{
++  Fusionee *fusionee;
++
++  fusionee = kmalloc (sizeof(Fusionee), GFP_KERNEL);
++  if (!fusionee)
++    return NULL;
++
++  fusionee->fusion_id = fid++;
++
++  return fusionee;
++}
++
++void
++fusionee_destroy (Fusionee *fusionee)
++{
++  kfree (fusionee);
++}
+diff -uraN linux-2.4.20-pre11/drivers/char/fusion/fusionee.h linux-2.4.20-pre11-fusion/drivers/char/fusion/fusionee.h
+--- linux-2.4.20-pre11/drivers/char/fusion/fusionee.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-pre11-fusion/drivers/char/fusion/fusionee.h	2002-10-16 09:03:03.000000000 +0200
+@@ -0,0 +1,27 @@
++/*
++ *	Fusion Kernel Module
++ *
++ *	(c) Copyright 2002  convergence integrated media GmbH
++ *
++ *      Written by Denis Oliver Kropp <dok@directfb.org>
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++ 
++#ifndef __FUSIONEE_H__
++#define __FUSIONEE_H__
++
++typedef struct {
++  int fusion_id;
++} Fusionee;
++
++Fusionee *fusionee_new (void);
++void      fusionee_destroy (Fusionee *fusionee);
++
++
++
++#endif
+diff -uraN linux-2.4.20-pre11/drivers/char/fusion/list.c linux-2.4.20-pre11-fusion/drivers/char/fusion/list.c
+--- linux-2.4.20-pre11/drivers/char/fusion/list.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-pre11-fusion/drivers/char/fusion/list.c	2002-10-16 14:18:22.000000000 +0200
+@@ -0,0 +1,43 @@
++/*
++ *	Fusion Kernel Module
++ *
++ *	(c) Copyright 2002  convergence integrated media GmbH
++ *
++ *      Written by Denis Oliver Kropp <dok@directfb.org>
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++
++#include <linux/types.h>
++
++#include "list.h"
++
++void
++fusion_list_prepend (FusionLink **list, FusionLink *link)
++{
++     link->prev = NULL;
++     link->next = *list;
++
++     if (*list)
++          (*list)->prev = link;
++
++     *list = link;
++}
++
++void
++fusion_list_remove (FusionLink **list, FusionLink *link)
++{
++     if (link->prev)
++          link->prev->next = link->next;
++     else
++          *list = link->next;
++
++     if (link->next)
++          link->next->prev = link->prev;
++
++     link->next = link->prev = NULL;
++}
+diff -uraN linux-2.4.20-pre11/drivers/char/fusion/list.h linux-2.4.20-pre11-fusion/drivers/char/fusion/list.h
+--- linux-2.4.20-pre11/drivers/char/fusion/list.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-pre11-fusion/drivers/char/fusion/list.h	2002-10-16 14:21:33.000000000 +0200
+@@ -0,0 +1,29 @@
++/*
++ *	Fusion Kernel Module
++ *
++ *	(c) Copyright 2002  convergence integrated media GmbH
++ *
++ *      Written by Denis Oliver Kropp <dok@directfb.org>
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++
++#ifndef __FUSION__LIST_H__
++#define __FUSION__LIST_H__
++
++typedef struct _FusionLink {
++  struct _FusionLink *next;
++  struct _FusionLink *prev;
++} FusionLink;
++
++void fusion_list_prepend (FusionLink **list, FusionLink *link);
++void fusion_list_remove  (FusionLink **list, FusionLink *link);
++
++#define fusion_list_foreach(link, list)  for (link = list; link; link = link->next)
++
++#endif /* __FUSION__LIST_H__ */
++
+diff -uraN linux-2.4.20-pre11/drivers/char/fusion/ref.c linux-2.4.20-pre11-fusion/drivers/char/fusion/ref.c
+--- linux-2.4.20-pre11/drivers/char/fusion/ref.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-pre11-fusion/drivers/char/fusion/ref.c	2002-10-16 09:41:04.000000000 +0200
+@@ -0,0 +1,416 @@
++/*
++ *	Fusion Kernel Module
++ *
++ *	(c) Copyright 2002  convergence integrated media GmbH
++ *
++ *      Written by Denis Oliver Kropp <dok@directfb.org>
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++ 
++#include <linux/config.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/smp_lock.h>
++
++#include <linux/fusion.h>
++
++#include "fusionee.h"
++#include "list.h"
++#include "ref.h"
++
++typedef struct {
++  FusionLink  link;
++  Fusionee   *fusionee;
++  int         refs;
++} LocalRef;
++
++typedef struct {
++  FusionLink  link;
++  spinlock_t  lock;
++  int         id;
++  int         global;
++  int         local;
++  bool        locked;
++  FusionLink *local_refs;
++} FusionRef;
++
++/******************************************************************************/
++
++static FusionRef *lookup_ref     (int id);
++
++static FusionRef *lock_ref       (int id);
++static void       unlock_ref     (FusionRef *ref);
++
++static int        add_local      (FusionRef *ref, Fusionee *fusionee, int add);
++static void       clear_local    (FusionRef *ref, Fusionee *fusionee);
++static void       free_all_local (FusionRef *ref);
++
++/******************************************************************************/
++
++static int         ids       = 0;
++static FusionLink *refs      = NULL;
++static spinlock_t  refs_lock = SPIN_LOCK_UNLOCKED;
++
++/******************************************************************************/
++
++int
++fusion_ref_new (int *id)
++{
++  FusionRef *ref;
++
++  ref = kmalloc (sizeof(FusionRef), GFP_KERNEL);
++  if (!ref)
++    return -ENOMEM;
++
++  memset (ref, 0, sizeof(FusionRef));
++
++  spin_lock (&refs_lock);
++
++  ref->id   = ids++;
++  ref->lock = SPIN_LOCK_UNLOCKED;
++
++  fusion_list_prepend (&refs, &ref->link);
++
++  spin_unlock (&refs_lock);
++
++  *id = ref->id;
++
++  return 0;
++}
++
++int
++fusion_ref_up (int id, Fusionee *fusionee)
++{
++  FusionRef *ref = lock_ref (id);
++
++  if (!ref)
++    return -EINVAL;
++
++  if (ref->locked)
++    {
++      unlock_ref (ref);
++      return -EAGAIN;
++    }
++
++  if (fusionee)
++    {
++      int ret;
++
++      ret = add_local (ref, fusionee, 1);
++      if (ret)
++        {
++          unlock_ref (ref);
++          return ret;
++        }
++
++      ref->local++;
++    }
++  else
++    ref->global++;
++
++  unlock_ref (ref);
++
++  return 0;
++}
++
++int
++fusion_ref_down (int id, Fusionee *fusionee)
++{
++  FusionRef *ref = lock_ref (id);
++
++  if (!ref)
++    return -EINVAL;
++
++  if (ref->locked)
++    {
++      unlock_ref (ref);
++      return -EAGAIN;
++    }
++
++  if (fusionee)
++    {
++      int ret;
++
++      if (!ref->local)
++        return -EIO;
++
++      ret = add_local (ref, fusionee, -1);
++      if (ret)
++        {
++          unlock_ref (ref);
++          return ret;
++        }
++
++      ref->local--;
++    }
++  else
++    {
++      if (!ref->global)
++        return -EIO;
++
++      ref->global--;
++    }
++
++  unlock_ref (ref);
++
++  return 0;
++}
++
++int
++fusion_ref_zero_lock (int id)
++{
++  FusionRef *ref = lock_ref (id);
++
++  if (!ref)
++    return -EINVAL;
++
++  if (ref->locked)
++    {
++      unlock_ref (ref);
++      return -EAGAIN;
++    }
++
++#if 0
++  while (ref->global || ref->local)
++    {
++    }
++
++  ref->locked = true;
++#endif
++
++  unlock_ref (ref);
++
++  return -ENOSYS;
++}
++
++int
++fusion_ref_zero_trylock (int id)
++{
++  int        ret = 0;
++  FusionRef *ref = lock_ref (id);
++
++  if (!ref)
++    return -EINVAL;
++
++  if (ref->locked)
++    {
++      unlock_ref (ref);
++      return -EAGAIN;
++    }
++
++  if (ref->global || ref->local)
++    ret = -ETOOMANYREFS;
++  else
++    ref->locked = true;
++
++  unlock_ref (ref);
++
++  return ret;
++}
++
++int
++fusion_ref_unlock (int id)
++{
++  FusionRef *ref = lock_ref (id);
++
++  if (!ref)
++    return -EINVAL;
++
++  ref->locked = false;
++
++  unlock_ref (ref);
++
++  return 0;
++}
++
++int
++fusion_ref_stat (int id, int *refs)
++{
++  FusionRef *ref = lock_ref (id);
++
++  if (!ref)
++    return -EINVAL;
++
++  *refs = ref->global + ref->local;
++
++  unlock_ref (ref);
++
++  return 0;
++}
++
++int
++fusion_ref_destroy (int id)
++{
++  FusionRef *ref = lookup_ref (id);
++
++  if (!ref)
++    return -EINVAL;
++
++  fusion_list_remove (&refs, &ref->link);
++
++  spin_unlock (&refs_lock);
++
++  free_all_local (ref);
++
++  kfree (ref);
++
++  return 0;
++}
++
++void
++fusion_ref_clear_all_local (Fusionee *fusionee)
++{
++  FusionLink *l;
++
++  spin_lock (&refs_lock);
++
++  fusion_list_foreach (l, refs)
++    {
++      FusionRef *ref = (FusionRef *) l;
++
++      clear_local (ref, fusionee);
++    }
++
++  spin_unlock (&refs_lock);
++}
++
++void
++fusion_ref_cleanup()
++{
++  FusionLink *l = refs;
++
++  while (l)
++    {
++      FusionLink *next = l->next;
++      FusionRef  *ref  = (FusionRef *) l;
++
++      free_all_local (ref);
++
++      kfree (ref);
++
++      l = next;
++    }
++
++  refs = NULL;
++}
++
++/******************************************************************************/
++
++static FusionRef *
++lookup_ref (int id)
++{
++  FusionLink *l;
++
++  spin_lock (&refs_lock);
++
++  fusion_list_foreach (l, refs)
++    {
++      FusionRef *ref = (FusionRef *) l;
++
++      if (ref->id == id)
++        return ref;
++    }
++
++  spin_unlock (&refs_lock);
++
++  return NULL;
++}
++
++static FusionRef *
++lock_ref (int id)
++{
++  FusionRef *ref = lookup_ref (id);
++
++  if (ref)
++    {
++      spin_lock (&ref->lock);
++      spin_unlock (&refs_lock);
++    }
++
++  return ref;
++}
++
++static void
++unlock_ref (FusionRef *ref)
++{
++  spin_unlock (&ref->lock);
++}
++
++static int
++add_local (FusionRef *ref, Fusionee *fusionee, int add)
++{
++  FusionLink *l;
++  LocalRef   *local;
++
++  fusion_list_foreach (l, ref->local_refs)
++    {
++      local = (LocalRef *) l;
++
++      if (local->fusionee == fusionee)
++        {
++          if (local->refs + add < 0)
++            return -EIO;
++
++          local->refs += add;
++          return 0;
++        }
++    }
++
++  local = kmalloc (sizeof(LocalRef), GFP_KERNEL);
++  if (!local)
++    return -ENOMEM;
++
++  local->fusionee = fusionee;
++  local->refs     = add;
++
++  fusion_list_prepend (&ref->local_refs, &local->link);
++
++  return 0;
++}
++
++static void
++clear_local (FusionRef *ref, Fusionee *fusionee)
++{
++  FusionLink *l;
++
++  spin_lock (&ref->lock);
++
++  fusion_list_foreach (l, ref->local_refs)
++    {
++      LocalRef *local = (LocalRef *) l;
++
++      if (local->fusionee == fusionee)
++        {
++          ref->local -= local->refs;
++          break;
++        }
++    }
++
++  if (l)
++    fusion_list_remove (&ref->local_refs, l);
++
++  spin_unlock (&ref->lock);
++}
++
++static void
++free_all_local (FusionRef *ref)
++{
++  FusionLink *l = ref->local_refs;
++
++  while (l)
++    {
++      FusionLink *next = l->next;
++
++      kfree (l);
++
++      l = next;
++    }
++
++  ref->local_refs = NULL;
++}
+diff -uraN linux-2.4.20-pre11/drivers/char/fusion/ref.h linux-2.4.20-pre11-fusion/drivers/char/fusion/ref.h
+--- linux-2.4.20-pre11/drivers/char/fusion/ref.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-pre11-fusion/drivers/char/fusion/ref.h	2002-10-16 09:32:01.000000000 +0200
+@@ -0,0 +1,33 @@
++/*
++ *	Fusion Kernel Module
++ *
++ *	(c) Copyright 2002  convergence integrated media GmbH
++ *
++ *      Written by Denis Oliver Kropp <dok@directfb.org>
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++ 
++#ifndef __FUSION__REF_H__
++#define __FUSION__REF_H__
++
++#include "types.h"
++
++int fusion_ref_new (int *id);
++int fusion_ref_up (int id, Fusionee *fusionee);
++int fusion_ref_down (int id, Fusionee *fusionee);
++int fusion_ref_zero_lock (int id);
++int fusion_ref_zero_trylock (int id);
++int fusion_ref_unlock (int id);
++int fusion_ref_stat (int id, int *refs);
++int fusion_ref_destroy (int id);
++
++void fusion_ref_clear_all_local (Fusionee *fusionee);
++
++void fusion_ref_cleanup (void);
++
++#endif
+diff -uraN linux-2.4.20-pre11/drivers/char/fusion/types.h linux-2.4.20-pre11-fusion/drivers/char/fusion/types.h
+--- linux-2.4.20-pre11/drivers/char/fusion/types.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-pre11-fusion/drivers/char/fusion/types.h	2002-10-16 07:17:02.000000000 +0200
+@@ -0,0 +1,23 @@
++/*
++ *	Fusion Kernel Module
++ *
++ *	(c) Copyright 2002  convergence integrated media GmbH
++ *
++ *      Written by Denis Oliver Kropp <dok@directfb.org>
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++ 
++#ifndef __FUSION__TYPES_H__
++#define __FUSION__TYPES_H__
++
++typedef enum {
++  false = 0,
++  true  = !false
++} bool;
++
++#endif
+diff -uraN linux-2.4.20-pre11/include/linux/fusion.h linux-2.4.20-pre11-fusion/include/linux/fusion.h
+--- linux-2.4.20-pre11/include/linux/fusion.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-pre11-fusion/include/linux/fusion.h	2002-10-16 14:21:46.000000000 +0200
+@@ -0,0 +1,21 @@
++#ifndef __LINUX__FUSION_H__
++#define __LINUX__FUSION_H__
++
++#include <asm/ioctl.h>
++#include <asm/types.h>
++
++#define FUSION_GET_ID                   _IOR('F', 0x00, sizeof(int))
++
++#define FUSION_REF_NEW                  _IOW('F', 0x10, sizeof(int))
++#define FUSION_REF_UP                   _IOW('F', 0x11, sizeof(int))
++#define FUSION_REF_UP_GLOBAL            _IOW('F', 0x12, sizeof(int))
++#define FUSION_REF_DOWN                 _IOW('F', 0x13, sizeof(int))
++#define FUSION_REF_DOWN_GLOBAL          _IOW('F', 0x14, sizeof(int))
++#define FUSION_REF_ZERO_LOCK            _IOW('F', 0x15, sizeof(int))
++#define FUSION_REF_ZERO_TRYLOCK         _IOW('F', 0x16, sizeof(int))
++#define FUSION_REF_UNLOCK               _IOW('F', 0x17, sizeof(int))
++#define FUSION_REF_STAT                 _IOR('F', 0x18, sizeof(int))
++#define FUSION_REF_DESTROY              _IOW('F', 0x19, sizeof(int))
++
++#endif
++
+diff -uraN linux-2.4.20-pre11/include/linux/miscdevice.h linux-2.4.20-pre11-fusion/include/linux/miscdevice.h
+--- linux-2.4.20-pre11/include/linux/miscdevice.h	2002-10-16 14:03:45.000000000 +0200
++++ linux-2.4.20-pre11-fusion/include/linux/miscdevice.h	2002-10-16 14:22:25.000000000 +0200
+@@ -14,6 +14,7 @@
+ #define PC110PAD_MINOR 9
+ #define ADB_MOUSE_MINOR 10
+ #define MK712_MINOR 15			/* MK712 touch screen */
++#define FUSION_MINOR		 23	/* Fusion Device      */
+ #define WATCHDOG_MINOR		130	/* Watchdog timer     */
+ #define TEMP_MINOR		131	/* Temperature Sensor */
+ #define RTC_MINOR 135

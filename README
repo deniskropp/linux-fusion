@@ -1,0 +1,28 @@
+Quick installation
+-------------------
+
+Patch your kernel:
+
+	patch -p1 < fusion-full-linux-2.4.20-pre11.patch
+
+Enable the character device driver module "Fusion Kernel Device",
+build and install modules, insmod fusion. Maybe check /proc/misc.
+
+Create the fusion device:
+
+	mknod /dev/fusion c 10 23
+
+Make sure /usr/include/linux points to the patched kernel tree
+so that <linux/fusion.h> is found at configure time of DirectFB.
+
+
+
+Development installation
+-------------------------
+
+Instead of using the full patch you can use the partial patch
+and add the new files afterwards (possibly with CVS sub directory).
+
+	patch -p1 < fusion-part-linux-2.4.20-pre11.patch
+
+Copy everything in the "linux" sub directory into the kernel tree.
