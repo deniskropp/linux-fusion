@@ -27,7 +27,7 @@ Alternative installation using a kernel patch
 
 1) Patch your kernel
 
-	patch -p1 < fusion-full-linux-2.4.22.patch
+	patch -p1 < fusion-full-linux-2.4.24.patch
 
 2) Enable the character device driver module "Fusion Kernel Device".
 
