@@ -37,7 +37,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/Makefile linux-2.4.16-fusion/drivers
 +include $(TOPDIR)/Rules.make
 diff -uraN linux-2.4.16/drivers/char/fusion/fifo.c linux-2.4.16-fusion/drivers/char/fusion/fifo.c
 --- linux-2.4.16/drivers/char/fusion/fifo.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/fifo.c	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/fifo.c	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,53 @@
 +/*
 + *	Fusion Kernel Module
@@ -94,7 +94,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fifo.c linux-2.4.16-fusion/drivers/c
 +}
 diff -uraN linux-2.4.16/drivers/char/fusion/fifo.h linux-2.4.16-fusion/drivers/char/fusion/fifo.h
 --- linux-2.4.16/drivers/char/fusion/fifo.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/fifo.h	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/fifo.h	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,38 @@
 +/*
 + *	Fusion Kernel Module
@@ -136,8 +136,8 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fifo.h linux-2.4.16-fusion/drivers/c
 +
 diff -uraN linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/drivers/char/fusion/fusiondev.c
 --- linux-2.4.16/drivers/char/fusion/fusiondev.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/fusiondev.c	2002-11-12 22:21:25.000000000 +0100
-@@ -0,0 +1,425 @@
++++ linux-2.4.16-fusion/drivers/char/fusion/fusiondev.c	2002-12-05 18:36:02.000000000 +0100
+@@ -0,0 +1,435 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -160,6 +160,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +#include <linux/slab.h>
 +#include <linux/miscdevice.h>
 +#include <linux/proc_fs.h>
++#include <linux/poll.h>
 +#include <linux/init.h>
 +#include <asm/uaccess.h>
 +
@@ -245,6 +246,14 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +
 +  return fusionee_get_messages (fusion_id, buf, count,
 +                                !(file->f_flags & O_NONBLOCK));
++}
++
++static unsigned int
++fusion_poll (struct file *file, poll_table * wait)
++{
++  int fusion_id = (int) file->private_data;
++
++  return fusionee_poll (fusion_id, file, wait);
 +}
 +
 +static int
@@ -485,6 +494,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +  .open    = fusion_open,
 +  .release = fusion_release,
 +  .read    = fusion_read,
++  .poll    = fusion_poll,
 +  .ioctl   = fusion_ioctl
 +};
 +
@@ -565,7 +575,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +module_exit(fusion_exit);
 diff -uraN linux-2.4.16/drivers/char/fusion/fusiondev.h linux-2.4.16-fusion/drivers/char/fusion/fusiondev.h
 --- linux-2.4.16/drivers/char/fusion/fusiondev.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/fusiondev.h	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/fusiondev.h	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,22 @@
 +/*
 + *	Fusion Kernel Module
@@ -591,8 +601,8 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fusiondev.h linux-2.4.16-fusion/driv
 +#endif
 diff -uraN linux-2.4.16/drivers/char/fusion/fusionee.c linux-2.4.16-fusion/drivers/char/fusion/fusionee.c
 --- linux-2.4.16/drivers/char/fusion/fusionee.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/fusionee.c	2002-11-12 22:21:25.000000000 +0100
-@@ -0,0 +1,378 @@
++++ linux-2.4.16-fusion/drivers/char/fusion/fusionee.c	2002-12-05 18:36:02.000000000 +0100
+@@ -0,0 +1,409 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -898,6 +908,37 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fusionee.c linux-2.4.16-fusion/drive
 +  return written;
 +}
 +
++unsigned int
++fusionee_poll (int id, struct file *file, poll_table * wait)
++{
++  Fusionee *fusionee = lock_fusionee (id);
++
++  if (!fusionee)
++    return -EINVAL;
++
++  unlock_fusionee (fusionee);
++
++
++  poll_wait (file, &fusionee->wait, wait);
++
++  
++  fusionee = lock_fusionee (id);
++
++  if (!fusionee)
++    return -EINVAL;
++
++  if (fusionee->messages.count)
++    {
++      unlock_fusionee (fusionee);
++
++      return POLLIN | POLLRDNORM;
++    }
++
++  unlock_fusionee (fusionee);
++
++  return 0;
++}
++
 +int
 +fusionee_destroy (int id)
 +{
@@ -973,8 +1014,8 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fusionee.c linux-2.4.16-fusion/drive
 +}
 diff -uraN linux-2.4.16/drivers/char/fusion/fusionee.h linux-2.4.16-fusion/drivers/char/fusion/fusionee.h
 --- linux-2.4.16/drivers/char/fusion/fusionee.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/fusionee.h	2002-11-12 22:21:25.000000000 +0100
-@@ -0,0 +1,41 @@
++++ linux-2.4.16-fusion/drivers/char/fusion/fusionee.h	2002-12-05 18:36:02.000000000 +0100
+@@ -0,0 +1,44 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -992,6 +1033,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fusionee.h linux-2.4.16-fusion/drive
 +#ifndef __FUSIONEE_H__
 +#define __FUSIONEE_H__
 +
++#include <linux/poll.h>
 +#include <linux/fusion.h>
 +
 +#include "types.h"
@@ -1013,12 +1055,14 @@ diff -uraN linux-2.4.16/drivers/char/fusion/fusionee.h linux-2.4.16-fusion/drive
 +
 +int fusionee_get_messages (int id, void *buf, int buf_size, int block);
 +
++unsigned int fusionee_poll (int id, struct file *file, poll_table * wait);
++
 +int fusionee_destroy (int id);
 +
 +#endif
 diff -uraN linux-2.4.16/drivers/char/fusion/list.c linux-2.4.16-fusion/drivers/char/fusion/list.c
 --- linux-2.4.16/drivers/char/fusion/list.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/list.c	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/list.c	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,43 @@
 +/*
 + *	Fusion Kernel Module
@@ -1065,7 +1109,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/list.c linux-2.4.16-fusion/drivers/c
 +}
 diff -uraN linux-2.4.16/drivers/char/fusion/list.h linux-2.4.16-fusion/drivers/char/fusion/list.h
 --- linux-2.4.16/drivers/char/fusion/list.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/list.h	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/list.h	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,32 @@
 +/*
 + *	Fusion Kernel Module
@@ -1101,7 +1145,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/list.h linux-2.4.16-fusion/drivers/c
 +
 diff -uraN linux-2.4.16/drivers/char/fusion/property.c linux-2.4.16-fusion/drivers/char/fusion/property.c
 --- linux-2.4.16/drivers/char/fusion/property.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/property.c	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/property.c	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,371 @@
 +/*
 + *	Fusion Kernel Module
@@ -1476,7 +1520,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/property.c linux-2.4.16-fusion/drive
 +}
 diff -uraN linux-2.4.16/drivers/char/fusion/property.h linux-2.4.16-fusion/drivers/char/fusion/property.h
 --- linux-2.4.16/drivers/char/fusion/property.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/property.h	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/property.h	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,41 @@
 +/*
 + *	Fusion Kernel Module
@@ -1521,7 +1565,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/property.h linux-2.4.16-fusion/drive
 +#endif
 diff -uraN linux-2.4.16/drivers/char/fusion/reactor.c linux-2.4.16-fusion/drivers/char/fusion/reactor.c
 --- linux-2.4.16/drivers/char/fusion/reactor.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/reactor.c	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/reactor.c	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,394 @@
 +/*
 + *	Fusion Kernel Module
@@ -1919,7 +1963,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/reactor.c linux-2.4.16-fusion/driver
 +}
 diff -uraN linux-2.4.16/drivers/char/fusion/reactor.h linux-2.4.16-fusion/drivers/char/fusion/reactor.h
 --- linux-2.4.16/drivers/char/fusion/reactor.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/reactor.h	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/reactor.h	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,42 @@
 +/*
 + *	Fusion Kernel Module
@@ -1965,7 +2009,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/reactor.h linux-2.4.16-fusion/driver
 +#endif
 diff -uraN linux-2.4.16/drivers/char/fusion/ref.c linux-2.4.16-fusion/drivers/char/fusion/ref.c
 --- linux-2.4.16/drivers/char/fusion/ref.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/ref.c	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/ref.c	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,512 @@
 +/*
 + *	Fusion Kernel Module
@@ -2481,7 +2525,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/ref.c linux-2.4.16-fusion/drivers/ch
 +}
 diff -uraN linux-2.4.16/drivers/char/fusion/ref.h linux-2.4.16-fusion/drivers/char/fusion/ref.h
 --- linux-2.4.16/drivers/char/fusion/ref.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/ref.h	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/ref.h	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,44 @@
 +/*
 + *	Fusion Kernel Module
@@ -2529,7 +2573,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/ref.h linux-2.4.16-fusion/drivers/ch
 +#endif
 diff -uraN linux-2.4.16/drivers/char/fusion/skirmish.c linux-2.4.16-fusion/drivers/char/fusion/skirmish.c
 --- linux-2.4.16/drivers/char/fusion/skirmish.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/skirmish.c	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/skirmish.c	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,356 @@
 +/*
 + *	Fusion Kernel Module
@@ -2889,7 +2933,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/skirmish.c linux-2.4.16-fusion/drive
 +}
 diff -uraN linux-2.4.16/drivers/char/fusion/skirmish.h linux-2.4.16-fusion/drivers/char/fusion/skirmish.h
 --- linux-2.4.16/drivers/char/fusion/skirmish.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/skirmish.h	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/skirmish.h	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,41 @@
 +/*
 + *	Fusion Kernel Module
@@ -2934,7 +2978,7 @@ diff -uraN linux-2.4.16/drivers/char/fusion/skirmish.h linux-2.4.16-fusion/drive
 +#endif
 diff -uraN linux-2.4.16/drivers/char/fusion/types.h linux-2.4.16-fusion/drivers/char/fusion/types.h
 --- linux-2.4.16/drivers/char/fusion/types.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/types.h	2002-11-12 22:21:25.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/types.h	2002-12-05 18:36:02.000000000 +0100
 @@ -0,0 +1,23 @@
 +/*
 + *	Fusion Kernel Module
