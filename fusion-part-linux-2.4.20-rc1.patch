@@ -25,27 +25,6 @@ diff -Naur linux-2.4.20-rc1/drivers/char/Makefile linux-2.4.20-rc1-fusion/driver
  include $(TOPDIR)/Rules.make
  
  fastdep:
-diff -Naur linux-2.4.20-rc1/drivers/char/misc.c linux-2.4.20-rc1-fusion/drivers/char/misc.c
---- linux-2.4.20-rc1/drivers/char/misc.c	2002-11-01 13:32:32.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/misc.c	2002-11-02 03:11:39.000000000 +0100
-@@ -77,6 +77,7 @@
- extern int tosh_init(void);
- extern int i8k_init(void);
- extern int lcd_init(void);
-+extern int fusion_init(void);
- 
- static int misc_read_proc(char *buf, char **start, off_t offset,
- 			  int len, int *eof, void *private)
-@@ -285,6 +286,9 @@
- #ifdef CONFIG_I8K
- 	i8k_init();
- #endif
-+#ifdef CONFIG_FUSION_DEVICE
-+	fusion_init();
-+#endif
- 	if (devfs_register_chrdev(MISC_MAJOR,"misc",&misc_fops)) {
- 		printk("unable to get major %d for misc devices\n",
- 		       MISC_MAJOR);
 diff -Naur linux-2.4.20-rc1/include/linux/miscdevice.h linux-2.4.20-rc1-fusion/include/linux/miscdevice.h
 --- linux-2.4.20-rc1/include/linux/miscdevice.h	2002-11-01 13:33:02.000000000 +0100
 +++ linux-2.4.20-rc1-fusion/include/linux/miscdevice.h	2002-11-02 03:51:39.000000000 +0100

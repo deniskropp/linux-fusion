@@ -2038,27 +2038,6 @@ diff -uraN linux-2.4.16/drivers/char/fusion/types.h linux-2.4.16-fusion/drivers/
 +} bool;
 +
 +#endif
-diff -uraN linux-2.4.16/drivers/char/misc.c linux-2.4.16-fusion/drivers/char/misc.c
---- linux-2.4.16/drivers/char/misc.c	2001-11-03 02:46:47.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/misc.c	2002-11-02 07:06:24.000000000 +0100
-@@ -76,6 +76,7 @@
- extern int pmu_device_init(void);
- extern int tosh_init(void);
- extern int i8k_init(void);
-+extern int fusion_init(void);
- 
- static int misc_read_proc(char *buf, char **start, off_t offset,
- 			  int len, int *eof, void *private)
-@@ -280,6 +281,9 @@
- #ifdef CONFIG_I8K
- 	i8k_init();
- #endif
-+#ifdef CONFIG_FUSION_DEVICE
-+	fusion_init();
-+#endif
- 	if (devfs_register_chrdev(MISC_MAJOR,"misc",&misc_fops)) {
- 		printk("unable to get major %d for misc devices\n",
- 		       MISC_MAJOR);
 diff -uraN linux-2.4.16/include/linux/fusion.h linux-2.4.16-fusion/include/linux/fusion.h
 --- linux-2.4.16/include/linux/fusion.h	1970-01-01 01:00:00.000000000 +0100
 +++ linux-2.4.16-fusion/include/linux/fusion.h	2002-11-04 17:29:02.000000000 +0100
