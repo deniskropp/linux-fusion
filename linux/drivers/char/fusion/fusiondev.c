@@ -25,6 +25,10 @@
 #include <linux/init.h>
 #include <asm/uaccess.h>
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+#include <linux/device.h>
+#endif
+
 #include <linux/fusion.h>
 
 #include "call.h"
@@ -61,6 +65,10 @@ static inline unsigned iminor(struct inode *inode)
 {
         return MINOR(inode->i_rdev);
 }
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+static struct class_simple *fusion_class;
 #endif
 
 /******************************************************************************/
@@ -679,7 +687,23 @@ register_devices(void)
           return -EIO;
      }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+     fusion_class = class_simple_create (THIS_MODULE, "fusion");
+     if (IS_ERR(fusion_class)) {
+          unregister_chrdev (FUSION_MAJOR, "fusion");
+          return PTR_ERR(fusion_class);
+     }
+#endif
+
+     devfs_mk_dir("fusion");
+
      for (i=0; i<NUM_MINORS; i++) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+          class_simple_device_add (fusion_class,
+                                   MKDEV(FUSION_MAJOR, i),
+                                   NULL, "fusion%d", i);
+#endif
+
           devfs_mk_cdev (MKDEV(FUSION_MAJOR, i),
                          S_IFCHR | S_IRUSR | S_IWUSR,
                          "fusion/%d", i);
@@ -717,10 +741,6 @@ fusion_init(void)
 {
      int ret;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-     devfs_mk_dir("fusion");
-#endif
-
      ret = register_devices();
      if (ret)
           return ret;
@@ -740,8 +760,19 @@ deregister_devices(void)
 
      unregister_chrdev (FUSION_MAJOR, "fusion");
 
-     for (i=0; i<NUM_MINORS; i++)
+     for (i=0; i<NUM_MINORS; i++) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+          class_simple_device_remove (MKDEV(FUSION_MAJOR, i));
+#endif
+
           devfs_remove ("fusion/%d", i);
+     }
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+     class_simple_destroy (fusion_class);
+#endif
+
+     devfs_remove ("fusion");
 }
 #else
 static void __exit
@@ -762,10 +793,6 @@ fusion_exit(void)
      deregister_devices();
 
      remove_proc_entry ("fusion", NULL);
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-     devfs_remove ("fusion");
-#endif
 }
 
 module_init(fusion_init);
