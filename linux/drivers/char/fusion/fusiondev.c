@@ -286,6 +286,7 @@ fusion_ioctl (struct inode *inode, struct file *file,
      FusionDev             *dev = fusion_devs[minor(inode->i_rdev)];
      FusionSendMessage      send;
      FusionReactorDispatch  dispatch;
+     FusionRefWatch         watch;
      FusionKill             kill;
      FusionCallNew          call;
      FusionCallExecute      execute;
@@ -423,6 +424,13 @@ fusion_ioctl (struct inode *inode, struct file *file,
                     return ret;
 
                return refs;
+
+          case FUSION_REF_WATCH:
+               if (copy_from_user (&watch, (FusionRefWatch*) arg, sizeof(watch)))
+                    return -EFAULT;
+
+               return fusion_ref_watch (dev, watch.id,
+                                        watch.call_id, watch.call_arg);
 
           case FUSION_REF_DESTROY:
                if (get_user (id, (int*) arg))

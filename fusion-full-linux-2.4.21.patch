@@ -11,8 +11,8 @@ diff -uraN linux-2.4.21/drivers/char/Config.in linux-2.4.21-fusion/drivers/char/
     bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
 diff -uraN linux-2.4.21/drivers/char/fusion/call.c linux-2.4.21-fusion/drivers/char/fusion/call.c
 --- linux-2.4.21/drivers/char/fusion/call.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/call.c	2003-06-16 19:18:13.000000000 +0200
-@@ -0,0 +1,424 @@
++++ linux-2.4.21-fusion/drivers/char/fusion/call.c	2003-07-10 01:08:16.000000000 +0200
+@@ -0,0 +1,444 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -67,7 +67,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.c linux-2.4.21-fusion/drivers/c
 +     void              *ctx;
 +
 +     FusionLink          *executions;      /* prepending! */
-+     FusionCallExecution *next;            /* points to the last item of executions */
++     FusionLink          *last;            /* points to the last item of executions */
 +
 +     int                count;    /* number of calls ever made */
 +} FusionCall;
@@ -99,12 +99,16 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.c linux-2.4.21-fusion/drivers/c
 +     spin_lock (&dev->call.lock);
 +
 +     fusion_list_foreach (l, dev->call.list) {
++          bool        idle = true;
 +          FusionCall *call = (FusionCall*) l;
++
++          if (call->executions)
++               idle = ((FusionCallExecution*) call->executions)->executed;
 +
 +          written += sprintf(buf+written,
 +                             "(%5d) 0x%08x (%d calls) %s\n",
 +                             call->pid, call->id, call->count,
-+                             call->next ? "executing" : "idle");
++                             idle ? "idle" : "executing");
 +
 +          if (written < offset) {
 +               offset -= written;
@@ -217,7 +221,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.c linux-2.4.21-fusion/drivers/c
 +     message.handler  = call->handler;
 +     message.ctx      = call->ctx;
 +
-+     message.caller   = execution->caller;
++     message.caller   = fusion_id;
 +
 +     message.call_arg = execute->call_arg;
 +     message.call_ptr = execute->call_ptr;
@@ -226,27 +230,33 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.c linux-2.4.21-fusion/drivers/c
 +                                  call->id, sizeof(message), &message);
 +     if (ret) {
 +          remove_execution (call, execution);
++          kfree (execution);
 +          unlock_call (call);
 +          return ret;
 +     }
 +
 +     call->count++;
 +
-+     /* TODO: implement timeout */
-+     fusion_sleep_on (&execution->wait, &call->lock, 0);
++     if (fusion_id) {
++          /* TODO: implement timeout */
++          fusion_sleep_on (&execution->wait, &call->lock, 0);
 +
-+     call = lock_call (dev, execute->call_id);
-+     if (!call)
-+          return -EIDRM;
++          call = lock_call (dev, execute->call_id);
++          if (!call)
++               return -EIDRM;
 +
-+     execute->ret_val = execution->ret_val;
++          if (signal_pending(current)) {
++               execution->caller = 0;
++               unlock_call (call);
++               return -ERESTARTSYS;
++          }
 +
-+     remove_execution (call, execution);
++          execute->ret_val = execution->ret_val;
++          
++          remove_execution (call, execution);
 +
-+     kfree (execution);
-+
-+     if (signal_pending(current))
-+          ret = -ERESTARTSYS;
++          kfree (execution);
++     }
 +
 +     unlock_call (call);
 +
@@ -262,16 +272,26 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.c linux-2.4.21-fusion/drivers/c
 +     if (!call)
 +          return -EINVAL;
 +
-+     fusion_list_foreach (l, call->executions) {
++     l = call->last;
++     while (l) {
 +          FusionCallExecution *execution = (FusionCallExecution*) l;
 +
-+          if (execution->executed)
++          if (execution->executed) {
++               l = l->prev;
 +               continue;
++          }
 +
-+          execution->ret_val  = call_ret->val;
-+          execution->executed = true;
++          if (execution->caller) {
++               execution->ret_val  = call_ret->val;
++               execution->executed = true;
 +
-+          wake_up_interruptible_all (&execution->wait);
++               wake_up_interruptible_all (&execution->wait);
++          }
++          else {
++               remove_execution (call, execution);
++
++               kfree (execution);
++          }
 +
 +          unlock_call (call);
 +
@@ -408,8 +428,8 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.c linux-2.4.21-fusion/drivers/c
 +     /* Add execution. */
 +     fusion_list_prepend (&call->executions, &execution->link);
 +
-+     if (!call->next)
-+          call->next = execution;
++     if (!call->last)
++          call->last = &execution->link;
 +
 +     return execution;
 +}
@@ -418,8 +438,8 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.c linux-2.4.21-fusion/drivers/c
 +remove_execution (FusionCall          *call,
 +                  FusionCallExecution *execution)
 +{
-+     if (call->next == execution)
-+          call->next = (FusionCallExecution*) execution->link.prev;
++     if (call->last == &execution->link)
++          call->last = execution->link.prev;
 +
 +     fusion_list_remove (&call->executions, &execution->link);
 +}
@@ -427,8 +447,8 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.c linux-2.4.21-fusion/drivers/c
 +static void
 +free_all_executions (FusionCall *call)
 +{
-+     while (call->next) {
-+          FusionCallExecution *execution = call->next;
++     while (call->last) {
++          FusionCallExecution *execution = (FusionCallExecution *) call->last;
 +
 +          remove_execution (call, execution);
 +
@@ -439,8 +459,8 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.c linux-2.4.21-fusion/drivers/c
 +}
 diff -uraN linux-2.4.21/drivers/char/fusion/call.h linux-2.4.21-fusion/drivers/char/fusion/call.h
 --- linux-2.4.21/drivers/char/fusion/call.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/call.h	2003-06-16 19:18:13.000000000 +0200
-@@ -0,0 +1,52 @@
++++ linux-2.4.21-fusion/drivers/char/fusion/call.h	2003-07-10 01:08:16.000000000 +0200
+@@ -0,0 +1,53 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -475,7 +495,8 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.h linux-2.4.21-fusion/drivers/c
 +                         FusionCallNew     *call);
 +
 +int fusion_call_execute (FusionDev         *dev,
-+                         int                fusion_id,
++                         int                fusion_id, /* zero if call is
++                                                          from Fusion */
 +                         FusionCallExecute *execute);
 +
 +int fusion_call_return  (FusionDev         *dev,
@@ -495,7 +516,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/call.h linux-2.4.21-fusion/drivers/c
 +#endif
 diff -uraN linux-2.4.21/drivers/char/fusion/fifo.c linux-2.4.21-fusion/drivers/char/fusion/fifo.c
 --- linux-2.4.21/drivers/char/fusion/fifo.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/fifo.c	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/fifo.c	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,53 @@
 +/*
 + *	Fusion Kernel Module
@@ -552,7 +573,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fifo.c linux-2.4.21-fusion/drivers/c
 +}
 diff -uraN linux-2.4.21/drivers/char/fusion/fifo.h linux-2.4.21-fusion/drivers/char/fusion/fifo.h
 --- linux-2.4.21/drivers/char/fusion/fifo.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/fifo.h	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/fifo.h	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,36 @@
 +/*
 + *	Fusion Kernel Module
@@ -592,8 +613,8 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fifo.h linux-2.4.21-fusion/drivers/c
 +
 diff -uraN linux-2.4.21/drivers/char/fusion/fusiondev.c linux-2.4.21-fusion/drivers/char/fusion/fusiondev.c
 --- linux-2.4.21/drivers/char/fusion/fusiondev.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/fusiondev.c	2003-06-16 19:18:13.000000000 +0200
-@@ -0,0 +1,636 @@
++++ linux-2.4.21-fusion/drivers/char/fusion/fusiondev.c	2003-07-10 01:08:16.000000000 +0200
+@@ -0,0 +1,644 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -882,6 +903,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fusiondev.c linux-2.4.21-fusion/driv
 +     FusionDev             *dev = fusion_devs[minor(inode->i_rdev)];
 +     FusionSendMessage      send;
 +     FusionReactorDispatch  dispatch;
++     FusionRefWatch         watch;
 +     FusionKill             kill;
 +     FusionCallNew          call;
 +     FusionCallExecute      execute;
@@ -1019,6 +1041,13 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fusiondev.c linux-2.4.21-fusion/driv
 +                    return ret;
 +
 +               return refs;
++
++          case FUSION_REF_WATCH:
++               if (copy_from_user (&watch, (FusionRefWatch*) arg, sizeof(watch)))
++                    return -EFAULT;
++
++               return fusion_ref_watch (dev, watch.id,
++                                        watch.call_id, watch.call_arg);
 +
 +          case FUSION_REF_DESTROY:
 +               if (get_user (id, (int*) arg))
@@ -1232,7 +1261,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fusiondev.c linux-2.4.21-fusion/driv
 +
 diff -uraN linux-2.4.21/drivers/char/fusion/fusiondev.h linux-2.4.21-fusion/drivers/char/fusion/fusiondev.h
 --- linux-2.4.21/drivers/char/fusion/fusiondev.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/fusiondev.h	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/fusiondev.h	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,73 @@
 +/*
 + *	Fusion Kernel Module
@@ -1309,8 +1338,8 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fusiondev.h linux-2.4.21-fusion/driv
 +#endif
 diff -uraN linux-2.4.21/drivers/char/fusion/fusionee.c linux-2.4.21-fusion/drivers/char/fusion/fusionee.c
 --- linux-2.4.21/drivers/char/fusion/fusionee.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/fusionee.c	2003-07-07 19:53:15.000000000 +0200
-@@ -0,0 +1,455 @@
++++ linux-2.4.21-fusion/drivers/char/fusion/fusionee.c	2003-07-10 01:08:16.000000000 +0200
+@@ -0,0 +1,461 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -1493,21 +1522,24 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fusionee.c linux-2.4.21-fusion/drive
 +                       int msg_size, const void *msg_data)
 +{
 +     Message  *message;
-+     Fusionee *sender;
++     Fusionee *sender   = NULL;
 +     Fusionee *fusionee = lock_fusionee (dev, recipient);
 +
 +     if (!fusionee)
 +          return -EINVAL;
 +
-+     sender = lock_fusionee (dev, id);
-+     if (!sender) {
-+          unlock_fusionee (fusionee);
-+          return -EIO;
++     if (id) {
++          sender = lock_fusionee (dev, id);
++          if (!sender) {
++               unlock_fusionee (fusionee);
++               return -EIO;
++          }
 +     }
 +
 +     message = kmalloc (sizeof(Message) + msg_size, GFP_ATOMIC);
 +     if (!message) {
-+          unlock_fusionee (sender);
++          if (sender)
++               unlock_fusionee (sender);
 +          unlock_fusionee (fusionee);
 +          return -ENOMEM;
 +     }
@@ -1518,7 +1550,8 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fusionee.c linux-2.4.21-fusion/drive
 +          memcpy (message->data, msg_data, msg_size);
 +     else if (copy_from_user (message->data, msg_data, msg_size)) {
 +          kfree (message);
-+          unlock_fusionee (sender);
++          if (sender)
++               unlock_fusionee (sender);
 +          unlock_fusionee (fusionee);
 +          return -EFAULT;
 +     }
@@ -1530,11 +1563,13 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fusionee.c linux-2.4.21-fusion/drive
 +     fusion_fifo_put (&fusionee->messages, &message->link);
 +
 +     fusionee->rcv_total++;
-+     sender->snd_total++;
++     if (sender)
++          sender->snd_total++;
 +
 +     wake_up_interruptible_all (&fusionee->wait);
 +
-+     unlock_fusionee (sender);
++     if (sender)
++          unlock_fusionee (sender);
 +     unlock_fusionee (fusionee);
 +
 +     return 0;
@@ -1768,7 +1803,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fusionee.c linux-2.4.21-fusion/drive
 +
 diff -uraN linux-2.4.21/drivers/char/fusion/fusionee.h linux-2.4.21-fusion/drivers/char/fusion/fusionee.h
 --- linux-2.4.21/drivers/char/fusion/fusionee.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/fusionee.h	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/fusionee.h	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,65 @@
 +/*
 + *	Fusion Kernel Module
@@ -1852,7 +1887,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/fusion.mod.c linux-2.4.21-fusion/dri
 +
 diff -uraN linux-2.4.21/drivers/char/fusion/list.c linux-2.4.21-fusion/drivers/char/fusion/list.c
 --- linux-2.4.21/drivers/char/fusion/list.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/list.c	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/list.c	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,62 @@
 +/*
 + *	Fusion Kernel Module
@@ -1918,7 +1953,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/list.c linux-2.4.21-fusion/drivers/c
 +}
 diff -uraN linux-2.4.21/drivers/char/fusion/list.h linux-2.4.21-fusion/drivers/char/fusion/list.h
 --- linux-2.4.21/drivers/char/fusion/list.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/list.h	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/list.h	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,30 @@
 +/*
 + *	Fusion Kernel Module
@@ -1962,7 +1997,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/Makefile linux-2.4.21-fusion/drivers
 +include $(TOPDIR)/Rules.make
 diff -uraN linux-2.4.21/drivers/char/fusion/property.c linux-2.4.21-fusion/drivers/char/fusion/property.c
 --- linux-2.4.21/drivers/char/fusion/property.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/property.c	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/property.c	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,419 @@
 +/*
 + *	Fusion Kernel Module
@@ -2385,7 +2420,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/property.c linux-2.4.21-fusion/drive
 +}
 diff -uraN linux-2.4.21/drivers/char/fusion/property.h linux-2.4.21-fusion/drivers/char/fusion/property.h
 --- linux-2.4.21/drivers/char/fusion/property.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/property.h	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/property.h	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,58 @@
 +/*
 + *	Fusion Kernel Module
@@ -2447,7 +2482,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/property.h linux-2.4.21-fusion/drive
 +#endif
 diff -uraN linux-2.4.21/drivers/char/fusion/reactor.c linux-2.4.21-fusion/drivers/char/fusion/reactor.c
 --- linux-2.4.21/drivers/char/fusion/reactor.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/reactor.c	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/reactor.c	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,374 @@
 +/*
 + *	Fusion Kernel Module
@@ -2825,7 +2860,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/reactor.c linux-2.4.21-fusion/driver
 +}
 diff -uraN linux-2.4.21/drivers/char/fusion/reactor.h linux-2.4.21-fusion/drivers/char/fusion/reactor.h
 --- linux-2.4.21/drivers/char/fusion/reactor.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/reactor.h	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/reactor.h	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,56 @@
 +/*
 + *	Fusion Kernel Module
@@ -2885,8 +2920,8 @@ diff -uraN linux-2.4.21/drivers/char/fusion/reactor.h linux-2.4.21-fusion/driver
 +#endif
 diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/char/fusion/ref.c
 --- linux-2.4.21/drivers/char/fusion/ref.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/ref.c	2003-06-16 19:18:13.000000000 +0200
-@@ -0,0 +1,493 @@
++++ linux-2.4.21-fusion/drivers/char/fusion/ref.c	2003-07-10 01:08:16.000000000 +0200
+@@ -0,0 +1,558 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -2912,6 +2947,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/ch
 +
 +#include "fusiondev.h"
 +#include "list.h"
++#include "call.h"
 +#include "ref.h"
 +
 +typedef struct {
@@ -2933,6 +2969,10 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/ch
 +
 +     int                locked;    /* non-zero fusion id of lock owner */
 +
++     bool               watched;   /* true if watch has been installed */
++     int                call_id;   /* id of call registered with a watch */
++     int                call_arg;  /* optional call parameter */
++
 +     FusionLink        *local_refs;
 +
 +     wait_queue_head_t  wait;
@@ -2946,8 +2986,10 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/ch
 +static void       unlock_ref     (FusionRef *ref);
 +
 +static int        add_local      (FusionRef *ref, int fusion_id, int add);
-+static void       clear_local    (FusionRef *ref, int fusion_id);
++static void       clear_local    (FusionDev *dev, FusionRef *ref, int fusion_id);
 +static void       free_all_local (FusionRef *ref);
++
++static void       notify_ref     (FusionDev *dev, FusionRef *ref);
 +
 +/******************************************************************************/
 +
@@ -3125,7 +3167,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/ch
 +     }
 +
 +     if (ref->local + ref->global == 0)
-+          wake_up_interruptible_all (&ref->wait);
++          notify_ref (dev, ref);
 +
 +     unlock_ref (ref);
 +
@@ -3142,9 +3184,13 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/ch
 +          if (!ref)
 +               return -EINVAL;
 +
++          if (ref->watched) {
++               unlock_ref (ref);
++               return -EACCES;
++          }
++
 +          if (ref->locked) {
 +               unlock_ref (ref);
-+
 +               return ref->locked == fusion_id ? -EIO : -EAGAIN;
 +          }
 +
@@ -3225,6 +3271,43 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/ch
 +}
 +
 +int
++fusion_ref_watch (FusionDev      *dev,
++                  int             id,
++                  int             call_id,
++                  int             call_arg)
++{
++     FusionRef *ref = lock_ref (dev, id);
++
++     if (!ref)
++          return -EINVAL;
++
++     if (ref->pid != current->pid) {
++          unlock_ref (ref);
++          return -EACCES;
++     }
++
++     if (ref->global + ref->local == 0) {
++          unlock_ref (ref);
++          return -EIO;
++     }
++
++     if (ref->watched) {
++          unlock_ref (ref);
++          return -EBUSY;
++     }
++
++     ref->watched  = true;
++     ref->call_id  = call_id;
++     ref->call_arg = call_arg;
++     
++     wake_up_interruptible_all (&ref->wait);
++     
++     unlock_ref (ref);
++
++     return 0;
++}
++
++int
 +fusion_ref_destroy (FusionDev *dev, int id)
 +{
 +     FusionRef *ref = lookup_ref (dev, id);
@@ -3259,7 +3342,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/ch
 +     fusion_list_foreach (l, dev->ref.list) {
 +          FusionRef *ref = (FusionRef *) l;
 +
-+          clear_local (ref, fusion_id);
++          clear_local (dev, ref, fusion_id);
 +     }
 +
 +     spin_unlock (&dev->ref.lock);
@@ -3338,7 +3421,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/ch
 +}
 +
 +static void
-+clear_local (FusionRef *ref, int fusion_id)
++clear_local (FusionDev *dev, FusionRef *ref, int fusion_id)
 +{
 +     FusionLink *l;
 +
@@ -3354,7 +3437,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/ch
 +               ref->local -= local->refs;
 +
 +               if (ref->local + ref->global == 0)
-+                    wake_up_interruptible_all (&ref->wait);
++                    notify_ref (dev, ref);
 +
 +               fusion_list_remove (&ref->local_refs, l);
 +
@@ -3380,10 +3463,27 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.c linux-2.4.21-fusion/drivers/ch
 +
 +     ref->local_refs = NULL;
 +}
++
++static void
++notify_ref (FusionDev *dev, FusionRef *ref)
++{
++     if (ref->watched) {
++          FusionCallExecute execute;
++
++          execute.call_id  = ref->call_id;
++          execute.call_arg = ref->call_arg;
++          execute.call_ptr = NULL;
++
++          fusion_call_execute (dev, 0, &execute);
++     }
++     else
++          wake_up_interruptible_all (&ref->wait);
++}
++
 diff -uraN linux-2.4.21/drivers/char/fusion/ref.h linux-2.4.21-fusion/drivers/char/fusion/ref.h
 --- linux-2.4.21/drivers/char/fusion/ref.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/ref.h	2003-06-16 19:18:13.000000000 +0200
-@@ -0,0 +1,66 @@
++++ linux-2.4.21-fusion/drivers/char/fusion/ref.h	2003-07-10 01:08:16.000000000 +0200
+@@ -0,0 +1,71 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -3413,35 +3513,40 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.h linux-2.4.21-fusion/drivers/ch
 +
 +/* public API */
 +
-+int fusion_ref_new          (FusionDev *dev,
-+                             int       *id);
++int fusion_ref_new          (FusionDev      *dev,
++                             int            *id);
 +
-+int fusion_ref_up           (FusionDev *dev,
-+                             int        id,
-+                             int        fusion_id);
++int fusion_ref_up           (FusionDev      *dev,
++                             int             id,
++                             int             fusion_id);
 +
-+int fusion_ref_down         (FusionDev *dev,
-+                             int        id,
-+                             int        fusion_id);
++int fusion_ref_down         (FusionDev      *dev,
++                             int             id,
++                             int             fusion_id);
 +
-+int fusion_ref_zero_lock    (FusionDev *dev,
-+                             int        id,
-+                             int        fusion_id);
++int fusion_ref_zero_lock    (FusionDev      *dev,
++                             int             id,
++                             int             fusion_id);
 +
-+int fusion_ref_zero_trylock (FusionDev *dev,
-+                             int        id,
-+                             int        fusion_id);
++int fusion_ref_zero_trylock (FusionDev      *dev,
++                             int             id,
++                             int             fusion_id);
 +
-+int fusion_ref_unlock       (FusionDev *dev,
-+                             int        id,
-+                             int        fusion_id);
++int fusion_ref_unlock       (FusionDev      *dev,
++                             int             id,
++                             int             fusion_id);
 +
-+int fusion_ref_stat         (FusionDev *dev,
-+                             int        id,
-+                             int       *refs);
++int fusion_ref_stat         (FusionDev      *dev,
++                             int             id,
++                             int            *refs);
 +
-+int fusion_ref_destroy      (FusionDev *dev,
-+                             int        id);
++int fusion_ref_watch        (FusionDev      *dev,
++                             int             id,
++                             int             call_id,
++                             int             call_arg);
++
++int fusion_ref_destroy      (FusionDev      *dev,
++                             int             id);
 +
 +
 +/* internal functions */
@@ -3452,8 +3557,8 @@ diff -uraN linux-2.4.21/drivers/char/fusion/ref.h linux-2.4.21-fusion/drivers/ch
 +#endif
 diff -uraN linux-2.4.21/drivers/char/fusion/skirmish.c linux-2.4.21-fusion/drivers/char/fusion/skirmish.c
 --- linux-2.4.21/drivers/char/fusion/skirmish.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/skirmish.c	2003-06-16 19:18:13.000000000 +0200
-@@ -0,0 +1,332 @@
++++ linux-2.4.21-fusion/drivers/char/fusion/skirmish.c	2003-07-10 01:08:16.000000000 +0200
+@@ -0,0 +1,338 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -3519,9 +3624,15 @@ diff -uraN linux-2.4.21/drivers/char/fusion/skirmish.c linux-2.4.21-fusion/drive
 +     fusion_list_foreach (l, dev->skirmish.list) {
 +          FusionSkirmish *skirmish = (FusionSkirmish*) l;
 +
-+          written += sprintf(buf+written, "(%5d) 0x%08x %s\n",
-+                             skirmish->pid, skirmish->id,
-+                             skirmish->lock_fid ? "(locked)" : "");
++          if (skirmish->lock_fid) {
++               written += sprintf(buf+written, "(%5d) 0x%08x (locked 0x%08x "
++                                  "%d)\n", skirmish->pid, skirmish->id,
++                                  skirmish->lock_fid, skirmish->lock_pid);
++          }
++          else {
++               written += sprintf(buf+written, "(%5d) 0x%08x\n",
++                                  skirmish->pid, skirmish->id);
++          }
 +          if (written < offset) {
 +               offset -= written;
 +               written = 0;
@@ -3788,7 +3899,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/skirmish.c linux-2.4.21-fusion/drive
 +}
 diff -uraN linux-2.4.21/drivers/char/fusion/skirmish.h linux-2.4.21-fusion/drivers/char/fusion/skirmish.h
 --- linux-2.4.21/drivers/char/fusion/skirmish.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/skirmish.h	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/skirmish.h	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,54 @@
 +/*
 + *	Fusion Kernel Module
@@ -3846,7 +3957,7 @@ diff -uraN linux-2.4.21/drivers/char/fusion/skirmish.h linux-2.4.21-fusion/drive
 +#endif
 diff -uraN linux-2.4.21/drivers/char/fusion/types.h linux-2.4.21-fusion/drivers/char/fusion/types.h
 --- linux-2.4.21/drivers/char/fusion/types.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/drivers/char/fusion/types.h	2003-06-16 19:18:13.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/fusion/types.h	2003-07-10 01:08:16.000000000 +0200
 @@ -0,0 +1,23 @@
 +/*
 + *	Fusion Kernel Module
@@ -3889,8 +4000,8 @@ diff -uraN linux-2.4.21/drivers/char/Makefile linux-2.4.21-fusion/drivers/char/M
  fastdep:
 diff -uraN linux-2.4.21/include/linux/fusion.h linux-2.4.21-fusion/include/linux/fusion.h
 --- linux-2.4.21/include/linux/fusion.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.21-fusion/include/linux/fusion.h	2003-07-07 19:49:06.000000000 +0200
-@@ -0,0 +1,133 @@
++++ linux-2.4.21-fusion/include/linux/fusion.h	2003-07-10 01:08:16.000000000 +0200
+@@ -0,0 +1,154 @@
 +#ifndef __LINUX__FUSION_H__
 +#define __LINUX__FUSION_H__
 +
@@ -3901,84 +4012,104 @@ diff -uraN linux-2.4.21/include/linux/fusion.h linux-2.4.21-fusion/include/linux
 + * Sending
 + */
 +typedef struct {
-+  int         fusion_id;      /* recipient */
++     int         fusion_id;      /* recipient */
 +
-+  int         msg_id;         /* optional message identifier */
-+  int         msg_size;       /* message size, must be greater than zero */
-+  const void *msg_data;       /* message data, must not be NULL */
++     int         msg_id;         /* optional message identifier */
++     int         msg_size;       /* message size, must be greater than zero */
++     const void *msg_data;       /* message data, must not be NULL */
 +} FusionSendMessage;
 +
 +/*
 + * Receiving
 + */
 +typedef enum {
-+  FMT_SEND,
-+  FMT_CALL,                   /* msg_id is the call id */
-+  FMT_REACTOR                 /* msg_id is the reactor id */
++     FMT_SEND,
++     FMT_CALL,                   /* msg_id is the call id */
++     FMT_REACTOR                 /* msg_id is the reactor id */
 +} FusionMessageType;
 +
 +typedef struct {
-+  FusionMessageType msg_type;
++     FusionMessageType msg_type;
 +
-+  int               msg_id;
-+  int               msg_size;
++     int               msg_id;
++     int               msg_size;
 +
-+  /* message data follows */
++     /* message data follows */
 +} FusionReadMessage;
 +
 +/*
 + * Dispatching
 + */
 +typedef struct {
-+  int         reactor_id;
-+  int         self;
++     int         reactor_id;
++     int         self;
 +
-+  int         msg_size;       /* message size, must be greater than zero */
-+  const void *msg_data;       /* message data, must not be NULL */
++     int         msg_size;       /* message size, must be greater than zero */
++     const void *msg_data;       /* message data, must not be NULL */
 +} FusionReactorDispatch;
 +
 +/*
 + * Calling (synchronous RPC)
 + */
 +typedef struct {
-+  int                call_id;   /* new call id returned */
++     int                call_id;   /* new call id returned */
 +
-+  void              *handler;   /* function pointer of handler to install */
-+  void              *ctx;       /* optional handler context */
++     void              *handler;   /* function pointer of handler to install */
++     void              *ctx;       /* optional handler context */
 +} FusionCallNew;
 +
 +typedef struct {
-+  int   ret_val;              /* return value of the call */
++     int   ret_val;              /* return value of the call */
 +
-+  int   call_id;              /* each call has a fixed owner */
-+  
-+  int   call_arg;             /* optional int argument */
-+  void *call_ptr;             /* optional pointer argument (shared memory) */
++     int   call_id;              /* id of the requested call,
++                                    each call has a fixed owner */
++
++     int   call_arg;             /* optional int argument */
++     void *call_ptr;             /* optional pointer argument (shared memory) */
 +} FusionCallExecute;
 +
 +typedef struct {
-+  int   call_id;              /* id of currently executing call */
++     int   call_id;              /* id of currently executing call */
 +
-+  int   val;                  /* value to return */
++     int   val;                  /* value to return */
 +} FusionCallReturn;
 +
 +typedef struct {
-+  void              *handler;   /* function pointer of handler to call */
-+  void              *ctx;       /* optional handler context */
++     void              *handler;   /* function pointer of handler to call */
++     void              *ctx;       /* optional handler context */
 +
-+  int                caller;    /* fusion id of the caller */
-+  int                call_arg;  /* optional call parameter */
-+  void              *call_ptr;  /* optional call parameter */
++     int                caller;    /* fusion id of the caller
++                                      or zero if the call comes from Fusion */
++     int                call_arg;  /* optional call parameter */
++     void              *call_ptr;  /* optional call parameter */
 +} FusionCallMessage;
-+  
++
++/*
++ * Watching a reference
++ *
++ * This information is needed to have a specific call being executed if the
++ * reference count reaches zero. Currently one watch per reference is allowed.
++ *
++ * The call is made by Fusion and therefor has a caller id of zero.
++ * 
++ */
++typedef struct {
++     int                id;        /* id of the reference to watch */
++
++     int                call_id;   /* id of the call to execute */
++     int                call_arg;  /* optional call parameter, e.g. the id of a
++                                      user space resource associated with that
++                                      reference */
++} FusionRefWatch;
++
 +/*
 + * Killing other fusionees (experimental)
 + */
 +typedef struct {
-+  int fusion_id;    /* fusionee to kill, zero means all but ourself */
-+  int signal;       /* signal to be delivered, e.g. SIGTERM */
-+  int timeout_ms;   /* -1 means no timeout, 0 means infinite, otherwise the
-+                       max. time to wait until the fusionee(s) terminated */
++     int fusion_id;    /* fusionee to kill, zero means all but ourself */
++     int signal;       /* signal to be delivered, e.g. SIGTERM */
++     int timeout_ms;   /* -1 means no timeout, 0 means infinite, otherwise the
++                          max. time to wait until the fusionee(s) terminated */
 +} FusionKill;
 +
 +
@@ -4002,7 +4133,8 @@ diff -uraN linux-2.4.21/include/linux/fusion.h linux-2.4.21-fusion/include/linux
 +#define FUSION_REF_ZERO_TRYLOCK         _IOW('F', 0x16, sizeof(int))
 +#define FUSION_REF_UNLOCK               _IOW('F', 0x17, sizeof(int))
 +#define FUSION_REF_STAT                 _IOW('F', 0x18, sizeof(int))
-+#define FUSION_REF_DESTROY              _IOW('F', 0x19, sizeof(int))
++#define FUSION_REF_WATCH                _IOW('F', 0x19, sizeof(FusionRefWatch))
++#define FUSION_REF_DESTROY              _IOW('F', 0x1A, sizeof(int))
 +
 +#define FUSION_SKIRMISH_NEW             _IOW('F', 0x20, sizeof(int))
 +#define FUSION_SKIRMISH_PREVAIL         _IOW('F', 0x21, sizeof(int))

@@ -8,84 +8,104 @@
  * Sending
  */
 typedef struct {
-  int         fusion_id;      /* recipient */
+     int         fusion_id;      /* recipient */
 
-  int         msg_id;         /* optional message identifier */
-  int         msg_size;       /* message size, must be greater than zero */
-  const void *msg_data;       /* message data, must not be NULL */
+     int         msg_id;         /* optional message identifier */
+     int         msg_size;       /* message size, must be greater than zero */
+     const void *msg_data;       /* message data, must not be NULL */
 } FusionSendMessage;
 
 /*
  * Receiving
  */
 typedef enum {
-  FMT_SEND,
-  FMT_CALL,                   /* msg_id is the call id */
-  FMT_REACTOR                 /* msg_id is the reactor id */
+     FMT_SEND,
+     FMT_CALL,                   /* msg_id is the call id */
+     FMT_REACTOR                 /* msg_id is the reactor id */
 } FusionMessageType;
 
 typedef struct {
-  FusionMessageType msg_type;
+     FusionMessageType msg_type;
 
-  int               msg_id;
-  int               msg_size;
+     int               msg_id;
+     int               msg_size;
 
-  /* message data follows */
+     /* message data follows */
 } FusionReadMessage;
 
 /*
  * Dispatching
  */
 typedef struct {
-  int         reactor_id;
-  int         self;
+     int         reactor_id;
+     int         self;
 
-  int         msg_size;       /* message size, must be greater than zero */
-  const void *msg_data;       /* message data, must not be NULL */
+     int         msg_size;       /* message size, must be greater than zero */
+     const void *msg_data;       /* message data, must not be NULL */
 } FusionReactorDispatch;
 
 /*
  * Calling (synchronous RPC)
  */
 typedef struct {
-  int                call_id;   /* new call id returned */
+     int                call_id;   /* new call id returned */
 
-  void              *handler;   /* function pointer of handler to install */
-  void              *ctx;       /* optional handler context */
+     void              *handler;   /* function pointer of handler to install */
+     void              *ctx;       /* optional handler context */
 } FusionCallNew;
 
 typedef struct {
-  int   ret_val;              /* return value of the call */
+     int   ret_val;              /* return value of the call */
 
-  int   call_id;              /* each call has a fixed owner */
-  
-  int   call_arg;             /* optional int argument */
-  void *call_ptr;             /* optional pointer argument (shared memory) */
+     int   call_id;              /* id of the requested call,
+                                    each call has a fixed owner */
+
+     int   call_arg;             /* optional int argument */
+     void *call_ptr;             /* optional pointer argument (shared memory) */
 } FusionCallExecute;
 
 typedef struct {
-  int   call_id;              /* id of currently executing call */
+     int   call_id;              /* id of currently executing call */
 
-  int   val;                  /* value to return */
+     int   val;                  /* value to return */
 } FusionCallReturn;
 
 typedef struct {
-  void              *handler;   /* function pointer of handler to call */
-  void              *ctx;       /* optional handler context */
+     void              *handler;   /* function pointer of handler to call */
+     void              *ctx;       /* optional handler context */
 
-  int                caller;    /* fusion id of the caller */
-  int                call_arg;  /* optional call parameter */
-  void              *call_ptr;  /* optional call parameter */
+     int                caller;    /* fusion id of the caller
+                                      or zero if the call comes from Fusion */
+     int                call_arg;  /* optional call parameter */
+     void              *call_ptr;  /* optional call parameter */
 } FusionCallMessage;
-  
+
+/*
+ * Watching a reference
+ *
+ * This information is needed to have a specific call being executed if the
+ * reference count reaches zero. Currently one watch per reference is allowed.
+ *
+ * The call is made by Fusion and therefor has a caller id of zero.
+ * 
+ */
+typedef struct {
+     int                id;        /* id of the reference to watch */
+
+     int                call_id;   /* id of the call to execute */
+     int                call_arg;  /* optional call parameter, e.g. the id of a
+                                      user space resource associated with that
+                                      reference */
+} FusionRefWatch;
+
 /*
  * Killing other fusionees (experimental)
  */
 typedef struct {
-  int fusion_id;    /* fusionee to kill, zero means all but ourself */
-  int signal;       /* signal to be delivered, e.g. SIGTERM */
-  int timeout_ms;   /* -1 means no timeout, 0 means infinite, otherwise the
-                       max. time to wait until the fusionee(s) terminated */
+     int fusion_id;    /* fusionee to kill, zero means all but ourself */
+     int signal;       /* signal to be delivered, e.g. SIGTERM */
+     int timeout_ms;   /* -1 means no timeout, 0 means infinite, otherwise the
+                          max. time to wait until the fusionee(s) terminated */
 } FusionKill;
 
 
@@ -109,7 +129,8 @@ typedef struct {
 #define FUSION_REF_ZERO_TRYLOCK         _IOW('F', 0x16, sizeof(int))
 #define FUSION_REF_UNLOCK               _IOW('F', 0x17, sizeof(int))
 #define FUSION_REF_STAT                 _IOW('F', 0x18, sizeof(int))
-#define FUSION_REF_DESTROY              _IOW('F', 0x19, sizeof(int))
+#define FUSION_REF_WATCH                _IOW('F', 0x19, sizeof(FusionRefWatch))
+#define FUSION_REF_DESTROY              _IOW('F', 0x1A, sizeof(int))
 
 #define FUSION_SKIRMISH_NEW             _IOW('F', 0x20, sizeof(int))
 #define FUSION_SKIRMISH_PREVAIL         _IOW('F', 0x21, sizeof(int))

@@ -23,6 +23,7 @@
 
 #include "fusiondev.h"
 #include "list.h"
+#include "call.h"
 #include "ref.h"
 
 typedef struct {
@@ -44,6 +45,10 @@ typedef struct {
 
      int                locked;    /* non-zero fusion id of lock owner */
 
+     bool               watched;   /* true if watch has been installed */
+     int                call_id;   /* id of call registered with a watch */
+     int                call_arg;  /* optional call parameter */
+
      FusionLink        *local_refs;
 
      wait_queue_head_t  wait;
@@ -57,8 +62,10 @@ static FusionRef *lock_ref       (FusionDev *dev, int id);
 static void       unlock_ref     (FusionRef *ref);
 
 static int        add_local      (FusionRef *ref, int fusion_id, int add);
-static void       clear_local    (FusionRef *ref, int fusion_id);
+static void       clear_local    (FusionDev *dev, FusionRef *ref, int fusion_id);
 static void       free_all_local (FusionRef *ref);
+
+static void       notify_ref     (FusionDev *dev, FusionRef *ref);
 
 /******************************************************************************/
 
@@ -236,7 +243,7 @@ fusion_ref_down (FusionDev *dev, int id, int fusion_id)
      }
 
      if (ref->local + ref->global == 0)
-          wake_up_interruptible_all (&ref->wait);
+          notify_ref (dev, ref);
 
      unlock_ref (ref);
 
@@ -253,9 +260,13 @@ fusion_ref_zero_lock (FusionDev *dev, int id, int fusion_id)
           if (!ref)
                return -EINVAL;
 
+          if (ref->watched) {
+               unlock_ref (ref);
+               return -EACCES;
+          }
+
           if (ref->locked) {
                unlock_ref (ref);
-
                return ref->locked == fusion_id ? -EIO : -EAGAIN;
           }
 
@@ -336,6 +347,43 @@ fusion_ref_stat (FusionDev *dev, int id, int *refs)
 }
 
 int
+fusion_ref_watch (FusionDev      *dev,
+                  int             id,
+                  int             call_id,
+                  int             call_arg)
+{
+     FusionRef *ref = lock_ref (dev, id);
+
+     if (!ref)
+          return -EINVAL;
+
+     if (ref->pid != current->pid) {
+          unlock_ref (ref);
+          return -EACCES;
+     }
+
+     if (ref->global + ref->local == 0) {
+          unlock_ref (ref);
+          return -EIO;
+     }
+
+     if (ref->watched) {
+          unlock_ref (ref);
+          return -EBUSY;
+     }
+
+     ref->watched  = true;
+     ref->call_id  = call_id;
+     ref->call_arg = call_arg;
+     
+     wake_up_interruptible_all (&ref->wait);
+     
+     unlock_ref (ref);
+
+     return 0;
+}
+
+int
 fusion_ref_destroy (FusionDev *dev, int id)
 {
      FusionRef *ref = lookup_ref (dev, id);
@@ -370,7 +418,7 @@ fusion_ref_clear_all_local (FusionDev *dev, int fusion_id)
      fusion_list_foreach (l, dev->ref.list) {
           FusionRef *ref = (FusionRef *) l;
 
-          clear_local (ref, fusion_id);
+          clear_local (dev, ref, fusion_id);
      }
 
      spin_unlock (&dev->ref.lock);
@@ -449,7 +497,7 @@ add_local (FusionRef *ref, int fusion_id, int add)
 }
 
 static void
-clear_local (FusionRef *ref, int fusion_id)
+clear_local (FusionDev *dev, FusionRef *ref, int fusion_id)
 {
      FusionLink *l;
 
@@ -465,7 +513,7 @@ clear_local (FusionRef *ref, int fusion_id)
                ref->local -= local->refs;
 
                if (ref->local + ref->global == 0)
-                    wake_up_interruptible_all (&ref->wait);
+                    notify_ref (dev, ref);
 
                fusion_list_remove (&ref->local_refs, l);
 
@@ -491,3 +539,20 @@ free_all_local (FusionRef *ref)
 
      ref->local_refs = NULL;
 }
+
+static void
+notify_ref (FusionDev *dev, FusionRef *ref)
+{
+     if (ref->watched) {
+          FusionCallExecute execute;
+
+          execute.call_id  = ref->call_id;
+          execute.call_arg = ref->call_arg;
+          execute.call_ptr = NULL;
+
+          fusion_call_execute (dev, 0, &execute);
+     }
+     else
+          wake_up_interruptible_all (&ref->wait);
+}
+

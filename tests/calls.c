@@ -38,6 +38,11 @@ static int        counter = 0;
 /*
  * A simple example call handler
  */
+typedef int (*CallHandler)(int   caller,   /* fusion id of the caller */
+                           int   call_arg, /* optional call parameter */
+                           void *call_ptr, /* optional call parameter */
+                           void *ctx       /* optional handler context */);
+
 static int
 call_handler (int   caller,   /* fusion id of the caller */
               int   call_arg, /* optional call parameter */
@@ -56,12 +61,13 @@ static void
 process_call_message (int call_id, FusionCallMessage *msg)
 {
   FusionCallReturn call_ret;
+  CallHandler      handler = msg->handler;
 
   call_ret.call_id = call_id;
-  call_ret.val     = msg->handler (msg->caller,
-                                   msg->call_arg,
-                                   msg->call_ptr,
-                                   msg->ctx);
+  call_ret.val     = handler (msg->caller,
+                              msg->call_arg,
+                              msg->call_ptr,
+                              msg->ctx);
 
   if (ioctl (fd, FUSION_CALL_RETURN, &call_ret))
     perror ("FUSION_CALL_RETURN");

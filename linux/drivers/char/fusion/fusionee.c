@@ -180,21 +180,24 @@ fusionee_send_message (FusionDev *dev, int id, int recipient,
                        int msg_size, const void *msg_data)
 {
      Message  *message;
-     Fusionee *sender;
+     Fusionee *sender   = NULL;
      Fusionee *fusionee = lock_fusionee (dev, recipient);
 
      if (!fusionee)
           return -EINVAL;
 
-     sender = lock_fusionee (dev, id);
-     if (!sender) {
-          unlock_fusionee (fusionee);
-          return -EIO;
+     if (id) {
+          sender = lock_fusionee (dev, id);
+          if (!sender) {
+               unlock_fusionee (fusionee);
+               return -EIO;
+          }
      }
 
      message = kmalloc (sizeof(Message) + msg_size, GFP_ATOMIC);
      if (!message) {
-          unlock_fusionee (sender);
+          if (sender)
+               unlock_fusionee (sender);
           unlock_fusionee (fusionee);
           return -ENOMEM;
      }
@@ -205,7 +208,8 @@ fusionee_send_message (FusionDev *dev, int id, int recipient,
           memcpy (message->data, msg_data, msg_size);
      else if (copy_from_user (message->data, msg_data, msg_size)) {
           kfree (message);
-          unlock_fusionee (sender);
+          if (sender)
+               unlock_fusionee (sender);
           unlock_fusionee (fusionee);
           return -EFAULT;
      }
@@ -217,11 +221,13 @@ fusionee_send_message (FusionDev *dev, int id, int recipient,
      fusion_fifo_put (&fusionee->messages, &message->link);
 
      fusionee->rcv_total++;
-     sender->snd_total++;
+     if (sender)
+          sender->snd_total++;
 
      wake_up_interruptible_all (&fusionee->wait);
 
-     unlock_fusionee (sender);
+     if (sender)
+          unlock_fusionee (sender);
      unlock_fusionee (fusionee);
 
      return 0;

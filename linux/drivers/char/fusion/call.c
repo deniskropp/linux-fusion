@@ -52,7 +52,7 @@ typedef struct {
      void              *ctx;
 
      FusionLink          *executions;      /* prepending! */
-     FusionCallExecution *next;            /* points to the last item of executions */
+     FusionLink          *last;            /* points to the last item of executions */
 
      int                count;    /* number of calls ever made */
 } FusionCall;
@@ -84,12 +84,16 @@ fusion_call_read_proc (char *buf, char **start, off_t offset,
      spin_lock (&dev->call.lock);
 
      fusion_list_foreach (l, dev->call.list) {
+          bool        idle = true;
           FusionCall *call = (FusionCall*) l;
+
+          if (call->executions)
+               idle = ((FusionCallExecution*) call->executions)->executed;
 
           written += sprintf(buf+written,
                              "(%5d) 0x%08x (%d calls) %s\n",
                              call->pid, call->id, call->count,
-                             call->next ? "executing" : "idle");
+                             idle ? "idle" : "executing");
 
           if (written < offset) {
                offset -= written;
@@ -202,7 +206,7 @@ fusion_call_execute (FusionDev *dev, int fusion_id, FusionCallExecute *execute)
      message.handler  = call->handler;
      message.ctx      = call->ctx;
 
-     message.caller   = execution->caller;
+     message.caller   = fusion_id;
 
      message.call_arg = execute->call_arg;
      message.call_ptr = execute->call_ptr;
@@ -211,27 +215,33 @@ fusion_call_execute (FusionDev *dev, int fusion_id, FusionCallExecute *execute)
                                   call->id, sizeof(message), &message);
      if (ret) {
           remove_execution (call, execution);
+          kfree (execution);
           unlock_call (call);
           return ret;
      }
 
      call->count++;
 
-     /* TODO: implement timeout */
-     fusion_sleep_on (&execution->wait, &call->lock, 0);
+     if (fusion_id) {
+          /* TODO: implement timeout */
+          fusion_sleep_on (&execution->wait, &call->lock, 0);
 
-     call = lock_call (dev, execute->call_id);
-     if (!call)
-          return -EIDRM;
+          call = lock_call (dev, execute->call_id);
+          if (!call)
+               return -EIDRM;
 
-     execute->ret_val = execution->ret_val;
+          if (signal_pending(current)) {
+               execution->caller = 0;
+               unlock_call (call);
+               return -ERESTARTSYS;
+          }
 
-     remove_execution (call, execution);
+          execute->ret_val = execution->ret_val;
+          
+          remove_execution (call, execution);
 
-     kfree (execution);
-
-     if (signal_pending(current))
-          ret = -ERESTARTSYS;
+          kfree (execution);
+     }
 
      unlock_call (call);
 
@@ -247,16 +257,26 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
      if (!call)
           return -EINVAL;
 
-     fusion_list_foreach (l, call->executions) {
+     l = call->last;
+     while (l) {
           FusionCallExecution *execution = (FusionCallExecution*) l;
 
-          if (execution->executed)
+          if (execution->executed) {
+               l = l->prev;
                continue;
+          }
 
-          execution->ret_val  = call_ret->val;
-          execution->executed = true;
+          if (execution->caller) {
+               execution->ret_val  = call_ret->val;
+               execution->executed = true;
 
-          wake_up_interruptible_all (&execution->wait);
+               wake_up_interruptible_all (&execution->wait);
+          }
+          else {
+               remove_execution (call, execution);
+
+               kfree (execution);
+          }
 
           unlock_call (call);
 
@@ -393,8 +413,8 @@ add_execution (FusionCall        *call,
      /* Add execution. */
      fusion_list_prepend (&call->executions, &execution->link);
 
-     if (!call->next)
-          call->next = execution;
+     if (!call->last)
+          call->last = &execution->link;
 
      return execution;
 }
@@ -403,8 +423,8 @@ static void
 remove_execution (FusionCall          *call,
                   FusionCallExecution *execution)
 {
-     if (call->next == execution)
-          call->next = (FusionCallExecution*) execution->link.prev;
+     if (call->last == &execution->link)
+          call->last = execution->link.prev;
 
      fusion_list_remove (&call->executions, &execution->link);
 }
@@ -412,8 +432,8 @@ remove_execution (FusionCall          *call,
 static void
 free_all_executions (FusionCall *call)
 {
-     while (call->next) {
-          FusionCallExecution *execution = call->next;
+     while (call->last) {
+          FusionCallExecution *execution = (FusionCallExecution *) call->last;
 
           remove_execution (call, execution);
 
