@@ -59,6 +59,19 @@ fusion_sleep_on(wait_queue_head_t *q, spinlock_t *lock)
 
   current->state = TASK_INTERRUPTIBLE;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 5, 0)
+  write_lock_irqsave (&q->lock,flags);
+  __add_wait_queue (q, &wait);
+  write_unlock (&q->lock);
+
+  spin_unlock (lock);
+
+  schedule();
+
+  write_lock_irq (&q->lock);
+  __remove_wait_queue (q, &wait);
+  write_unlock_irqrestore (&q->lock,flags);
+#else
   wq_write_lock_irqsave (&q->lock,flags);
   __add_wait_queue (q, &wait);
   wq_write_unlock (&q->lock);
@@ -70,6 +83,7 @@ fusion_sleep_on(wait_queue_head_t *q, spinlock_t *lock)
   wq_write_lock_irq (&q->lock);
   __remove_wait_queue (q, &wait);
   wq_write_unlock_irqrestore (&q->lock,flags);
+#endif
 }
 
 /******************************************************************************/
