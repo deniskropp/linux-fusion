@@ -1662,7 +1662,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drive
 +          if (timeout_ms) {
 +               switch (timeout) {
 +                    case 0:  /* timed out */
-+                         spin_unlock (&fusionees_lock);
++                         spin_unlock (&dev->fusionee.lock);
 +                         return -ETIMEDOUT;
 +
 +                    case -1: /* setup timeout */
@@ -1685,7 +1685,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drive
 +               return -ERESTARTSYS;
 +     }
 +
-+     spin_unlock (&fusionees_lock);
++     spin_unlock (&dev->fusionee.lock);
 +
 +     return 0;
 +}
@@ -1704,7 +1704,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drive
 +
 +     wake_up_interruptible_all (&dev->fusionee.wait);
 +
-+     spin_unlock (&fusionees_lock);
++     spin_unlock (&dev->fusionee.lock);
 +
 +
 +     fusion_call_destroy_all (dev, id);
