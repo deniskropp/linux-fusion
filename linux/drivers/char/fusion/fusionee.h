@@ -1,7 +1,7 @@
 /*
  *	Fusion Kernel Module
  *
- *	(c) Copyright 2002  convergence integrated media GmbH
+ *	(c) Copyright 2002  Convergence GmbH
  *
  *      Written by Denis Oliver Kropp <dok@directfb.org>
  *

@@ -37,12 +37,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/Makefile linux-2.4.20-rc1-fusion
 +include $(TOPDIR)/Rules.make
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fifo.c linux-2.4.20-rc1-fusion/drivers/char/fusion/fifo.c
 --- linux-2.4.20-rc1/drivers/char/fusion/fifo.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fifo.c	2002-11-11 05:04:15.000000000 +0100
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fifo.c	2002-11-12 22:22:01.000000000 +0100
 @@ -0,0 +1,53 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -94,12 +94,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fifo.c linux-2.4.20-rc1-fusion/d
 +}
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fifo.h linux-2.4.20-rc1-fusion/drivers/char/fusion/fifo.h
 --- linux-2.4.20-rc1/drivers/char/fusion/fifo.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fifo.h	2002-11-11 05:04:15.000000000 +0100
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fifo.h	2002-11-12 22:22:01.000000000 +0100
 @@ -0,0 +1,38 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -136,12 +136,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fifo.h linux-2.4.20-rc1-fusion/d
 +
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusiondev.c linux-2.4.20-rc1-fusion/drivers/char/fusion/fusiondev.c
 --- linux-2.4.20-rc1/drivers/char/fusion/fusiondev.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fusiondev.c	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,392 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fusiondev.c	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,425 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -178,6 +178,21 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusiondev.c linux-2.4.20-rc1-fus
 +
 +struct proc_dir_entry *proc_fusion_dir;
 +
++static int        refs      = 0;
++static spinlock_t refs_lock = SPIN_LOCK_UNLOCKED;
++
++/******************************************************************************/
++
++static void
++fusion_reset (void)
++{
++  fusion_reactor_reset();
++  fusion_property_reset();
++  fusion_skirmish_reset();
++  fusion_ref_reset();
++  fusionee_reset();
++}
++
 +/******************************************************************************/
 +
 +static int
@@ -186,9 +201,20 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusiondev.c linux-2.4.20-rc1-fus
 +  int ret;
 +  int fusion_id;
 +
++  spin_lock (&refs_lock);
++
 +  ret = fusionee_new (&fusion_id);
 +  if (ret)
-+    return ret;
++    {
++      spin_unlock (&refs_lock);
++
++      return ret;
++    }
++
++  refs++;
++
++  spin_unlock (&refs_lock);
++
 +
 +  file->private_data = (void*) fusion_id;
 +
@@ -201,6 +227,13 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusiondev.c linux-2.4.20-rc1-fus
 +  int fusion_id = (int) file->private_data;
 +
 +  fusionee_destroy (fusion_id);
++
++  spin_lock (&refs_lock);
++
++  if (! --refs)
++    fusion_reset();
++
++  spin_unlock (&refs_lock);
 +
 +  return 0;
 +}
@@ -532,12 +565,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusiondev.c linux-2.4.20-rc1-fus
 +module_exit(fusion_exit);
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusiondev.h linux-2.4.20-rc1-fusion/drivers/char/fusion/fusiondev.h
 --- linux-2.4.20-rc1/drivers/char/fusion/fusiondev.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fusiondev.h	2002-11-11 05:04:15.000000000 +0100
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fusiondev.h	2002-11-12 22:22:01.000000000 +0100
 @@ -0,0 +1,22 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -558,12 +591,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusiondev.h linux-2.4.20-rc1-fus
 +#endif
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusionee.c linux-2.4.20-rc1-fusion/drivers/char/fusion/fusionee.c
 --- linux-2.4.20-rc1/drivers/char/fusion/fusionee.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fusionee.c	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,367 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fusionee.c	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,378 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -679,10 +712,13 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusionee.c linux-2.4.20-rc1-fusi
 +}
 +
 +void
-+fusionee_cleanup()
++fusionee_reset()
 +{
-+  FusionLink *l = fusionees;
++  FusionLink *l;
 +
++  spin_lock (&fusionees_lock);
++
++  l = fusionees;
 +  while (l)
 +    {
 +      FusionLink *next     = l->next;
@@ -702,6 +738,14 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusionee.c linux-2.4.20-rc1-fusi
 +    }
 +
 +  fusionees = NULL;
++
++  spin_unlock (&fusionees_lock);
++}
++
++void
++fusionee_cleanup()
++{
++  fusionee_reset();
 +
 +  remove_proc_entry ("fusionees", proc_fusion_dir);
 +}
@@ -929,12 +973,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusionee.c linux-2.4.20-rc1-fusi
 +}
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusionee.h linux-2.4.20-rc1-fusion/drivers/char/fusion/fusionee.h
 --- linux-2.4.20-rc1/drivers/char/fusion/fusionee.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fusionee.h	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,40 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/fusionee.h	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,41 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -956,6 +1000,7 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusionee.h linux-2.4.20-rc1-fusi
 +/* module init/cleanup */
 +
 +int  fusionee_init (void);
++void fusionee_reset (void);
 +void fusionee_cleanup (void);
 +
 +
@@ -973,12 +1018,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/fusionee.h linux-2.4.20-rc1-fusi
 +#endif
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/list.c linux-2.4.20-rc1-fusion/drivers/char/fusion/list.c
 --- linux-2.4.20-rc1/drivers/char/fusion/list.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/list.c	2002-11-11 05:04:15.000000000 +0100
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/list.c	2002-11-12 22:22:01.000000000 +0100
 @@ -0,0 +1,43 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -1020,12 +1065,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/list.c linux-2.4.20-rc1-fusion/d
 +}
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/list.h linux-2.4.20-rc1-fusion/drivers/char/fusion/list.h
 --- linux-2.4.20-rc1/drivers/char/fusion/list.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/list.h	2002-11-11 05:04:15.000000000 +0100
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/list.h	2002-11-12 22:22:01.000000000 +0100
 @@ -0,0 +1,32 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -1056,12 +1101,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/list.h linux-2.4.20-rc1-fusion/d
 +
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/property.c linux-2.4.20-rc1-fusion/drivers/char/fusion/property.c
 --- linux-2.4.20-rc1/drivers/char/fusion/property.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/property.c	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,360 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/property.c	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,371 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -1174,10 +1219,13 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/property.c linux-2.4.20-rc1-fusi
 +}
 +
 +void
-+fusion_property_cleanup()
++fusion_property_reset()
 +{
-+  FusionLink *l = properties;
++  FusionLink *l;
 +
++  spin_lock (&properties_lock);
++
++  l = properties;
 +  while (l)
 +    {
 +      FusionLink     *next     = l->next;
@@ -1189,6 +1237,14 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/property.c linux-2.4.20-rc1-fusi
 +    }
 +
 +  properties = NULL;
++
++  spin_unlock (&properties_lock);
++}
++
++void
++fusion_property_cleanup()
++{
++  fusion_property_reset();
 +
 +  remove_proc_entry ("properties", proc_fusion_dir);
 +}
@@ -1420,12 +1476,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/property.c linux-2.4.20-rc1-fusi
 +}
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/property.h linux-2.4.20-rc1-fusion/drivers/char/fusion/property.h
 --- linux-2.4.20-rc1/drivers/char/fusion/property.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/property.h	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,40 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/property.h	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,41 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -1445,6 +1501,7 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/property.h linux-2.4.20-rc1-fusi
 +/* module init/cleanup */
 +
 +int  fusion_property_init (void);
++void fusion_property_reset (void);
 +void fusion_property_cleanup (void);
 +
 +
@@ -1464,12 +1521,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/property.h linux-2.4.20-rc1-fusi
 +#endif
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/reactor.c linux-2.4.20-rc1-fusion/drivers/char/fusion/reactor.c
 --- linux-2.4.20-rc1/drivers/char/fusion/reactor.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/reactor.c	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,383 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/reactor.c	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,394 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -1583,10 +1640,13 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/reactor.c linux-2.4.20-rc1-fusio
 +}
 +
 +void
-+fusion_reactor_cleanup()
++fusion_reactor_reset()
 +{
-+  FusionLink *l = reactors;
++  FusionLink *l;
 +
++  spin_lock (&reactors_lock);
++
++  l = reactors;
 +  while (l)
 +    {
 +      FusionLink    *next    = l->next;
@@ -1600,6 +1660,14 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/reactor.c linux-2.4.20-rc1-fusio
 +    }
 +
 +  reactors = NULL;
++
++  spin_unlock (&reactors_lock);
++}
++
++void
++fusion_reactor_cleanup()
++{
++  fusion_reactor_reset();
 +
 +  remove_proc_entry ("reactors", proc_fusion_dir);
 +}
@@ -1851,12 +1919,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/reactor.c linux-2.4.20-rc1-fusio
 +}
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/reactor.h linux-2.4.20-rc1-fusion/drivers/char/fusion/reactor.h
 --- linux-2.4.20-rc1/drivers/char/fusion/reactor.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/reactor.h	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,41 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/reactor.h	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,42 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -1876,6 +1944,7 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/reactor.h linux-2.4.20-rc1-fusio
 +/* module init/cleanup */
 +
 +int  fusion_reactor_init (void);
++void fusion_reactor_reset (void);
 +void fusion_reactor_cleanup (void);
 +
 +
@@ -1896,12 +1965,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/reactor.h linux-2.4.20-rc1-fusio
 +#endif
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/ref.c linux-2.4.20-rc1-fusion/drivers/char/fusion/ref.c
 --- linux-2.4.20-rc1/drivers/char/fusion/ref.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/ref.c	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,501 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/ref.c	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,512 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -2018,10 +2087,13 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/ref.c linux-2.4.20-rc1-fusion/dr
 +}
 +
 +void
-+fusion_ref_cleanup()
++fusion_ref_reset()
 +{
-+  FusionLink *l = refs;
++  FusionLink *l;
 +
++  spin_lock (&refs_lock);
++
++  l = refs;
 +  while (l)
 +    {
 +      FusionLink *next = l->next;
@@ -2035,6 +2107,14 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/ref.c linux-2.4.20-rc1-fusion/dr
 +    }
 +
 +  refs = NULL;
++
++  spin_unlock (&refs_lock);
++}
++
++void
++fusion_ref_cleanup()
++{
++  fusion_ref_reset();
 +
 +  remove_proc_entry ("refs", proc_fusion_dir);
 +}
@@ -2401,12 +2481,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/ref.c linux-2.4.20-rc1-fusion/dr
 +}
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/ref.h linux-2.4.20-rc1-fusion/drivers/char/fusion/ref.h
 --- linux-2.4.20-rc1/drivers/char/fusion/ref.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/ref.h	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,43 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/ref.h	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,44 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -2426,6 +2506,7 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/ref.h linux-2.4.20-rc1-fusion/dr
 +/* module init/cleanup */
 +
 +int  fusion_ref_init (void);
++void fusion_ref_reset (void);
 +void fusion_ref_cleanup (void);
 +
 +
@@ -2448,12 +2529,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/ref.h linux-2.4.20-rc1-fusion/dr
 +#endif
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/skirmish.c linux-2.4.20-rc1-fusion/drivers/char/fusion/skirmish.c
 --- linux-2.4.20-rc1/drivers/char/fusion/skirmish.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/skirmish.c	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,345 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/skirmish.c	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,356 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -2558,10 +2639,13 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/skirmish.c linux-2.4.20-rc1-fusi
 +}
 +
 +void
-+fusion_skirmish_cleanup()
++fusion_skirmish_reset()
 +{
-+  FusionLink *l = skirmishs;
++  FusionLink *l;
 +
++  spin_lock (&skirmishs_lock);
++
++  l = skirmishs;
 +  while (l)
 +    {
 +      FusionLink     *next     = l->next;
@@ -2573,6 +2657,14 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/skirmish.c linux-2.4.20-rc1-fusi
 +    }
 +
 +  skirmishs = NULL;
++
++  spin_unlock (&skirmishs_lock);
++}
++
++void
++fusion_skirmish_cleanup()
++{
++  fusion_skirmish_reset();
 +
 +  remove_proc_entry ("skirmishs", proc_fusion_dir);
 +}
@@ -2797,12 +2889,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/skirmish.c linux-2.4.20-rc1-fusi
 +}
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/skirmish.h linux-2.4.20-rc1-fusion/drivers/char/fusion/skirmish.h
 --- linux-2.4.20-rc1/drivers/char/fusion/skirmish.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/skirmish.h	2002-11-11 05:04:15.000000000 +0100
-@@ -0,0 +1,40 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/skirmish.h	2002-11-12 22:22:01.000000000 +0100
+@@ -0,0 +1,41 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
@@ -2822,6 +2914,7 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/skirmish.h linux-2.4.20-rc1-fusi
 +/* module init/cleanup */
 +
 +int  fusion_skirmish_init (void);
++void fusion_skirmish_reset (void);
 +void fusion_skirmish_cleanup (void);
 +
 +
@@ -2841,12 +2934,12 @@ diff -uraN linux-2.4.20-rc1/drivers/char/fusion/skirmish.h linux-2.4.20-rc1-fusi
 +#endif
 diff -uraN linux-2.4.20-rc1/drivers/char/fusion/types.h linux-2.4.20-rc1-fusion/drivers/char/fusion/types.h
 --- linux-2.4.20-rc1/drivers/char/fusion/types.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/fusion/types.h	2002-11-11 05:04:15.000000000 +0100
++++ linux-2.4.20-rc1-fusion/drivers/char/fusion/types.h	2002-11-12 22:22:01.000000000 +0100
 @@ -0,0 +1,23 @@
 +/*
 + *	Fusion Kernel Module
 + *
-+ *	(c) Copyright 2002  convergence integrated media GmbH
++ *	(c) Copyright 2002  Convergence GmbH
 + *
 + *      Written by Denis Oliver Kropp <dok@directfb.org>
 + *
