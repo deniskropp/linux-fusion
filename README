@@ -1,14 +1,15 @@
-Quick installation
--------------------
+Easy installation without kernel patch (recommended)
+-----------------------------------------------------
 
 1) Copy linux/include/linux/fusion.h to the location where DirectFB
-   can find it, e.g. /usr/include/linux/.
+   can find it, e.g. "/usr/include/linux/".
 
 2) Check the KERNEL_SOURCE variable pointing to the kernel source tree,
-   default path is /usr/src/linux.
+   default path is "/usr/src/linux".
 
-3) Do 'make' and copy fusion.o to your module directory,
-   e.g. /lib/modules/2.4.21/. You may also insmod the file directly.
+3) Run 'make' and copy "fusion.o" to your module directory,
+   e.g. "/lib/modules/2.4.22/". Either run 'insmod fusion' manually
+   or add "fusion" to "/etc/modules".
 
 4) Create the fusion device(s) if not using devfs:
 
@@ -23,12 +24,12 @@ Quick installation
 	...and so on (currently limited to eight sessions)
 
 
-Permanent installation
------------------------
+Alternative installation using a kernel patch
+----------------------------------------------
 
 1) Patch your kernel
 
-	patch -p1 < fusion-full-linux-2.4.21.patch
+	patch -p1 < fusion-full-linux-2.4.22.patch
 
 2) Enable the character device driver module "Fusion Kernel Device",
    build and install modules, insmod fusion.
@@ -45,6 +46,6 @@ Development installation
 Instead of using the full patch you can use the partial patch
 and add the new files afterwards (possibly with CVS sub directory).
 
-	patch -p1 < fusion-part-linux-2.4.21.patch
+	patch -p1 < fusion-part-linux-2.4.22.patch
 
 Copy everything in the "linux" sub directory into the kernel tree.

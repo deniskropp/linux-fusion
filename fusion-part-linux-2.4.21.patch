@@ -1,6 +1,6 @@
 diff -uraN linux-2.4.21/drivers/char/Config.in linux-2.4.21-fusion/drivers/char/Config.in
 --- linux-2.4.21/drivers/char/Config.in	2003-06-13 16:51:32.000000000 +0200
-+++ linux-2.4.21-fusion/drivers/char/Config.in	2003-06-16 19:15:00.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/Config.in	2003-10-14 09:20:48.000000000 +0200
 @@ -266,6 +266,7 @@
  fi
  dep_tristate 'AMD 76x native power management (Experimental)' CONFIG_AMD_PM768 $CONFIG_PCI
@@ -11,7 +11,7 @@ diff -uraN linux-2.4.21/drivers/char/Config.in linux-2.4.21-fusion/drivers/char/
     bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
 diff -uraN linux-2.4.21/drivers/char/Makefile linux-2.4.21-fusion/drivers/char/Makefile
 --- linux-2.4.21/drivers/char/Makefile	2003-06-13 16:51:32.000000000 +0200
-+++ linux-2.4.21-fusion/drivers/char/Makefile	2003-06-16 19:15:00.000000000 +0200
++++ linux-2.4.21-fusion/drivers/char/Makefile	2003-10-14 09:20:48.000000000 +0200
 @@ -312,6 +312,12 @@
    obj-y += ipmi/ipmi.o
  endif
