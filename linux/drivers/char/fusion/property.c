@@ -179,6 +179,7 @@ int
 fusion_property_lease (int id, int fusion_id)
 {
   FusionProperty *property;
+  signed long     timeout = 20;
 
   while (true)
     {
@@ -196,7 +197,7 @@ fusion_property_lease (int id, int fusion_id)
           return 0;
 
         case FUSION_PROPERTY_LEASED:
-          fusion_sleep_on (&property->wait, &property->lock);
+          fusion_sleep_on (&property->wait, &property->lock, NULL);
 
           if (signal_pending(current))
             return -ERESTARTSYS;
@@ -204,8 +205,19 @@ fusion_property_lease (int id, int fusion_id)
           break;
 
         case FUSION_PROPERTY_PURCHASED:
-          unlock_property (property);
-          return -EAGAIN;
+          if (!timeout)
+            {
+              printk(KERN_DEBUG "timeout\n");
+              unlock_property (property);
+              return -EAGAIN;
+            }
+     
+          fusion_sleep_on (&property->wait, &property->lock, &timeout);
+     
+          if (signal_pending(current))
+            return -ERESTARTSYS;
+     
+          break;
         }
     }
 
@@ -217,6 +229,7 @@ int
 fusion_property_purchase (int id, int fusion_id)
 {
   FusionProperty *property;
+  signed long     timeout = 20;
 
   while (true)
     {
@@ -236,7 +249,7 @@ fusion_property_purchase (int id, int fusion_id)
           return 0;
 
         case FUSION_PROPERTY_LEASED:
-          fusion_sleep_on (&property->wait, &property->lock);
+          fusion_sleep_on (&property->wait, &property->lock, NULL);
 
           if (signal_pending(current))
             return -ERESTARTSYS;
@@ -244,8 +257,19 @@ fusion_property_purchase (int id, int fusion_id)
           break;
 
         case FUSION_PROPERTY_PURCHASED:
-          unlock_property (property);
-          return -EAGAIN;
+          if (!timeout)
+            {
+              printk(KERN_DEBUG "timeout\n");
+              unlock_property (property);
+              return -EAGAIN;
+            }
+
+          fusion_sleep_on (&property->wait, &property->lock, &timeout);
+
+          if (signal_pending(current))
+            return -ERESTARTSYS;
+
+          break;
         }
     }
 

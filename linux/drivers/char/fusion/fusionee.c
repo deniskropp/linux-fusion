@@ -268,7 +268,7 @@ fusionee_get_messages (int id, void *buf, int buf_size, int block)
           return -EAGAIN;
         }
 
-      fusion_sleep_on (&fusionee->wait, &fusionee->lock);
+      fusion_sleep_on (&fusionee->wait, &fusionee->lock, 0);
 
       if (signal_pending(current))
         return -ERESTARTSYS;

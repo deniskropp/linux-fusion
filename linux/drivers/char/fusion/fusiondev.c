@@ -51,7 +51,7 @@ static spinlock_t refs_lock = SPIN_LOCK_UNLOCKED;
 /******************************************************************************/
 
 void
-fusion_sleep_on(wait_queue_head_t *q, spinlock_t *lock)
+fusion_sleep_on(wait_queue_head_t *q, spinlock_t *lock, signed long *timeout_ms)
 {
   unsigned long flags;
   wait_queue_t  wait;
@@ -67,7 +67,10 @@ fusion_sleep_on(wait_queue_head_t *q, spinlock_t *lock)
 
   spin_unlock (lock);
 
-  schedule();
+  if (timeout_ms)
+       *timeout_ms = schedule_timeout(1 + *timeout_ms * HZ / 1000);
+  else
+       schedule();
 
   write_lock_irq (&q->lock);
   __remove_wait_queue (q, &wait);
@@ -79,7 +82,10 @@ fusion_sleep_on(wait_queue_head_t *q, spinlock_t *lock)
 
   spin_unlock (lock);
 
-  schedule();
+  if (timeout_ms)
+       *timeout_ms = schedule_timeout(1 + *timeout_ms * HZ / 1000);
+  else
+       schedule();
 
   wq_write_lock_irq (&q->lock);
   __remove_wait_queue (q, &wait);

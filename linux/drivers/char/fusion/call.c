@@ -235,7 +235,8 @@ fusion_call_execute (int fusion_id, FusionCallExecute *execute)
 
   call->count++;
 
-  fusion_sleep_on (&execution->wait, &call->lock);
+  /* TODO: implement timeout */
+  fusion_sleep_on (&execution->wait, &call->lock, 0);
       
   call = lock_call (execute->call_id);
   if (!call)
