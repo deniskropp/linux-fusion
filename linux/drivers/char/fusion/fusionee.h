@@ -32,7 +32,7 @@ void fusionee_cleanup (void);
 
 int fusionee_new (int *id);
 
-int fusionee_send_message (int id, FusionMessageType msg_type,
+int fusionee_send_message (int id, int recipient, FusionMessageType msg_type,
                            int msg_id, int msg_size, const void *msg_data);
 
 int fusionee_get_messages (int id, void *buf, int buf_size, int block);

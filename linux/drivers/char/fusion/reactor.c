@@ -252,7 +252,7 @@ fusion_reactor_dispatch (int id, int fusion_id,
       if (node->fusion_id == fusion_id)
         continue;
 
-      fusionee_send_message (node->fusion_id, FMT_REACTOR,
+      fusionee_send_message (fusion_id, node->fusion_id, FMT_REACTOR,
                              reactor->id, msg_size, msg_data);
     }
 

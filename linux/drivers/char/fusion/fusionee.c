@@ -41,7 +41,8 @@ typedef struct {
 
   FusionFifo        messages;
 
-  int               msg_total;  /* Total number of messages received. */
+  int               rcv_total;  /* Total number of messages received. */
+  int               snd_total;  /* Total number of messages sent. */
 
   wait_queue_head_t wait;
 } Fusionee;
@@ -84,8 +85,8 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
     {
       Fusionee *fusionee = (Fusionee*) l;
 
-      written += sprintf(buf+written, "(%5d) 0x%08x (%4d messages waiting, %4d messages total)\n",
-                         fusionee->pid, fusionee->id, fusionee->messages.count, fusionee->msg_total);
+      written += sprintf(buf+written, "(%5d) 0x%08x (%4d messages waiting, %5d received, %5d sent)\n",
+                         fusionee->pid, fusionee->id, fusionee->messages.count, fusionee->rcv_total, fusionee->snd_total);
       if (written < offset)
         {
           offset -= written;
@@ -194,18 +195,27 @@ fusionee_new (int *id)
 }
 
 int
-fusionee_send_message (int id, FusionMessageType msg_type,
+fusionee_send_message (int id, int recipient, FusionMessageType msg_type,
                        int msg_id, int msg_size, const void *msg_data)
 {
   Message  *message;
-  Fusionee *fusionee = lock_fusionee (id);
+  Fusionee *sender;
+  Fusionee *fusionee = lock_fusionee (recipient);
 
   if (!fusionee)
     return -EINVAL;
 
+  sender = lock_fusionee (id);
+  if (!sender)
+    {
+      unlock_fusionee (fusionee);
+      return -EIO;
+    }
+
   message = kmalloc (sizeof(Message), GFP_KERNEL);
   if (!message)
     {
+      unlock_fusionee (sender);
       unlock_fusionee (fusionee);
       return -ENOMEM;
     }
@@ -214,6 +224,7 @@ fusionee_send_message (int id, FusionMessageType msg_type,
   if (!message->data)
     {
       kfree (message);
+      unlock_fusionee (sender);
       unlock_fusionee (fusionee);
       return -ENOMEM;
     }
@@ -222,6 +233,7 @@ fusionee_send_message (int id, FusionMessageType msg_type,
     {
       kfree (message->data);
       kfree (message);
+      unlock_fusionee (sender);
       unlock_fusionee (fusionee);
       return -EFAULT;
     }
@@ -232,12 +244,14 @@ fusionee_send_message (int id, FusionMessageType msg_type,
 
   fusion_fifo_put (&fusionee->messages, &message->link);
 
-  fusionee->msg_total++;
+  fusionee->rcv_total++;
+  sender->snd_total++;
 
   atomic_inc (&msg_total);
 
   wake_up_interruptible_all (&fusionee->wait);
 
+  unlock_fusionee (sender);
   unlock_fusionee (fusionee);
 
   return 0;

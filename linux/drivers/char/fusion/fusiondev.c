@@ -146,7 +146,7 @@ fusion_ioctl (struct inode *inode, struct file *file,
       if (send.msg_size > 0x10000)
         return -EMSGSIZE;
 
-      return fusionee_send_message (send.fusion_id, FMT_SEND, send.msg_id,
+      return fusionee_send_message (fusion_id, send.fusion_id, FMT_SEND, send.msg_id,
                                     send.msg_size, send.msg_data);
 
 
