@@ -35,6 +35,10 @@
 
 #define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
 
+#ifndef FUSION_MINOR
+#define FUSION_MINOR 23
+#endif
+
 MODULE_LICENSE("GPL");
 
 struct proc_dir_entry *proc_fusion_dir;
