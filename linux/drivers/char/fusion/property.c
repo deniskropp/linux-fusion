@@ -164,25 +164,23 @@ fusion_property_lease( FusionDev *dev, int id, int fusion_id )
                     break;
 
                case FUSION_PROPERTY_PURCHASED:
-                    switch (timeout) {
-                         case -1:
-                              if (jiffies - property->purchase_stamp > HZ / 10) {
-                         case 0:
-                                   fusion_property_unlock( property );
-                                   return -EAGAIN;
-                              }
-                              else
-                                   timeout = HZ / 10;
-
-                              /* fall through */
-
-                         default:
-                              ret = fusion_property_wait( property, &timeout );
-                              if (ret)
-                                   return ret;
-
-                              break;
+                    if (property->lock_pid == current->pid) {
+                         fusion_property_unlock( property );
+                         return -EIO;
                     }
+
+                    if (timeout == -1) {
+                         if (jiffies - property->purchase_stamp > HZ / 10) {
+                              fusion_property_unlock( property );
+                              return -EAGAIN;
+                         }
+
+                         timeout = HZ / 10;
+                    }
+
+                    ret = fusion_property_wait( property, &timeout );
+                    if (ret)
+                         return ret;
 
                     break;
 
@@ -225,6 +223,11 @@ fusion_property_purchase( FusionDev *dev, int id, int fusion_id )
                     return 0;
 
                case FUSION_PROPERTY_LEASED:
+                    if (property->lock_pid == current->pid) {
+                         fusion_property_unlock( property );
+                         return -EIO;
+                    }
+
                     ret = fusion_property_wait( property, NULL );
                     if (ret)
                          return ret;
@@ -232,25 +235,25 @@ fusion_property_purchase( FusionDev *dev, int id, int fusion_id )
                     break;
 
                case FUSION_PROPERTY_PURCHASED:
-                    switch (timeout) {
-                         case -1:
-                              if (jiffies - property->purchase_stamp > HZ) {
-                         case 0:
-                                   fusion_property_unlock( property );
-                                   return -EAGAIN;
-                              }
-                              else
-                                   timeout = HZ;
+                    if (property->lock_pid == current->pid) {
+                         property->count++;
 
-                              /* fall through */
-
-                         default:
-                              ret = fusion_property_wait( property, &timeout );
-                              if (ret)
-                                   return ret;
-
-                              break;
+                         fusion_property_unlock( property );
+                         return 0;
                     }
+
+                    if (timeout == -1) {
+                         if (jiffies - property->purchase_stamp > HZ) {
+                              fusion_property_unlock( property );
+                              return -EAGAIN;
+                         }
+
+                         timeout = HZ;
+                    }
+
+                    ret = fusion_property_wait( property, &timeout );
+                    if (ret)
+                         return ret;
 
                     break;
 
