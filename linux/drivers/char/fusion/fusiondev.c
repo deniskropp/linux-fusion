@@ -50,7 +50,9 @@ struct proc_dir_entry *proc_fusion_dir;
 static FusionDev  *fusion_devs[NUM_MINORS] = { 0 };
 static spinlock_t  devs_lock               = SPIN_LOCK_UNLOCKED;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0)
 static devfs_handle_t devfs_handles[NUM_MINORS];
+#endif
 
 /******************************************************************************/
 
@@ -581,6 +583,26 @@ static struct file_operations fusion_fops = {
 
 /******************************************************************************/
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+static int __init
+register_devices(void)
+{
+     int  i;
+
+     if (register_chrdev (FUSION_MAJOR, "fusion", &fusion_fops)) {
+          printk (KERN_ERR "fusion: unable to get major %d\n", FUSION_MAJOR);
+          return -EIO;
+     }
+
+     for (i=0; i<NUM_MINORS; i++) {
+          devfs_mk_cdev (MKDEV(FUSION_MAJOR, i),
+                         S_IFCHR | S_IRUSR | S_IWUSR,
+                         "fusion/%d", i);
+     }
+
+     return 0;
+}
+#else
 static int __init
 register_devices(void)
 {
@@ -603,6 +625,7 @@ register_devices(void)
 
      return 0;
 }
+#endif
 
 int __init
 fusion_init(void)
@@ -614,12 +637,28 @@ fusion_init(void)
           return ret;
 
      proc_fusion_dir = proc_mkdir ("fusion", NULL);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+     devfs_mk_dir("fusion");
+#endif
      
      return 0;
 }
 
 /******************************************************************************/
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+static void __exit
+deregister_devices(void)
+{
+     int i;
+
+     unregister_chrdev (FUSION_MAJOR, "fusion");
+
+     for (i=0; i<NUM_MINORS; i++)
+          devfs_remove ("fusion/%d", i);
+}
+#else
 static void __exit
 deregister_devices(void)
 {
@@ -630,6 +669,7 @@ deregister_devices(void)
      for (i=0; i<NUM_MINORS; i++)
           devfs_unregister (devfs_handles[i]);
 }
+#endif
 
 void __exit
 fusion_exit(void)
@@ -637,6 +677,10 @@ fusion_exit(void)
      deregister_devices();
 
      remove_proc_entry ("fusion", NULL);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+     devfs_remove ("sound");
+#endif
 }
 
 module_init(fusion_init);
