@@ -42,6 +42,7 @@ typedef struct {
 
   FusionPropertyState state;
   int                 fusion_id; /* non-zero if leased/purchased */
+  unsigned long       purchase_stamp;
 
   wait_queue_head_t   wait;
 } FusionProperty;
@@ -179,7 +180,7 @@ int
 fusion_property_lease (int id, int fusion_id)
 {
   FusionProperty *property;
-  signed long     timeout = 20;
+  signed long     timeout = -1;
 
   while (true)
     {
@@ -205,17 +206,28 @@ fusion_property_lease (int id, int fusion_id)
           break;
 
         case FUSION_PROPERTY_PURCHASED:
-          if (!timeout)
+          switch (timeout)
             {
-              printk(KERN_DEBUG "timeout\n");
-              unlock_property (property);
-              return -EAGAIN;
+            case -1:
+              if (jiffies - property->purchase_stamp > HZ / 10)
+                {
+                case 0:
+                  unlock_property (property);
+                  return -EAGAIN;
+                }
+              else
+                timeout = HZ / 10;
+
+              /* fall through */
+
+            default:
+              fusion_sleep_on (&property->wait, &property->lock, &timeout);
+     
+              if (signal_pending(current))
+                return -ERESTARTSYS;
+
+              break;
             }
-     
-          fusion_sleep_on (&property->wait, &property->lock, &timeout);
-     
-          if (signal_pending(current))
-            return -ERESTARTSYS;
      
           break;
         }
@@ -229,7 +241,7 @@ int
 fusion_property_purchase (int id, int fusion_id)
 {
   FusionProperty *property;
-  signed long     timeout = 20;
+  signed long     timeout = -1;
 
   while (true)
     {
@@ -240,8 +252,9 @@ fusion_property_purchase (int id, int fusion_id)
       switch (property->state)
         {
         case FUSION_PROPERTY_AVAILABLE:
-          property->state     = FUSION_PROPERTY_PURCHASED;
-          property->fusion_id = fusion_id;
+          property->state          = FUSION_PROPERTY_PURCHASED;
+          property->fusion_id      = fusion_id;
+          property->purchase_stamp = jiffies;
 
           wake_up_interruptible_all (&property->wait);
 
@@ -257,17 +270,28 @@ fusion_property_purchase (int id, int fusion_id)
           break;
 
         case FUSION_PROPERTY_PURCHASED:
-          if (!timeout)
+          switch (timeout)
             {
-              printk(KERN_DEBUG "timeout\n");
-              unlock_property (property);
-              return -EAGAIN;
+            case -1:
+              if (jiffies - property->purchase_stamp > HZ / 10)
+                {
+                case 0:
+                  unlock_property (property);
+                  return -EAGAIN;
+                }
+              else
+                timeout = HZ / 10;
+
+              /* fall through */
+
+            default:
+              fusion_sleep_on (&property->wait, &property->lock, &timeout);
+     
+              if (signal_pending(current))
+                return -ERESTARTSYS;
+
+              break;
             }
-
-          fusion_sleep_on (&property->wait, &property->lock, &timeout);
-
-          if (signal_pending(current))
-            return -ERESTARTSYS;
 
           break;
         }
