@@ -51,6 +51,7 @@ gave Fusion its name and includes
 @end itemize
 
 
+
 @chapter Design
 
 This chapter will explain some fundamental concepts of Fusion.
@@ -58,12 +59,36 @@ This chapter will explain some fundamental concepts of Fusion.
 @section Shared memory
 @section Arena
 @section Skirmish
-@section Reference Counter
+@section Reference counter
 @section Reactor
 @section Object
 @section Property
+@section Messages
 @section Call
 
+
+
+@chapter Implementation
+
+@section Kernel space
+
+@subsection Skirmish
+@subsection Reference counter
+@subsection Property
+
+
+@section Kernel/user space
+
+@subsection Messages
+@subsection Call
+@subsection Reactor
+
+
+@section User space
+
+@subsection POSIX shared memory
+@subsection Arena
+@subsection Object
 
 
 @bye
