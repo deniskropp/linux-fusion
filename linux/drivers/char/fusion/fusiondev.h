@@ -68,11 +68,7 @@ typedef struct {
           struct semaphore   lock;
      } ref;
 
-     struct {
-          int                ids;
-          FusionLink        *list;
-          struct semaphore   lock;
-     } skirmish;
+     FusionEntries  skirmish;
 } FusionDev;
 
 /*
