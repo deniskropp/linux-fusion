@@ -12,12 +12,12 @@ Easy installation without kernel patch (recommended)
 4) Create the fusion device(s) if not using devfs:
 
 	mkdir /dev/fusion
-	mknod /dev/fusion/0 c 253 0
+	mknod /dev/fusion/0 c 252 0
 
 	...if you need more than one session
 
-	mknod /dev/fusion/1 c 253 1
-	mknod /dev/fusion/2 c 253 2
+	mknod /dev/fusion/1 c 252 1
+	mknod /dev/fusion/2 c 252 2
 
 	...and so on (currently limited to eight sessions)
 
