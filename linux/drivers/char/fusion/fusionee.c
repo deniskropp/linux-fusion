@@ -221,7 +221,9 @@ fusionee_send_message (int id, int recipient, FusionMessageType msg_type,
 
   message->data = message + 1;
 
-  if (copy_from_user (message->data, msg_data, msg_size))
+  if (msg_type == FMT_CALL)
+    memcpy (message->data, msg_data, msg_size);
+  else if (copy_from_user (message->data, msg_data, msg_size))
     {
       kfree (message);
       unlock_fusionee (sender);

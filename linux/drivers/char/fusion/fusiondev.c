@@ -26,6 +26,7 @@
 
 #include <linux/fusion.h>
 
+#include "call.h"
 #include "fusiondev.h"
 #include "fusionee.h"
 #include "property.h"
@@ -51,6 +52,7 @@ static spinlock_t refs_lock = SPIN_LOCK_UNLOCKED;
 static void
 fusion_reset (void)
 {
+  fusion_call_reset();
   fusion_reactor_reset();
   fusion_property_reset();
   fusion_skirmish_reset();
@@ -128,8 +130,11 @@ fusion_ioctl (struct inode *inode, struct file *file,
   int ret;
   int refs;
   int fusion_id = (int) file->private_data;
-  FusionSendMessage send;
+  FusionSendMessage     send;
   FusionReactorDispatch dispatch;
+  FusionCallNew         call;
+  FusionCallExecute     execute;
+  FusionCallReturn      call_ret;
 
   switch (cmd)
     {
@@ -152,6 +157,46 @@ fusion_ioctl (struct inode *inode, struct file *file,
 
       return fusionee_send_message (fusion_id, send.fusion_id, FMT_SEND, send.msg_id,
                                     send.msg_size, send.msg_data);
+
+
+    case FUSION_CALL_NEW:
+      if (copy_from_user (&call, (FusionCallNew*) arg, sizeof(call)))
+        return -EFAULT;
+
+      ret = fusion_call_new (fusion_id, &call);
+      if (ret)
+        return ret;
+
+      if (put_user (call.call_id, (int*) arg))
+        {
+          fusion_call_destroy (fusion_id, call.call_id);
+          return -EFAULT;
+        }
+      break;
+
+    case FUSION_CALL_EXECUTE:
+      if (copy_from_user (&execute, (FusionCallExecute*) arg, sizeof(execute)))
+        return -EFAULT;
+
+      ret = fusion_call_execute (fusion_id, &execute);
+      if (ret)
+        return ret;
+
+      if (put_user (execute.ret_val, (int*) arg))
+        return -EFAULT;
+      break;
+
+    case FUSION_CALL_RETURN:
+      if (copy_from_user (&call_ret, (FusionCallReturn*) arg, sizeof(call_ret)))
+        return -EFAULT;
+
+      return fusion_call_return (fusion_id, &call_ret);
+
+    case FUSION_CALL_DESTROY:
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
+
+      return fusion_call_destroy (fusion_id, id);
 
 
     case FUSION_REF_NEW:
@@ -403,6 +448,10 @@ fusion_init(void)
   if (ret)
     goto error_reactor;
 
+  ret = fusion_call_init();
+  if (ret)
+    goto error_call;
+
   ret = misc_register (&fusion_miscdev);
   if (ret)
     goto error_misc;
@@ -411,6 +460,9 @@ fusion_init(void)
 
 
  error_misc:
+  fusion_call_cleanup();
+
+ error_call:
   fusion_reactor_cleanup();
 
  error_reactor:
