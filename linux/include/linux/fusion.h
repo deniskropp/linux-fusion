@@ -116,17 +116,6 @@ typedef struct {
                           max. time to wait until the fusionee(s) terminated */
 } FusionKill;
 
-#define FUSION_API_MAJOR   1  /* Increased if backward compatibility is dropped. */
-#define FUSION_API_MINOR   0  /* Increased if new features are added. */
-
-typedef struct {
-     struct {
-          int major;
-          int minor;
-     } api;
-
-     int fusion_id;
-} FusionEnter;
 
 typedef enum {
      FT_LOUNGE,
@@ -139,8 +128,37 @@ typedef enum {
 } FusionType;
 
 
+/*
+ * Set attributes like 'name' for an entry of the specified type.
+ */
+#define FUSION_ENTRY_INFO_NAME_LENGTH   24
+
+typedef struct {
+     FusionType type;
+     int        id;
+
+     char       name[FUSION_ENTRY_INFO_NAME_LENGTH];
+} FusionEntryInfo;
+
+
+typedef struct {
+     struct {
+          int major;
+          int minor;
+     } api;
+
+     int fusion_id;
+} FusionEnter;
+
+#define FUSION_API_MAJOR   1  /* Increased if backward compatibility is dropped. */
+#define FUSION_API_MINOR   1  /* Increased if new features are added. */
+
+
 #define FUSION_ENTER               _IOR(FT_LOUNGE,    0x00, FusionEnter)
 #define FUSION_KILL                _IOW(FT_LOUNGE,    0x01, FusionKill)
+
+#define FUSION_ENTRY_SET_INFO      _IOW(FT_LOUNGE,    0x02, FusionEntryInfo)
+#define FUSION_ENTRY_GET_INFO      _IOW(FT_LOUNGE,    0x03, FusionEntryInfo)
 
 #define FUSION_SEND_MESSAGE        _IOW(FT_MESSAGING, 0x00, FusionSendMessage)
 

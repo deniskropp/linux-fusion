@@ -53,6 +53,10 @@ struct __FD_FusionEntry {
 
      struct semaphore   lock;
      wait_queue_head_t  wait;
+
+     struct timeval     last_lock;
+
+     char               name[FUSION_ENTRY_INFO_NAME_LENGTH];
 };
 
 
@@ -78,6 +82,15 @@ int  fusion_entry_create  ( FusionEntries    *entries,
 
 int  fusion_entry_destroy ( FusionEntries    *entries,
                             int               id );
+
+
+/* Information */
+
+int  fusion_entry_set_info( FusionEntries          *entries,
+                            const FusionEntryInfo  *info );
+
+int  fusion_entry_get_info( FusionEntries          *entries,
+                            FusionEntryInfo        *info );
 
 
 /* Lock & Unlock */

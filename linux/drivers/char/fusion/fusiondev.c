@@ -375,8 +375,10 @@ static int
 lounge_ioctl (FusionDev *dev, int fusion_id,
               unsigned int cmd, unsigned long arg)
 {
-     FusionEnter enter;
-     FusionKill  kill;
+     int             ret;
+     FusionEnter     enter;
+     FusionKill      kill;
+     FusionEntryInfo info;
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_ENTER):
@@ -399,6 +401,46 @@ lounge_ioctl (FusionDev *dev, int fusion_id,
 
                return fusionee_kill (dev, fusion_id,
                                      kill.fusion_id, kill.signal, kill.timeout_ms);
+
+          case _IOC_NR(FUSION_ENTRY_SET_INFO):
+               if (copy_from_user (&info, (FusionEntryInfo*) arg, sizeof(info)))
+                    return -EFAULT;
+
+               switch (info.type) {
+                    case FT_SKIRMISH:
+                         return fusion_entry_set_info (&dev->skirmish, &info);
+
+                    case FT_PROPERTY:
+                         return fusion_entry_set_info (&dev->properties, &info);
+
+                    default:
+                         return -ENOSYS;
+               }
+
+          case _IOC_NR(FUSION_ENTRY_GET_INFO):
+               if (copy_from_user (&info, (FusionEntryInfo*) arg, sizeof(info)))
+                    return -EFAULT;
+
+               switch (info.type) {
+                    case FT_SKIRMISH:
+                         ret = fusion_entry_get_info (&dev->skirmish, &info);
+                         break;
+
+                    case FT_PROPERTY:
+                         ret = fusion_entry_get_info (&dev->properties, &info);
+                         break;
+
+                    default:
+                         return -ENOSYS;
+               }
+
+               if (ret)
+                    return ret;
+
+               if (copy_to_user ((FusionEntryInfo*) arg, &info, sizeof(info)))
+                    return -EFAULT;
+
+               return 0;
      }
 
      return -ENOSYS;

@@ -47,64 +47,33 @@ typedef struct {
      int                 count;    /* lock counter */
 } FusionProperty;
 
-FUSION_ENTRY_CLASS( FusionProperty, property, NULL, NULL, NULL )
+static int
+fusion_property_print( FusionEntry *entry,
+                       void        *ctx,
+                       char        *buf )
+{
+     FusionProperty *property = (FusionProperty*) entry;
+
+     if (property->state != FUSION_PROPERTY_AVAILABLE) {
+          return sprintf( buf, "%s by 0x%08x (%d) %dx\n",
+                          property->state == FUSION_PROPERTY_LEASED ? "leased" : "purchased",
+                          property->fusion_id, property->lock_pid, property->count );
+     }
+
+     return sprintf( buf, "\n" );
+}
+
+FUSION_ENTRY_CLASS( FusionProperty, property, NULL, NULL, fusion_property_print )
 
 /******************************************************************************/
-
-static int
-properties_read_proc( char *buf, char **start, off_t offset,
-                      int len, int *eof, void *private )
-{
-     FusionLink *l;
-     FusionDev  *dev     = private;
-     int         written = 0;
-
-     if (down_interruptible( &dev->properties.lock ))
-          return -EINTR;
-
-     fusion_list_foreach (l, dev->properties.list) {
-          FusionProperty *property = (FusionProperty*) l;
-
-          if (property->state != FUSION_PROPERTY_AVAILABLE) {
-               written += sprintf(buf+written, "(%5d) 0x%08x %s (0x%08x %d)\n",
-                                  property->entry.pid, property->entry.id,
-                                  property->state == FUSION_PROPERTY_LEASED ?
-                                  "leased" : "purchased", property->fusion_id,
-                                  property->lock_pid);
-          }
-          else {
-               written += sprintf(buf+written, "(%5d) 0x%08x\n",
-                                  property->entry.pid, property->entry.id);
-          }
-
-          if (written < offset) {
-               offset -= written;
-               written = 0;
-          }
-
-          if (written >= len)
-               break;
-     }
-
-     up( &dev->properties.lock );
-
-     *start = buf + offset;
-     written -= offset;
-     if (written > len) {
-          *eof = 0;
-          return len;
-     }
-
-     *eof = 1;
-     return(written<0) ? 0 : written;
-}
 
 int
 fusion_property_init( FusionDev *dev )
 {
      fusion_entries_init( &dev->properties, &property_class, dev );
 
-     create_proc_read_entry( "properties", 0, dev->proc_dir, properties_read_proc, dev );
+     create_proc_read_entry( "properties", 0, dev->proc_dir,
+                             fusion_entries_read_proc, &dev->properties );
 
      return 0;
 }

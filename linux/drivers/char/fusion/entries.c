@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/smp_lock.h>
 #include <linux/sched.h>
+#include <linux/time.h>
 
 #include <linux/fusion.h>
 
@@ -74,6 +75,7 @@ fusion_entries_read_proc(char *buf, char **start, off_t offset,
      FusionEntryClass *class;
      FusionEntries    *entries = private;
      int               written = 0;
+     struct timeval    now;
 
      FUSION_ASSERT( entries != NULL );
      FUSION_ASSERT( entries->class != NULL );
@@ -86,7 +88,36 @@ fusion_entries_read_proc(char *buf, char **start, off_t offset,
      if (down_interruptible (&entries->lock))
           return -EINTR;
 
+     do_gettimeofday( &now );
+
      fusion_list_foreach (entry, entries->list) {
+          if (entry->last_lock.tv_sec) {
+               int diff = ((now.tv_sec  - entry->last_lock.tv_sec) * 1000 +
+                           (now.tv_usec - entry->last_lock.tv_usec) / 1000);
+
+               if (diff < 1000) {
+                    written += sprintf( buf + written, "%3d  ms  ", diff );
+               }
+               else if (diff < 1000000) {
+                    written += sprintf( buf + written, "%3d.%d s  ",
+                                        diff / 1000, (diff % 1000) / 100 );
+               }
+               else {
+                    diff = ( now.tv_sec  - entry->last_lock.tv_sec +
+                            (now.tv_usec - entry->last_lock.tv_usec) / 1000000);
+
+                    written += sprintf( buf + written, "%3d.%d h  ",
+                                        diff / 3600, (diff % 3600) / 360 );
+               }
+          }
+          else
+               written += sprintf( buf + written, "  -.-    " );
+
+
+          written += sprintf( buf + written, "(%5d) 0x%08x  ", entry->pid, entry->id );
+
+          written += sprintf( buf + written, "%-24s  ", entry->name[0] ? entry->name : "" );
+
           written += class->Print( entry, entries->ctx, buf + written );
 
           if (written < offset) {
@@ -217,6 +248,48 @@ fusion_entry_destroy( FusionEntries  *entries,
 }
 
 int
+fusion_entry_set_info( FusionEntries         *entries,
+                       const FusionEntryInfo *info )
+{
+     int          ret;
+     FusionEntry *entry;
+
+     FUSION_ASSERT( entries != NULL );
+     FUSION_ASSERT( info != NULL );
+
+     ret = fusion_entry_lock( entries, info->id, &entry );
+     if (ret)
+          return ret;
+
+     snprintf( entry->name, FUSION_ENTRY_INFO_NAME_LENGTH, info->name );
+
+     fusion_entry_unlock( entry );
+
+     return 0;
+}
+
+int
+fusion_entry_get_info( FusionEntries   *entries,
+                       FusionEntryInfo *info )
+{
+     int          ret;
+     FusionEntry *entry;
+
+     FUSION_ASSERT( entries != NULL );
+     FUSION_ASSERT( info != NULL );
+
+     ret = fusion_entry_lock( entries, info->id, &entry );
+     if (ret)
+          return ret;
+
+     snprintf( info->name, FUSION_ENTRY_INFO_NAME_LENGTH, entry->name );
+
+     fusion_entry_unlock( entry );
+
+     return 0;
+}
+
+int
 fusion_entry_lock( FusionEntries  *entries,
                    int             id,
                    FusionEntry   **ret_entry )
@@ -255,6 +328,10 @@ fusion_entry_lock( FusionEntries  *entries,
 
      /* Mark as locked. */
      entry->lock_pid = current->pid;
+
+     /* Keep timestamp, but use the slightly
+        inexact version to avoid performance impacts. */
+     entry->last_lock = xtime;
 
      /* Unlock entries. */
      up( &entries->lock );

@@ -43,11 +43,10 @@ fusion_skirmish_print( FusionEntry *entry,
      FusionSkirmish *skirmish = (FusionSkirmish*) entry;
 
      if (skirmish->lock_fid)
-          return sprintf( buf, "(%5d) 0x%08x (locked 0x%08x %d)\n",
-                          skirmish->entry.pid, skirmish->entry.id,
-                          skirmish->lock_fid, skirmish->lock_pid);
+          return sprintf( buf, "locked by 0x%08x (%d) %dx\n",
+                          skirmish->lock_fid, skirmish->lock_pid, skirmish->lock_count);
 
-     return sprintf( buf, "(%5d) 0x%08x\n", skirmish->entry.pid, skirmish->entry.id);
+     return sprintf( buf, "\n" );
 }
 
 FUSION_ENTRY_CLASS( FusionSkirmish, skirmish, NULL, NULL, fusion_skirmish_print )
