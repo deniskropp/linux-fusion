@@ -24,7 +24,16 @@ void fusion_list_prepend       (FusionLink **list, FusionLink *link);
 void fusion_list_remove        (FusionLink **list, FusionLink *link);
 void fusion_list_move_to_front (FusionLink **list, FusionLink *link);
 
-#define fusion_list_foreach(link, list)  for (link = list; link; link = link->next)
+
+#define fusion_list_foreach(elem, list)                     \
+     for (elem = (void*)(list);                             \
+          elem;                                             \
+          elem = (void*)(((FusionLink*)(elem))->next))
+
+#define fusion_list_foreach_safe(elem, temp, list)                                             \
+     for (elem = (void*)(list), temp = ((elem) ? (void*)(((FusionLink*)(elem))->next) : NULL); \
+          elem;                                                                                \
+          elem = (void*)(temp), temp = ((elem) ? (void*)(((FusionLink*)(elem))->next) : NULL))
 
 #endif /* __FUSION__LIST_H__ */
 

@@ -287,7 +287,7 @@ fusion_ref_zero_lock (FusionDev *dev, int id, int fusion_id)
                fusion_sleep_on (&ref->wait, &ref->lock, 0);
 
                if (signal_pending(current))
-                    return -ERESTARTSYS;
+                    return -EINTR;
           }
           else
                break;

@@ -17,7 +17,10 @@
 
 #include <linux/proc_fs.h>
 
+#include "entries.h"
 #include "list.h"
+
+#define FUSION_ASSERT(exp)    if (!(exp)) BUG()
 
 typedef struct {
      int refs;
@@ -51,11 +54,7 @@ typedef struct {
           wait_queue_head_t  wait;
      } fusionee;
 
-     struct {
-          int                ids;
-          FusionLink        *list;
-          struct semaphore   lock;
-     } property;
+     FusionEntries  properties;
 
      struct {
           int                ids;

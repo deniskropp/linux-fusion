@@ -11,7 +11,7 @@
  *	as published by the Free Software Foundation; either version
  *	2 of the License, or (at your option) any later version.
  */
- 
+
 #ifndef __FUSION__PROPERTY_H__
 #define __FUSION__PROPERTY_H__
 
@@ -28,7 +28,7 @@ void fusion_property_deinit (FusionDev *dev);
 /* public API */
 
 int fusion_property_new      (FusionDev *dev,
-                              int       *id);
+                              int       *ret_id);
 
 int fusion_property_lease    (FusionDev *dev,
                               int        id,

@@ -274,7 +274,7 @@ fusionee_get_messages (FusionDev *dev,
           fusion_sleep_on (&fusionee->wait, &fusionee->lock, 0);
 
           if (signal_pending(current))
-               return -ERESTARTSYS;
+               return -EINTR;
 
           ret = lock_fusionee (dev, id, &fusionee);
           if (ret)
@@ -403,7 +403,7 @@ fusionee_kill (FusionDev *dev, int id, int target, int signal, int timeout_ms)
                fusion_sleep_on (&dev->fusionee.wait, &dev->fusionee.lock, NULL);
 
           if (signal_pending(current))
-               return -ERESTARTSYS;
+               return -EINTR;
      }
 
      up (&dev->fusionee.lock);

@@ -236,7 +236,7 @@ fusion_call_execute (FusionDev *dev, int fusion_id, FusionCallExecute *execute)
           if (signal_pending(current)) {
                execution->caller = 0;
                unlock_call (call);
-               return -ERESTARTSYS;
+               return -EINTR;
           }
 
           execute->ret_val = execution->ret_val;
