@@ -142,16 +142,16 @@ fusion_ioctl (struct inode *inode, struct file *file,
 }
 
 static struct file_operations fusion_fops = {
-  owner:    THIS_MODULE,
-  ioctl:    fusion_ioctl,
-  open:     fusion_open,
-  release:  fusion_release,
+  .owner   = THIS_MODULE,
+  .ioctl   = fusion_ioctl,
+  .open    = fusion_open,
+  .release = fusion_release,
 };
 
 static struct miscdevice fusion_miscdev = {
-  minor:    FUSION_MINOR,
-  name:     "fusion",
-  fops:     &fusion_fops,
+  .minor   = FUSION_MINOR,
+  .name    = "fusion",
+  .fops    = &fusion_fops,
 };
 
 /******************************************************************************/
