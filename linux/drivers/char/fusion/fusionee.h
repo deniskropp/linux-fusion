@@ -39,7 +39,7 @@ int fusionee_get_messages (int id, void *buf, int buf_size, int block);
 
 unsigned int fusionee_poll (int id, struct file *file, poll_table * wait);
 
-int fusionee_kill (int id);
+int fusionee_kill (int id, int target, int signal, int timeout_ms);
 
 int fusionee_destroy (int id);
 

@@ -178,6 +178,7 @@ fusion_ioctl (struct inode *inode, struct file *file,
   int fusion_id = (int) file->private_data;
   FusionSendMessage     send;
   FusionReactorDispatch dispatch;
+  FusionKill            kill;
   FusionCallNew         call;
   FusionCallExecute     execute;
   FusionCallReturn      call_ret;
@@ -189,6 +190,7 @@ fusion_ioctl (struct inode *inode, struct file *file,
         return -EFAULT;
 
       break;
+
 
     case FUSION_SEND_MESSAGE:
       if (copy_from_user (&send, (FusionSendMessage*) arg, sizeof(send)))
@@ -243,6 +245,14 @@ fusion_ioctl (struct inode *inode, struct file *file,
         return -EFAULT;
 
       return fusion_call_destroy (fusion_id, id);
+
+
+    case FUSION_KILL:
+      if (copy_from_user (&kill, (FusionKill*) arg, sizeof(kill)))
+        return -EFAULT;
+
+      return fusionee_kill (fusion_id,
+                            kill.fusion_id, kill.signal, kill.timeout_ms);
 
 
     case FUSION_REF_NEW:

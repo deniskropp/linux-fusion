@@ -66,10 +66,11 @@ static void      unlock_fusionee (Fusionee *fusionee);
 
 /******************************************************************************/
 
-static int         last_id        = 0;
-static FusionLink *fusionees      = NULL;
-static spinlock_t  fusionees_lock = SPIN_LOCK_UNLOCKED;
-static atomic_t    msg_total;
+static int                last_id        = 0;
+static FusionLink        *fusionees      = NULL;
+static spinlock_t         fusionees_lock = SPIN_LOCK_UNLOCKED;
+static wait_queue_head_t  fusionees_wait;
+static atomic_t           msg_total;
 
 /******************************************************************************/
 
@@ -116,6 +117,8 @@ int
 fusionee_init()
 {
   atomic_set (&msg_total, 0);
+
+  init_waitqueue_head (&fusionees_wait);
 
   create_proc_read_entry("fusionees", 0, proc_fusion_dir,
                          fusionees_read_proc, NULL);
@@ -352,16 +355,61 @@ fusionee_poll (int id, struct file *file, poll_table * wait)
 }
 
 int
-fusionee_kill (int id)
+fusionee_kill (int id, int target, int signal, int timeout_ms)
 {
-  Fusionee *fusionee = lock_fusionee (id);
+  long timeout = -1;
 
-  if (!fusionee)
-    return -EINVAL;
+  while (true)
+    {
+      FusionLink *l;
+      Fusionee   *fusionee = lookup_fusionee (id);
+      int         killed   = 0;
 
-  kill_proc (fusionee->pid, SIGKILL, 0);
+      if (!fusionee)
+        return -EINVAL;
 
-  unlock_fusionee (fusionee);
+      fusion_list_foreach (l, fusionees)
+        {
+          Fusionee *f = (Fusionee*) l;
+
+          if (f->id != id && (!target || target == f->id))
+            {
+              kill_proc (f->pid, signal, 0);
+              killed++;
+            }
+        }
+
+      if (!killed || timeout_ms < 0)
+        break;
+
+      if (timeout_ms)
+        {
+          switch (timeout)
+            {
+            case 0:  /* timed out */
+              spin_unlock (&fusionees_lock);
+              return -ETIMEDOUT;
+
+            case -1: /* setup timeout */
+              timeout = (timeout_ms * HZ + 500) / 1000;
+              if (!timeout)
+                timeout = 1;
+
+              /* fall through */
+
+            default:
+              fusion_sleep_on (&fusionees_wait, &fusionees_lock, &timeout);
+              break;
+            }
+        }
+      else
+        fusion_sleep_on (&fusionees_wait, &fusionees_lock, NULL);
+
+      if (signal_pending(current))
+        return -ERESTARTSYS;
+    }
+  
+  spin_unlock (&fusionees_lock);
 
   return 0;
 }
@@ -378,7 +426,10 @@ fusionee_destroy (int id)
 
   fusion_list_remove (&fusionees, &fusionee->link);
 
+  wake_up_interruptible_all (&fusionees_wait);
+
   spin_unlock (&fusionees_lock);
+
 
   fusion_call_destroy_all (id);
   fusion_skirmish_dismiss_all (id);

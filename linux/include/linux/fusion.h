@@ -66,9 +66,8 @@ typedef struct {
   int   call_id;              /* each call has a fixed owner */
   
   int   call_arg;             /* optional int argument */
-  void *call_ptr;             /* optional pointer argument (e.g. shared memory) */
+  void *call_ptr;             /* optional pointer argument (shared memory) */
 } FusionCallExecute;
-
 
 typedef struct {
   int   call_id;              /* id of currently executing call */
@@ -85,6 +84,15 @@ typedef struct {
   void              *call_ptr;  /* optional call parameter */
 } FusionCallMessage;
   
+/*
+ * Killing other fusionees (experimental)
+ */
+typedef struct {
+  int fusion_id;    /* fusionee to kill, zero means all but ourself */
+  int signal;       /* signal to be delivered, e.g. SIGTERM */
+  int timeout_ms;   /* -1 means no timeout, 0 means infinite, otherwise the
+                       max. time to wait until the fusionee(s) terminated */
+} FusionKill;
 
 
 #define FUSION_GET_ID                   _IOR('F', 0x00, sizeof(int))
@@ -95,6 +103,8 @@ typedef struct {
 #define FUSION_CALL_EXECUTE             _IOW('F', 0x03, sizeof(FusionCallExecute))
 #define FUSION_CALL_RETURN              _IOW('F', 0x04, sizeof(FusionCallReturn))
 #define FUSION_CALL_DESTROY             _IOW('F', 0x05, sizeof(int))
+
+#define FUSION_KILL                     _IOW('F', 0x06, sizeof(FusionKill))
 
 #define FUSION_REF_NEW                  _IOW('F', 0x10, sizeof(int))
 #define FUSION_REF_UP                   _IOW('F', 0x11, sizeof(int))

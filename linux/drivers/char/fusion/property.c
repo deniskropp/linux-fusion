@@ -347,7 +347,7 @@ fusion_property_holdup (int id, int fusion_id)
           return -EIO;
         }
 
-      fusionee_kill (property->fusion_id);
+      fusionee_kill (fusion_id, property->fusion_id, SIGKILL, -1);
     }
 
   unlock_property (property);
