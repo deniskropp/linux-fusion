@@ -1,6 +1,6 @@
 diff -uraN linux-2.4.27/drivers/char/Config.in linux-2.4.27-fusion/drivers/char/Config.in
 --- linux-2.4.27/drivers/char/Config.in	2004-08-08 01:26:04.000000000 +0200
-+++ linux-2.4.27-fusion/drivers/char/Config.in	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/Config.in	2004-11-14 09:02:35.000000000 +0100
 @@ -306,6 +306,7 @@
  fi
  dep_tristate 'AMD 76x native power management (Experimental)' CONFIG_AMD_PM768 $CONFIG_PCI
@@ -11,7 +11,7 @@ diff -uraN linux-2.4.27/drivers/char/Config.in linux-2.4.27-fusion/drivers/char/
     bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
 diff -uraN linux-2.4.27/drivers/char/fusion/call.c linux-2.4.27-fusion/drivers/char/fusion/call.c
 --- linux-2.4.27/drivers/char/fusion/call.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/call.c	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/call.c	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,468 @@
 +/*
 + *	Fusion Kernel Module
@@ -483,7 +483,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/call.c linux-2.4.27-fusion/drivers/c
 +}
 diff -uraN linux-2.4.27/drivers/char/fusion/call.h linux-2.4.27-fusion/drivers/char/fusion/call.h
 --- linux-2.4.27/drivers/char/fusion/call.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/call.h	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/call.h	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,53 @@
 +/*
 + *	Fusion Kernel Module
@@ -540,8 +540,8 @@ diff -uraN linux-2.4.27/drivers/char/fusion/call.h linux-2.4.27-fusion/drivers/c
 +#endif
 diff -uraN linux-2.4.27/drivers/char/fusion/entries.c linux-2.4.27-fusion/drivers/char/fusion/entries.c
 --- linux-2.4.27/drivers/char/fusion/entries.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/entries.c	2004-11-12 17:18:56.000000000 +0100
-@@ -0,0 +1,327 @@
++++ linux-2.4.27-fusion/drivers/char/fusion/entries.c	2004-11-14 09:02:57.000000000 +0100
+@@ -0,0 +1,404 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -562,6 +562,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/entries.c linux-2.4.27-fusion/driver
 +#include <linux/slab.h>
 +#include <linux/smp_lock.h>
 +#include <linux/sched.h>
++#include <linux/time.h>
 +
 +#include <linux/fusion.h>
 +
@@ -618,6 +619,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/entries.c linux-2.4.27-fusion/driver
 +     FusionEntryClass *class;
 +     FusionEntries    *entries = private;
 +     int               written = 0;
++     struct timeval    now;
 +
 +     FUSION_ASSERT( entries != NULL );
 +     FUSION_ASSERT( entries->class != NULL );
@@ -630,7 +632,36 @@ diff -uraN linux-2.4.27/drivers/char/fusion/entries.c linux-2.4.27-fusion/driver
 +     if (down_interruptible (&entries->lock))
 +          return -EINTR;
 +
++     do_gettimeofday( &now );
++
 +     fusion_list_foreach (entry, entries->list) {
++          if (entry->last_lock.tv_sec) {
++               int diff = ((now.tv_sec  - entry->last_lock.tv_sec) * 1000 +
++                           (now.tv_usec - entry->last_lock.tv_usec) / 1000);
++
++               if (diff < 1000) {
++                    written += sprintf( buf + written, "%3d  ms  ", diff );
++               }
++               else if (diff < 1000000) {
++                    written += sprintf( buf + written, "%3d.%d s  ",
++                                        diff / 1000, (diff % 1000) / 100 );
++               }
++               else {
++                    diff = ( now.tv_sec  - entry->last_lock.tv_sec +
++                            (now.tv_usec - entry->last_lock.tv_usec) / 1000000);
++
++                    written += sprintf( buf + written, "%3d.%d h  ",
++                                        diff / 3600, (diff % 3600) / 360 );
++               }
++          }
++          else
++               written += sprintf( buf + written, "  -.-    " );
++
++
++          written += sprintf( buf + written, "(%5d) 0x%08x  ", entry->pid, entry->id );
++
++          written += sprintf( buf + written, "%-24s  ", entry->name[0] ? entry->name : "" );
++
 +          written += class->Print( entry, entries->ctx, buf + written );
 +
 +          if (written < offset) {
@@ -761,6 +792,48 @@ diff -uraN linux-2.4.27/drivers/char/fusion/entries.c linux-2.4.27-fusion/driver
 +}
 +
 +int
++fusion_entry_set_info( FusionEntries         *entries,
++                       const FusionEntryInfo *info )
++{
++     int          ret;
++     FusionEntry *entry;
++
++     FUSION_ASSERT( entries != NULL );
++     FUSION_ASSERT( info != NULL );
++
++     ret = fusion_entry_lock( entries, info->id, &entry );
++     if (ret)
++          return ret;
++
++     snprintf( entry->name, FUSION_ENTRY_INFO_NAME_LENGTH, info->name );
++
++     fusion_entry_unlock( entry );
++
++     return 0;
++}
++
++int
++fusion_entry_get_info( FusionEntries   *entries,
++                       FusionEntryInfo *info )
++{
++     int          ret;
++     FusionEntry *entry;
++
++     FUSION_ASSERT( entries != NULL );
++     FUSION_ASSERT( info != NULL );
++
++     ret = fusion_entry_lock( entries, info->id, &entry );
++     if (ret)
++          return ret;
++
++     snprintf( info->name, FUSION_ENTRY_INFO_NAME_LENGTH, entry->name );
++
++     fusion_entry_unlock( entry );
++
++     return 0;
++}
++
++int
 +fusion_entry_lock( FusionEntries  *entries,
 +                   int             id,
 +                   FusionEntry   **ret_entry )
@@ -799,6 +872,10 @@ diff -uraN linux-2.4.27/drivers/char/fusion/entries.c linux-2.4.27-fusion/driver
 +
 +     /* Mark as locked. */
 +     entry->lock_pid = current->pid;
++
++     /* Keep timestamp, but use the slightly
++        inexact version to avoid performance impacts. */
++     entry->last_lock = xtime;
 +
 +     /* Unlock entries. */
 +     up( &entries->lock );
@@ -871,8 +948,8 @@ diff -uraN linux-2.4.27/drivers/char/fusion/entries.c linux-2.4.27-fusion/driver
 +
 diff -uraN linux-2.4.27/drivers/char/fusion/entries.h linux-2.4.27-fusion/drivers/char/fusion/entries.h
 --- linux-2.4.27/drivers/char/fusion/entries.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/entries.h	2004-11-12 17:18:56.000000000 +0100
-@@ -0,0 +1,160 @@
++++ linux-2.4.27-fusion/drivers/char/fusion/entries.h	2004-11-14 09:02:57.000000000 +0100
+@@ -0,0 +1,173 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -928,6 +1005,10 @@ diff -uraN linux-2.4.27/drivers/char/fusion/entries.h linux-2.4.27-fusion/driver
 +
 +     struct semaphore   lock;
 +     wait_queue_head_t  wait;
++
++     struct timeval     last_lock;
++
++     char               name[FUSION_ENTRY_INFO_NAME_LENGTH];
 +};
 +
 +
@@ -953,6 +1034,15 @@ diff -uraN linux-2.4.27/drivers/char/fusion/entries.h linux-2.4.27-fusion/driver
 +
 +int  fusion_entry_destroy ( FusionEntries    *entries,
 +                            int               id );
++
++
++/* Information */
++
++int  fusion_entry_set_info( FusionEntries          *entries,
++                            const FusionEntryInfo  *info );
++
++int  fusion_entry_get_info( FusionEntries          *entries,
++                            FusionEntryInfo        *info );
 +
 +
 +/* Lock & Unlock */
@@ -1035,7 +1125,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/entries.h linux-2.4.27-fusion/driver
 +#endif
 diff -uraN linux-2.4.27/drivers/char/fusion/fifo.c linux-2.4.27-fusion/drivers/char/fusion/fifo.c
 --- linux-2.4.27/drivers/char/fusion/fifo.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/fifo.c	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/fifo.c	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,53 @@
 +/*
 + *	Fusion Kernel Module
@@ -1092,7 +1182,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/fifo.c linux-2.4.27-fusion/drivers/c
 +}
 diff -uraN linux-2.4.27/drivers/char/fusion/fifo.h linux-2.4.27-fusion/drivers/char/fusion/fifo.h
 --- linux-2.4.27/drivers/char/fusion/fifo.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/fifo.h	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/fifo.h	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,36 @@
 +/*
 + *	Fusion Kernel Module
@@ -1132,8 +1222,8 @@ diff -uraN linux-2.4.27/drivers/char/fusion/fifo.h linux-2.4.27-fusion/drivers/c
 +
 diff -uraN linux-2.4.27/drivers/char/fusion/fusiondev.c linux-2.4.27-fusion/drivers/char/fusion/fusiondev.c
 --- linux-2.4.27/drivers/char/fusion/fusiondev.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/fusiondev.c	2004-11-12 17:18:56.000000000 +0100
-@@ -0,0 +1,907 @@
++++ linux-2.4.27-fusion/drivers/char/fusion/fusiondev.c	2004-11-14 09:02:57.000000000 +0100
+@@ -0,0 +1,949 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -1511,8 +1601,10 @@ diff -uraN linux-2.4.27/drivers/char/fusion/fusiondev.c linux-2.4.27-fusion/driv
 +lounge_ioctl (FusionDev *dev, int fusion_id,
 +              unsigned int cmd, unsigned long arg)
 +{
-+     FusionEnter enter;
-+     FusionKill  kill;
++     int             ret;
++     FusionEnter     enter;
++     FusionKill      kill;
++     FusionEntryInfo info;
 +
 +     switch (_IOC_NR(cmd)) {
 +          case _IOC_NR(FUSION_ENTER):
@@ -1535,6 +1627,46 @@ diff -uraN linux-2.4.27/drivers/char/fusion/fusiondev.c linux-2.4.27-fusion/driv
 +
 +               return fusionee_kill (dev, fusion_id,
 +                                     kill.fusion_id, kill.signal, kill.timeout_ms);
++
++          case _IOC_NR(FUSION_ENTRY_SET_INFO):
++               if (copy_from_user (&info, (FusionEntryInfo*) arg, sizeof(info)))
++                    return -EFAULT;
++
++               switch (info.type) {
++                    case FT_SKIRMISH:
++                         return fusion_entry_set_info (&dev->skirmish, &info);
++
++                    case FT_PROPERTY:
++                         return fusion_entry_set_info (&dev->properties, &info);
++
++                    default:
++                         return -ENOSYS;
++               }
++
++          case _IOC_NR(FUSION_ENTRY_GET_INFO):
++               if (copy_from_user (&info, (FusionEntryInfo*) arg, sizeof(info)))
++                    return -EFAULT;
++
++               switch (info.type) {
++                    case FT_SKIRMISH:
++                         ret = fusion_entry_get_info (&dev->skirmish, &info);
++                         break;
++
++                    case FT_PROPERTY:
++                         ret = fusion_entry_get_info (&dev->properties, &info);
++                         break;
++
++                    default:
++                         return -ENOSYS;
++               }
++
++               if (ret)
++                    return ret;
++
++               if (copy_to_user ((FusionEntryInfo*) arg, &info, sizeof(info)))
++                    return -EFAULT;
++
++               return 0;
 +     }
 +
 +     return -ENOSYS;
@@ -2043,7 +2175,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/fusiondev.c linux-2.4.27-fusion/driv
 +
 diff -uraN linux-2.4.27/drivers/char/fusion/fusiondev.h linux-2.4.27-fusion/drivers/char/fusion/fusiondev.h
 --- linux-2.4.27/drivers/char/fusion/fusiondev.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/fusiondev.h	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/fusiondev.h	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,83 @@
 +/*
 + *	Fusion Kernel Module
@@ -2130,7 +2262,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/fusiondev.h linux-2.4.27-fusion/driv
 +#endif
 diff -uraN linux-2.4.27/drivers/char/fusion/fusionee.c linux-2.4.27-fusion/drivers/char/fusion/fusionee.c
 --- linux-2.4.27/drivers/char/fusion/fusionee.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/fusionee.c	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/fusionee.c	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,507 @@
 +/*
 + *	Fusion Kernel Module
@@ -2641,7 +2773,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/fusionee.c linux-2.4.27-fusion/drive
 +
 diff -uraN linux-2.4.27/drivers/char/fusion/fusionee.h linux-2.4.27-fusion/drivers/char/fusion/fusionee.h
 --- linux-2.4.27/drivers/char/fusion/fusionee.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/fusionee.h	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/fusionee.h	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,65 @@
 +/*
 + *	Fusion Kernel Module
@@ -2710,7 +2842,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/fusionee.h linux-2.4.27-fusion/drive
 +#endif
 diff -uraN linux-2.4.27/drivers/char/fusion/list.c linux-2.4.27-fusion/drivers/char/fusion/list.c
 --- linux-2.4.27/drivers/char/fusion/list.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/list.c	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/list.c	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,62 @@
 +/*
 + *	Fusion Kernel Module
@@ -2776,7 +2908,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/list.c linux-2.4.27-fusion/drivers/c
 +}
 diff -uraN linux-2.4.27/drivers/char/fusion/list.h linux-2.4.27-fusion/drivers/char/fusion/list.h
 --- linux-2.4.27/drivers/char/fusion/list.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/list.h	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/list.h	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,39 @@
 +/*
 + *	Fusion Kernel Module
@@ -2819,7 +2951,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/list.h linux-2.4.27-fusion/drivers/c
 +
 diff -uraN linux-2.4.27/drivers/char/fusion/Makefile linux-2.4.27-fusion/drivers/char/fusion/Makefile
 --- linux-2.4.27/drivers/char/fusion/Makefile	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/Makefile	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/Makefile	2004-11-14 09:02:35.000000000 +0100
 @@ -0,0 +1,6 @@
 +O_TARGET := fusion.o
 +
@@ -2829,8 +2961,8 @@ diff -uraN linux-2.4.27/drivers/char/fusion/Makefile linux-2.4.27-fusion/drivers
 +include $(TOPDIR)/Rules.make
 diff -uraN linux-2.4.27/drivers/char/fusion/property.c linux-2.4.27-fusion/drivers/char/fusion/property.c
 --- linux-2.4.27/drivers/char/fusion/property.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/property.c	2004-11-12 17:18:56.000000000 +0100
-@@ -0,0 +1,368 @@
++++ linux-2.4.27-fusion/drivers/char/fusion/property.c	2004-11-14 09:02:57.000000000 +0100
+@@ -0,0 +1,337 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -2880,64 +3012,33 @@ diff -uraN linux-2.4.27/drivers/char/fusion/property.c linux-2.4.27-fusion/drive
 +     int                 count;    /* lock counter */
 +} FusionProperty;
 +
-+FUSION_ENTRY_CLASS( FusionProperty, property, NULL, NULL, NULL )
++static int
++fusion_property_print( FusionEntry *entry,
++                       void        *ctx,
++                       char        *buf )
++{
++     FusionProperty *property = (FusionProperty*) entry;
++
++     if (property->state != FUSION_PROPERTY_AVAILABLE) {
++          return sprintf( buf, "%s by 0x%08x (%d) %dx\n",
++                          property->state == FUSION_PROPERTY_LEASED ? "leased" : "purchased",
++                          property->fusion_id, property->lock_pid, property->count );
++     }
++
++     return sprintf( buf, "\n" );
++}
++
++FUSION_ENTRY_CLASS( FusionProperty, property, NULL, NULL, fusion_property_print )
 +
 +/******************************************************************************/
-+
-+static int
-+properties_read_proc( char *buf, char **start, off_t offset,
-+                      int len, int *eof, void *private )
-+{
-+     FusionLink *l;
-+     FusionDev  *dev     = private;
-+     int         written = 0;
-+
-+     if (down_interruptible( &dev->properties.lock ))
-+          return -EINTR;
-+
-+     fusion_list_foreach (l, dev->properties.list) {
-+          FusionProperty *property = (FusionProperty*) l;
-+
-+          if (property->state != FUSION_PROPERTY_AVAILABLE) {
-+               written += sprintf(buf+written, "(%5d) 0x%08x %s (0x%08x %d)\n",
-+                                  property->entry.pid, property->entry.id,
-+                                  property->state == FUSION_PROPERTY_LEASED ?
-+                                  "leased" : "purchased", property->fusion_id,
-+                                  property->lock_pid);
-+          }
-+          else {
-+               written += sprintf(buf+written, "(%5d) 0x%08x\n",
-+                                  property->entry.pid, property->entry.id);
-+          }
-+
-+          if (written < offset) {
-+               offset -= written;
-+               written = 0;
-+          }
-+
-+          if (written >= len)
-+               break;
-+     }
-+
-+     up( &dev->properties.lock );
-+
-+     *start = buf + offset;
-+     written -= offset;
-+     if (written > len) {
-+          *eof = 0;
-+          return len;
-+     }
-+
-+     *eof = 1;
-+     return(written<0) ? 0 : written;
-+}
 +
 +int
 +fusion_property_init( FusionDev *dev )
 +{
 +     fusion_entries_init( &dev->properties, &property_class, dev );
 +
-+     create_proc_read_entry( "properties", 0, dev->proc_dir, properties_read_proc, dev );
++     create_proc_read_entry( "properties", 0, dev->proc_dir,
++                             fusion_entries_read_proc, &dev->properties );
 +
 +     return 0;
 +}
@@ -3201,7 +3302,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/property.c linux-2.4.27-fusion/drive
 +
 diff -uraN linux-2.4.27/drivers/char/fusion/property.h linux-2.4.27-fusion/drivers/char/fusion/property.h
 --- linux-2.4.27/drivers/char/fusion/property.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/property.h	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/property.h	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,58 @@
 +/*
 + *	Fusion Kernel Module
@@ -3263,7 +3364,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/property.h linux-2.4.27-fusion/drive
 +#endif
 diff -uraN linux-2.4.27/drivers/char/fusion/reactor.c linux-2.4.27-fusion/drivers/char/fusion/reactor.c
 --- linux-2.4.27/drivers/char/fusion/reactor.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/reactor.c	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/reactor.c	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,407 @@
 +/*
 + *	Fusion Kernel Module
@@ -3674,7 +3775,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/reactor.c linux-2.4.27-fusion/driver
 +}
 diff -uraN linux-2.4.27/drivers/char/fusion/reactor.h linux-2.4.27-fusion/drivers/char/fusion/reactor.h
 --- linux-2.4.27/drivers/char/fusion/reactor.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/reactor.h	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/reactor.h	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,56 @@
 +/*
 + *	Fusion Kernel Module
@@ -3734,7 +3835,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/reactor.h linux-2.4.27-fusion/driver
 +#endif
 diff -uraN linux-2.4.27/drivers/char/fusion/ref.c linux-2.4.27-fusion/drivers/char/fusion/ref.c
 --- linux-2.4.27/drivers/char/fusion/ref.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/ref.c	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/ref.c	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,777 @@
 +/*
 + *	Fusion Kernel Module
@@ -4515,7 +4616,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/ref.c linux-2.4.27-fusion/drivers/ch
 +
 diff -uraN linux-2.4.27/drivers/char/fusion/ref.h linux-2.4.27-fusion/drivers/char/fusion/ref.h
 --- linux-2.4.27/drivers/char/fusion/ref.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/ref.h	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/ref.h	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,75 @@
 +/*
 + *	Fusion Kernel Module
@@ -4594,8 +4695,8 @@ diff -uraN linux-2.4.27/drivers/char/fusion/ref.h linux-2.4.27-fusion/drivers/ch
 +#endif
 diff -uraN linux-2.4.27/drivers/char/fusion/skirmish.c linux-2.4.27-fusion/drivers/char/fusion/skirmish.c
 --- linux-2.4.27/drivers/char/fusion/skirmish.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/skirmish.c	2004-11-12 17:18:56.000000000 +0100
-@@ -0,0 +1,236 @@
++++ linux-2.4.27-fusion/drivers/char/fusion/skirmish.c	2004-11-14 09:02:57.000000000 +0100
+@@ -0,0 +1,235 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -4641,11 +4742,10 @@ diff -uraN linux-2.4.27/drivers/char/fusion/skirmish.c linux-2.4.27-fusion/drive
 +     FusionSkirmish *skirmish = (FusionSkirmish*) entry;
 +
 +     if (skirmish->lock_fid)
-+          return sprintf( buf, "(%5d) 0x%08x (locked 0x%08x %d)\n",
-+                          skirmish->entry.pid, skirmish->entry.id,
-+                          skirmish->lock_fid, skirmish->lock_pid);
++          return sprintf( buf, "locked by 0x%08x (%d) %dx\n",
++                          skirmish->lock_fid, skirmish->lock_pid, skirmish->lock_count);
 +
-+     return sprintf( buf, "(%5d) 0x%08x\n", skirmish->entry.pid, skirmish->entry.id);
++     return sprintf( buf, "\n" );
 +}
 +
 +FUSION_ENTRY_CLASS( FusionSkirmish, skirmish, NULL, NULL, fusion_skirmish_print )
@@ -4834,7 +4934,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/skirmish.c linux-2.4.27-fusion/drive
 +
 diff -uraN linux-2.4.27/drivers/char/fusion/skirmish.h linux-2.4.27-fusion/drivers/char/fusion/skirmish.h
 --- linux-2.4.27/drivers/char/fusion/skirmish.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/skirmish.h	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/skirmish.h	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,57 @@
 +/*
 + *	Fusion Kernel Module
@@ -4895,7 +4995,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/skirmish.h linux-2.4.27-fusion/drive
 +#endif
 diff -uraN linux-2.4.27/drivers/char/fusion/types.h linux-2.4.27-fusion/drivers/char/fusion/types.h
 --- linux-2.4.27/drivers/char/fusion/types.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/drivers/char/fusion/types.h	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/fusion/types.h	2004-11-14 09:02:57.000000000 +0100
 @@ -0,0 +1,23 @@
 +/*
 + *	Fusion Kernel Module
@@ -4922,7 +5022,7 @@ diff -uraN linux-2.4.27/drivers/char/fusion/types.h linux-2.4.27-fusion/drivers/
 +#endif
 diff -uraN linux-2.4.27/drivers/char/Makefile linux-2.4.27-fusion/drivers/char/Makefile
 --- linux-2.4.27/drivers/char/Makefile	2004-08-08 01:26:04.000000000 +0200
-+++ linux-2.4.27-fusion/drivers/char/Makefile	2004-11-12 17:18:56.000000000 +0100
++++ linux-2.4.27-fusion/drivers/char/Makefile	2004-11-14 09:02:35.000000000 +0100
 @@ -334,6 +334,12 @@
    obj-y += ipmi/ipmi.o
  endif
@@ -4938,8 +5038,8 @@ diff -uraN linux-2.4.27/drivers/char/Makefile linux-2.4.27-fusion/drivers/char/M
  fastdep:
 diff -uraN linux-2.4.27/include/linux/fusion.h linux-2.4.27-fusion/include/linux/fusion.h
 --- linux-2.4.27/include/linux/fusion.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.27-fusion/include/linux/fusion.h	2004-11-12 17:18:56.000000000 +0100
-@@ -0,0 +1,184 @@
++++ linux-2.4.27-fusion/include/linux/fusion.h	2004-11-14 09:02:57.000000000 +0100
+@@ -0,0 +1,202 @@
 +#ifndef __LINUX__FUSION_H__
 +#define __LINUX__FUSION_H__
 +
@@ -5058,17 +5158,6 @@ diff -uraN linux-2.4.27/include/linux/fusion.h linux-2.4.27-fusion/include/linux
 +                          max. time to wait until the fusionee(s) terminated */
 +} FusionKill;
 +
-+#define FUSION_API_MAJOR   1  /* Increased if backward compatibility is dropped. */
-+#define FUSION_API_MINOR   0  /* Increased if new features are added. */
-+
-+typedef struct {
-+     struct {
-+          int major;
-+          int minor;
-+     } api;
-+
-+     int fusion_id;
-+} FusionEnter;
 +
 +typedef enum {
 +     FT_LOUNGE,
@@ -5081,8 +5170,37 @@ diff -uraN linux-2.4.27/include/linux/fusion.h linux-2.4.27-fusion/include/linux
 +} FusionType;
 +
 +
++/*
++ * Set attributes like 'name' for an entry of the specified type.
++ */
++#define FUSION_ENTRY_INFO_NAME_LENGTH   24
++
++typedef struct {
++     FusionType type;
++     int        id;
++
++     char       name[FUSION_ENTRY_INFO_NAME_LENGTH];
++} FusionEntryInfo;
++
++
++typedef struct {
++     struct {
++          int major;
++          int minor;
++     } api;
++
++     int fusion_id;
++} FusionEnter;
++
++#define FUSION_API_MAJOR   1  /* Increased if backward compatibility is dropped. */
++#define FUSION_API_MINOR   1  /* Increased if new features are added. */
++
++
 +#define FUSION_ENTER               _IOR(FT_LOUNGE,    0x00, FusionEnter)
 +#define FUSION_KILL                _IOW(FT_LOUNGE,    0x01, FusionKill)
++
++#define FUSION_ENTRY_SET_INFO      _IOW(FT_LOUNGE,    0x02, FusionEntryInfo)
++#define FUSION_ENTRY_GET_INFO      _IOW(FT_LOUNGE,    0x03, FusionEntryInfo)
 +
 +#define FUSION_SEND_MESSAGE        _IOW(FT_MESSAGING, 0x00, FusionSendMessage)
 +
