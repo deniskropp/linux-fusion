@@ -35,7 +35,11 @@
 #include "ref.h"
 #include "skirmish.h"
 
+#if 0
 #define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
+#else
+#define DEBUG(x...)  do {} while (0)
+#endif
 
 #ifndef FUSION_MAJOR
 #define FUSION_MAJOR 253
@@ -172,6 +176,8 @@ fusion_open (struct inode *inode, struct file *file)
      int fusion_id;
      int minor = minor(inode->i_rdev);
 
+     DEBUG( "fusion_open\n" );
+
      spin_lock (&devs_lock);
 
      if (!fusion_devs[minor]) {
@@ -239,6 +245,8 @@ fusion_release (struct inode *inode, struct file *file)
      int minor     = minor(inode->i_rdev);
      int fusion_id = (int) file->private_data;
 
+     DEBUG( "fusion_release\n" );
+     
      fusionee_destroy (fusion_devs[minor], fusion_id);
 
      spin_lock (&devs_lock);
@@ -264,6 +272,8 @@ fusion_read (struct file *file, char *buf, size_t count, loff_t *ppos)
      int        fusion_id = (int) file->private_data;
      FusionDev *dev       = fusion_devs[minor(file->f_dentry->d_inode->i_rdev)];
 
+     DEBUG( "fusion_read (%d)\n", count );
+
      return fusionee_get_messages (dev, fusion_id, buf, count,
                                    !(file->f_flags & O_NONBLOCK));
 }
@@ -274,6 +284,8 @@ fusion_poll (struct file *file, poll_table * wait)
      int        fusion_id = (int) file->private_data;
      FusionDev *dev       = fusion_devs[minor(file->f_dentry->d_inode->i_rdev)];
 
+     DEBUG( "fusion_poll\n" );
+     
      return fusionee_poll (dev, fusion_id, file, wait);
 }
 
@@ -294,6 +306,8 @@ fusion_ioctl (struct inode *inode, struct file *file,
      FusionCallExecute      execute;
      FusionCallReturn       call_ret;
 
+     DEBUG( "fusion_ioctl (0x%08x)\n", cmd );
+     
      switch (cmd) {
           case FUSION_GET_ID:
                if (put_user (fusion_id, (int*) arg))

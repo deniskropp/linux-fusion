@@ -31,6 +31,11 @@
 #include "ref.h"
 #include "skirmish.h"
 
+#if 0
+#define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
+#else
+#define DEBUG(x...)  do {} while (0)
+#endif
 
 typedef struct {
      FusionLink        link;
@@ -183,20 +188,28 @@ fusionee_send_message (FusionDev *dev, int id, int recipient,
      Fusionee *sender   = NULL;
      Fusionee *fusionee = lock_fusionee (dev, recipient);
 
+     DEBUG( "fusionee_send_message (%d -> %d, type %d, id %d, size %d)\n",
+            id, recipient, msg_type, msg_id, msg_size );
+
      if (!fusionee)
           return -EINVAL;
 
      if (id) {
-          sender = lock_fusionee (dev, id);
-          if (!sender) {
-               unlock_fusionee (fusionee);
-               return -EIO;
+          if (id == recipient) {
+               sender = fusionee;
+          }
+          else {
+               sender = lock_fusionee (dev, id);
+               if (!sender) {
+                    unlock_fusionee (fusionee);
+                    return -EIO;
+               }
           }
      }
 
      message = kmalloc (sizeof(Message) + msg_size, GFP_ATOMIC);
      if (!message) {
-          if (sender)
+          if (sender && sender != fusionee)
                unlock_fusionee (sender);
           unlock_fusionee (fusionee);
           return -ENOMEM;
@@ -208,7 +221,7 @@ fusionee_send_message (FusionDev *dev, int id, int recipient,
           memcpy (message->data, msg_data, msg_size);
      else if (copy_from_user (message->data, msg_data, msg_size)) {
           kfree (message);
-          if (sender)
+          if (sender && sender != fusionee)
                unlock_fusionee (sender);
           unlock_fusionee (fusionee);
           return -EFAULT;
@@ -226,8 +239,9 @@ fusionee_send_message (FusionDev *dev, int id, int recipient,
 
      wake_up_interruptible_all (&fusionee->wait);
 
-     if (sender)
+     if (sender && sender != fusionee)
           unlock_fusionee (sender);
+
      unlock_fusionee (fusionee);
 
      return 0;
