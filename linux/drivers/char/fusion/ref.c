@@ -21,6 +21,7 @@
 
 #include <linux/fusion.h>
 
+#include "fusiondev.h"
 #include "fusionee.h"
 #include "list.h"
 #include "ref.h"
@@ -58,6 +59,74 @@ static void       free_all_local (FusionRef *ref);
 static int         ids       = 0;
 static FusionLink *refs      = NULL;
 static spinlock_t  refs_lock = SPIN_LOCK_UNLOCKED;
+
+/******************************************************************************/
+
+static int
+fusion_ref_read_proc(char *buf, char **start, off_t offset,
+                     int len, int *eof, void *private)
+{
+  FusionLink *l;
+  int written = 0;
+
+  fusion_list_foreach (l, refs)
+    {
+      FusionRef *ref = (FusionRef*) l;
+
+      written += sprintf(buf+written, "0x%08x %2d %2d %s\n",
+                         ref->id, ref->global, ref->local,
+                         ref->locked ? "(locked)" : "");
+      if (written < offset)
+        {
+          offset -= written;
+          written = 0;
+        }
+
+      if (written >= len)
+        break;
+    }
+
+  *start = buf + offset;
+  written -= offset;
+  if(written > len)
+    {
+      *eof = 0;
+      return len;
+    }
+
+  *eof = 1;
+  return (written<0) ? 0 : written;
+}
+
+int
+fusion_ref_init()
+{
+  create_proc_read_entry("refs", 0, proc_fusion_dir, fusion_ref_read_proc, NULL);
+
+  return 0;
+}
+
+void
+fusion_ref_cleanup()
+{
+  FusionLink *l = refs;
+
+  while (l)
+    {
+      FusionLink *next = l->next;
+      FusionRef  *ref  = (FusionRef *) l;
+
+      free_all_local (ref);
+
+      kfree (ref);
+
+      l = next;
+    }
+
+  refs = NULL;
+
+  remove_proc_entry ("refs", proc_fusion_dir);
+}
 
 /******************************************************************************/
 
@@ -297,26 +366,6 @@ fusion_ref_clear_all_local (Fusionee *fusionee)
     }
 
   spin_unlock (&refs_lock);
-}
-
-void
-fusion_ref_cleanup()
-{
-  FusionLink *l = refs;
-
-  while (l)
-    {
-      FusionLink *next = l->next;
-      FusionRef  *ref  = (FusionRef *) l;
-
-      free_all_local (ref);
-
-      kfree (ref);
-
-      l = next;
-    }
-
-  refs = NULL;
 }
 
 /******************************************************************************/

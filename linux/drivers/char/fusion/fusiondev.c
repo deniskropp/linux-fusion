@@ -19,17 +19,21 @@
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/miscdevice.h>
+#include <linux/proc_fs.h>
 #include <linux/init.h>
 #include <asm/uaccess.h>
 
 #include <linux/fusion.h>
 
+#include "fusiondev.h"
 #include "fusionee.h"
 #include "ref.h"
 
 #define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
 
 MODULE_LICENSE("GPL");
+
+struct proc_dir_entry *proc_fusion_dir;
 
 /******************************************************************************/
 
@@ -158,10 +162,18 @@ fusion_init(void)
 {
   int ret;
 
-  ret = misc_register (&fusion_miscdev);
-  
+  proc_fusion_dir = proc_mkdir ("fusion", NULL);
+
+  ret = fusion_ref_init();
   if (ret)
     return ret;
+
+  ret = misc_register (&fusion_miscdev);
+  if (ret)
+    {
+      fusion_ref_cleanup();
+      return ret;
+    }
 
   return 0;
 }

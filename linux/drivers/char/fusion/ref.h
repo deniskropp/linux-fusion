@@ -17,6 +17,8 @@
 
 #include "types.h"
 
+int fusion_ref_init (void);
+
 int fusion_ref_new (int *id);
 int fusion_ref_up (int id, Fusionee *fusionee);
 int fusion_ref_down (int id, Fusionee *fusionee);
