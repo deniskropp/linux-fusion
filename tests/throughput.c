@@ -22,6 +22,8 @@
 #include <sys/time.h>
 #include <time.h>
 #include <sys/ioctl.h>
+#include <sys/resource.h>
+#include <sched.h>
 
 #include <linux/fusion.h>
 
@@ -55,6 +57,15 @@ receiver_thread (void *arg)
 {
   int  len;
   char buf[1024];
+
+#if 0
+  struct sched_param param;
+  
+  param.sched_priority = 1;
+
+  if (sched_setscheduler (0, SCHED_FIFO, &param))
+    perror ("sched_setscheduler");
+#endif
 
   /* Read as many messages as possible at once. */
   while ((len = read (fd, buf, 1024)) > 0 || errno == EINTR)
