@@ -1,0 +1,38 @@
+diff -uraN linux-2.4.21-pre3/drivers/char/Config.in linux-2.4.21-pre3-fusion/drivers/char/Config.in
+--- linux-2.4.21-pre3/drivers/char/Config.in	2003-01-14 14:35:14.000000000 +0100
++++ linux-2.4.21-pre3-fusion/drivers/char/Config.in	2003-01-14 14:38:20.000000000 +0100
+@@ -259,6 +259,7 @@
+ fi
+ dep_tristate 'AMD 76x native power management (Experimental)' CONFIG_AMD_PM768 $CONFIG_PCI
+ tristate '/dev/nvram support' CONFIG_NVRAM
++tristate 'Fusion Kernel Device' CONFIG_FUSION_DEVICE
+ tristate 'Enhanced Real Time Clock Support' CONFIG_RTC
+ if [ "$CONFIG_IA64" = "y" ]; then
+    bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
+diff -uraN linux-2.4.21-pre3/drivers/char/Makefile linux-2.4.21-pre3-fusion/drivers/char/Makefile
+--- linux-2.4.21-pre3/drivers/char/Makefile	2003-01-14 14:35:14.000000000 +0100
++++ linux-2.4.21-pre3-fusion/drivers/char/Makefile	2003-01-14 14:38:20.000000000 +0100
+@@ -292,6 +292,12 @@
+   obj-y += mwave/mwave.o
+ endif
+ 
++subdir-$(CONFIG_FUSION_DEVICE) += fusion
++ifeq ($(CONFIG_FUSION_DEVICE),y)
++  obj-y += fusion/fusion.o
++endif
++
++
+ include $(TOPDIR)/Rules.make
+ 
+ fastdep:
+diff -uraN linux-2.4.21-pre3/include/linux/miscdevice.h linux-2.4.21-pre3-fusion/include/linux/miscdevice.h
+--- linux-2.4.21-pre3/include/linux/miscdevice.h	2003-01-14 14:35:21.000000000 +0100
++++ linux-2.4.21-pre3-fusion/include/linux/miscdevice.h	2003-01-14 14:39:12.000000000 +0100
+@@ -14,6 +14,7 @@
+ #define PC110PAD_MINOR		9
+ #define ADB_MOUSE_MINOR		10
+ #define MK712_MINOR 		15	/* MK712 touch screen */
++#define FUSION_MINOR		23	/* Fusion Device      */
+ #define SYNTH_MINOR    		25
+ #define WATCHDOG_MINOR		130	/* Watchdog timer     */
+ #define TEMP_MINOR		131	/* Temperature Sensor */
