@@ -139,7 +139,6 @@ fusionee_reset()
         {
           Message *message = (Message*) fusion_fifo_get (&fusionee->messages);
 
-          kfree (message->data);
           kfree (message);
         }
 
@@ -212,7 +211,7 @@ fusionee_send_message (int id, int recipient, FusionMessageType msg_type,
       return -EIO;
     }
 
-  message = kmalloc (sizeof(Message), GFP_KERNEL);
+  message = kmalloc (sizeof(Message) + msg_size, GFP_KERNEL);
   if (!message)
     {
       unlock_fusionee (sender);
@@ -220,18 +219,10 @@ fusionee_send_message (int id, int recipient, FusionMessageType msg_type,
       return -ENOMEM;
     }
 
-  message->data = kmalloc (msg_size, GFP_KERNEL);
-  if (!message->data)
-    {
-      kfree (message);
-      unlock_fusionee (sender);
-      unlock_fusionee (fusionee);
-      return -ENOMEM;
-    }
+  message->data = message + 1;
 
   if (copy_from_user (message->data, msg_data, msg_size))
     {
-      kfree (message->data);
       kfree (message);
       unlock_fusionee (sender);
       unlock_fusionee (fusionee);
@@ -317,7 +308,6 @@ fusionee_get_messages (int id, void *buf, int buf_size, int block)
 
       fusion_fifo_get (&fusionee->messages);
 
-      kfree (message->data);
       kfree (message);
     }
 
