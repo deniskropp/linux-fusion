@@ -9,35 +9,9 @@ diff -uraN linux-2.4.20/drivers/char/Config.in linux-2.4.20-fusion/drivers/char/
  tristate 'Enhanced Real Time Clock Support' CONFIG_RTC
  if [ "$CONFIG_IA64" = "y" ]; then
     bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
-diff -uraN linux-2.4.20/drivers/char/Makefile linux-2.4.20-fusion/drivers/char/Makefile
---- linux-2.4.20/drivers/char/Makefile	2002-11-29 13:18:31.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/Makefile	2002-12-05 18:44:32.000000000 +0100
-@@ -289,6 +289,12 @@
-   obj-y += mwave/mwave.o
- endif
- 
-+subdir-$(CONFIG_FUSION_DEVICE) += fusion
-+ifeq ($(CONFIG_FUSION_DEVICE),y)
-+  obj-y += fusion/fusion.o
-+endif
-+
-+
- include $(TOPDIR)/Rules.make
- 
- fastdep:
-diff -uraN linux-2.4.20/drivers/char/fusion/Makefile linux-2.4.20-fusion/drivers/char/fusion/Makefile
---- linux-2.4.20/drivers/char/fusion/Makefile	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/Makefile	2002-12-05 18:44:32.000000000 +0100
-@@ -0,0 +1,6 @@
-+O_TARGET := fusion.o
-+
-+obj-y   := fifo.o fusiondev.o fusionee.o list.o property.o reactor.o ref.o skirmish.o
-+obj-m   := $(O_TARGET)
-+
-+include $(TOPDIR)/Rules.make
 diff -uraN linux-2.4.20/drivers/char/fusion/fifo.c linux-2.4.20-fusion/drivers/char/fusion/fifo.c
 --- linux-2.4.20/drivers/char/fusion/fifo.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/fifo.c	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/fifo.c	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,53 @@
 +/*
 + *	Fusion Kernel Module
@@ -94,7 +68,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fifo.c linux-2.4.20-fusion/drivers/c
 +}
 diff -uraN linux-2.4.20/drivers/char/fusion/fifo.h linux-2.4.20-fusion/drivers/char/fusion/fifo.h
 --- linux-2.4.20/drivers/char/fusion/fifo.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/fifo.h	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/fifo.h	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,38 @@
 +/*
 + *	Fusion Kernel Module
@@ -136,7 +110,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fifo.h linux-2.4.20-fusion/drivers/c
 +
 diff -uraN linux-2.4.20/drivers/char/fusion/fusiondev.c linux-2.4.20-fusion/drivers/char/fusion/fusiondev.c
 --- linux-2.4.20/drivers/char/fusion/fusiondev.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/fusiondev.c	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/fusiondev.c	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,441 @@
 +/*
 + *	Fusion Kernel Module
@@ -581,7 +555,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusiondev.c linux-2.4.20-fusion/driv
 +module_exit(fusion_exit);
 diff -uraN linux-2.4.20/drivers/char/fusion/fusiondev.h linux-2.4.20-fusion/drivers/char/fusion/fusiondev.h
 --- linux-2.4.20/drivers/char/fusion/fusiondev.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/fusiondev.h	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/fusiondev.h	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,22 @@
 +/*
 + *	Fusion Kernel Module
@@ -607,8 +581,8 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusiondev.h linux-2.4.20-fusion/driv
 +#endif
 diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drivers/char/fusion/fusionee.c
 --- linux-2.4.20/drivers/char/fusion/fusionee.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/fusionee.c	2003-01-14 16:08:35.000000000 +0100
-@@ -0,0 +1,422 @@
++++ linux-2.4.20-fusion/drivers/char/fusion/fusionee.c	2003-02-28 20:48:41.000000000 +0100
+@@ -0,0 +1,433 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -652,6 +626,8 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drive
 +
 +  FusionFifo        messages;
 +
++  int               msg_total;  /* Total number of messages received. */
++
 +  wait_queue_head_t wait;
 +} Fusionee;
 +
@@ -676,6 +652,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drive
 +static int         last_id        = 0;
 +static FusionLink *fusionees      = NULL;
 +static spinlock_t  fusionees_lock = SPIN_LOCK_UNLOCKED;
++static atomic_t    msg_total;
 +
 +/******************************************************************************/
 +
@@ -692,8 +669,8 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drive
 +    {
 +      Fusionee *fusionee = (Fusionee*) l;
 +
-+      written += sprintf(buf+written, "(%5d) 0x%08x (%3d messages waiting)\n",
-+                         fusionee->pid, fusionee->id, fusionee->messages.count);
++      written += sprintf(buf+written, "(%5d) 0x%08x (%4d messages waiting, %4d messages total)\n",
++                         fusionee->pid, fusionee->id, fusionee->messages.count, fusionee->msg_total);
 +      if (written < offset)
 +        {
 +          offset -= written;
@@ -721,6 +698,8 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drive
 +int
 +fusionee_init()
 +{
++  atomic_set (&msg_total, 0);
++
 +  create_proc_read_entry("fusionees", 0, proc_fusion_dir,
 +                         fusionees_read_proc, NULL);
 +
@@ -755,6 +734,8 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drive
 +
 +  last_id   = 0;
 +  fusionees = NULL;
++
++  atomic_set (&msg_total, 0);
 +
 +  spin_unlock (&fusionees_lock);
 +}
@@ -835,6 +816,10 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drive
 +  message->size = msg_size;
 +
 +  fusion_fifo_put (&fusionee->messages, &message->link);
++
++  fusionee->msg_total++;
++
++  atomic_inc (&msg_total);
 +
 +  wake_up_interruptible_all (&fusionee->wait);
 +
@@ -1033,7 +1018,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drive
 +}
 diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.h linux-2.4.20-fusion/drivers/char/fusion/fusionee.h
 --- linux-2.4.20/drivers/char/fusion/fusionee.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/fusionee.h	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/fusionee.h	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,46 @@
 +/*
 + *	Fusion Kernel Module
@@ -1083,7 +1068,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.h linux-2.4.20-fusion/drive
 +#endif
 diff -uraN linux-2.4.20/drivers/char/fusion/list.c linux-2.4.20-fusion/drivers/char/fusion/list.c
 --- linux-2.4.20/drivers/char/fusion/list.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/list.c	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/list.c	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,62 @@
 +/*
 + *	Fusion Kernel Module
@@ -1149,7 +1134,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/list.c linux-2.4.20-fusion/drivers/c
 +}
 diff -uraN linux-2.4.20/drivers/char/fusion/list.h linux-2.4.20-fusion/drivers/char/fusion/list.h
 --- linux-2.4.20/drivers/char/fusion/list.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/list.h	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/list.h	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,33 @@
 +/*
 + *	Fusion Kernel Module
@@ -1184,9 +1169,19 @@ diff -uraN linux-2.4.20/drivers/char/fusion/list.h linux-2.4.20-fusion/drivers/c
 +
 +#endif /* __FUSION__LIST_H__ */
 +
+diff -uraN linux-2.4.20/drivers/char/fusion/Makefile linux-2.4.20-fusion/drivers/char/fusion/Makefile
+--- linux-2.4.20/drivers/char/fusion/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/Makefile	2002-12-05 18:44:32.000000000 +0100
+@@ -0,0 +1,6 @@
++O_TARGET := fusion.o
++
++obj-y   := fifo.o fusiondev.o fusionee.o list.o property.o reactor.o ref.o skirmish.o
++obj-m   := $(O_TARGET)
++
++include $(TOPDIR)/Rules.make
 diff -uraN linux-2.4.20/drivers/char/fusion/property.c linux-2.4.20-fusion/drivers/char/fusion/property.c
 --- linux-2.4.20/drivers/char/fusion/property.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/property.c	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/property.c	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,398 @@
 +/*
 + *	Fusion Kernel Module
@@ -1588,7 +1583,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/property.c linux-2.4.20-fusion/drive
 +}
 diff -uraN linux-2.4.20/drivers/char/fusion/property.h linux-2.4.20-fusion/drivers/char/fusion/property.h
 --- linux-2.4.20/drivers/char/fusion/property.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/property.h	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/property.h	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,42 @@
 +/*
 + *	Fusion Kernel Module
@@ -1634,8 +1629,8 @@ diff -uraN linux-2.4.20/drivers/char/fusion/property.h linux-2.4.20-fusion/drive
 +#endif
 diff -uraN linux-2.4.20/drivers/char/fusion/reactor.c linux-2.4.20-fusion/drivers/char/fusion/reactor.c
 --- linux-2.4.20/drivers/char/fusion/reactor.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/reactor.c	2003-01-14 16:08:35.000000000 +0100
-@@ -0,0 +1,397 @@
++++ linux-2.4.20-fusion/drivers/char/fusion/reactor.c	2003-02-28 20:48:41.000000000 +0100
+@@ -0,0 +1,400 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -1863,7 +1858,10 @@ diff -uraN linux-2.4.20/drivers/char/fusion/reactor.c linux-2.4.20-fusion/driver
 +    }
 +
 +  if (! --node->count)
-+    fusion_list_remove (&reactor->nodes, &node->link);
++    {
++      fusion_list_remove (&reactor->nodes, &node->link);
++      kfree (node);
++    }
 +
 +  unlock_reactor (reactor);
 +
@@ -2035,7 +2033,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/reactor.c linux-2.4.20-fusion/driver
 +}
 diff -uraN linux-2.4.20/drivers/char/fusion/reactor.h linux-2.4.20-fusion/drivers/char/fusion/reactor.h
 --- linux-2.4.20/drivers/char/fusion/reactor.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/reactor.h	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/reactor.h	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,42 @@
 +/*
 + *	Fusion Kernel Module
@@ -2081,7 +2079,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/reactor.h linux-2.4.20-fusion/driver
 +#endif
 diff -uraN linux-2.4.20/drivers/char/fusion/ref.c linux-2.4.20-fusion/drivers/char/fusion/ref.c
 --- linux-2.4.20/drivers/char/fusion/ref.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/ref.c	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/ref.c	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,515 @@
 +/*
 + *	Fusion Kernel Module
@@ -2600,7 +2598,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/ref.c linux-2.4.20-fusion/drivers/ch
 +}
 diff -uraN linux-2.4.20/drivers/char/fusion/ref.h linux-2.4.20-fusion/drivers/char/fusion/ref.h
 --- linux-2.4.20/drivers/char/fusion/ref.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/ref.h	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/ref.h	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,44 @@
 +/*
 + *	Fusion Kernel Module
@@ -2648,7 +2646,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/ref.h linux-2.4.20-fusion/drivers/ch
 +#endif
 diff -uraN linux-2.4.20/drivers/char/fusion/skirmish.c linux-2.4.20-fusion/drivers/char/fusion/skirmish.c
 --- linux-2.4.20/drivers/char/fusion/skirmish.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/skirmish.c	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/skirmish.c	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,359 @@
 +/*
 + *	Fusion Kernel Module
@@ -3011,7 +3009,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/skirmish.c linux-2.4.20-fusion/drive
 +}
 diff -uraN linux-2.4.20/drivers/char/fusion/skirmish.h linux-2.4.20-fusion/drivers/char/fusion/skirmish.h
 --- linux-2.4.20/drivers/char/fusion/skirmish.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/skirmish.h	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/skirmish.h	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,41 @@
 +/*
 + *	Fusion Kernel Module
@@ -3056,7 +3054,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/skirmish.h linux-2.4.20-fusion/drive
 +#endif
 diff -uraN linux-2.4.20/drivers/char/fusion/types.h linux-2.4.20-fusion/drivers/char/fusion/types.h
 --- linux-2.4.20/drivers/char/fusion/types.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/types.h	2003-01-14 16:08:35.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/fusion/types.h	2003-02-28 20:48:41.000000000 +0100
 @@ -0,0 +1,23 @@
 +/*
 + *	Fusion Kernel Module
@@ -3081,6 +3079,22 @@ diff -uraN linux-2.4.20/drivers/char/fusion/types.h linux-2.4.20-fusion/drivers/
 +} bool;
 +
 +#endif
+diff -uraN linux-2.4.20/drivers/char/Makefile linux-2.4.20-fusion/drivers/char/Makefile
+--- linux-2.4.20/drivers/char/Makefile	2002-11-29 13:18:31.000000000 +0100
++++ linux-2.4.20-fusion/drivers/char/Makefile	2002-12-05 18:44:32.000000000 +0100
+@@ -289,6 +289,12 @@
+   obj-y += mwave/mwave.o
+ endif
+ 
++subdir-$(CONFIG_FUSION_DEVICE) += fusion
++ifeq ($(CONFIG_FUSION_DEVICE),y)
++  obj-y += fusion/fusion.o
++endif
++
++
+ include $(TOPDIR)/Rules.make
+ 
+ fastdep:
 diff -uraN linux-2.4.20/include/linux/fusion.h linux-2.4.20-fusion/include/linux/fusion.h
 --- linux-2.4.20/include/linux/fusion.h	1970-01-01 01:00:00.000000000 +0100
 +++ linux-2.4.20-fusion/include/linux/fusion.h	2002-12-13 18:07:07.000000000 +0100
