@@ -349,7 +349,7 @@ fusionee_kill (FusionDev *dev, int id, int target, int signal, int timeout_ms)
           if (timeout_ms) {
                switch (timeout) {
                     case 0:  /* timed out */
-                         spin_unlock (&fusionees_lock);
+                         spin_unlock (&dev->fusionee.lock);
                          return -ETIMEDOUT;
 
                     case -1: /* setup timeout */
@@ -372,7 +372,7 @@ fusionee_kill (FusionDev *dev, int id, int target, int signal, int timeout_ms)
                return -ERESTARTSYS;
      }
 
-     spin_unlock (&fusionees_lock);
+     spin_unlock (&dev->fusionee.lock);
 
      return 0;
 }
@@ -391,7 +391,7 @@ fusionee_destroy (FusionDev *dev, int id)
 
      wake_up_interruptible_all (&dev->fusionee.wait);
 
-     spin_unlock (&fusionees_lock);
+     spin_unlock (&dev->fusionee.lock);
 
 
      fusion_call_destroy_all (dev, id);
