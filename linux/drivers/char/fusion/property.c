@@ -273,14 +273,14 @@ fusion_property_purchase (int id, int fusion_id)
           switch (timeout)
             {
             case -1:
-              if (jiffies - property->purchase_stamp > HZ / 10)
+              if (jiffies - property->purchase_stamp > HZ)
                 {
                 case 0:
                   unlock_property (property);
                   return -EAGAIN;
                 }
               else
-                timeout = HZ / 10;
+                timeout = HZ;
 
               /* fall through */
 
