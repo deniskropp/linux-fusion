@@ -11,7 +11,7 @@
  *	as published by the Free Software Foundation; either version
  *	2 of the License, or (at your option) any later version.
  */
- 
+
 #ifndef __FUSION__SKIRMISH_H__
 #define __FUSION__SKIRMISH_H__
 
@@ -50,5 +50,8 @@ int fusion_skirmish_destroy (FusionDev *dev,
 
 void fusion_skirmish_dismiss_all (FusionDev *dev,
                                   int        fusion_id);
+
+void fusion_skirmish_dismiss_all_from_pid (FusionDev *dev,
+                                           int        pid);
 
 #endif

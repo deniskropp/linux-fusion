@@ -46,6 +46,7 @@
 #endif
 
 MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Denis Oliver Kropp <dok@directfb.org>");
 
 struct proc_dir_entry *proc_fusion_dir;
 
@@ -319,6 +320,22 @@ fusion_release (struct inode *inode, struct file *file)
      }
 
      up (&devs_lock);
+
+     return 0;
+}
+
+static int
+fusion_flush (struct file *file)
+{
+     int        fusion_id = (int) file->private_data;
+     FusionDev *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
+
+     (void) fusion_id;
+
+     DEBUG( "fusion_flush (0x%08x %d)\n", fusion_id, current->pid );
+
+     if (current->flags & PF_EXITING)
+          fusion_skirmish_dismiss_all_from_pid (dev, current->pid);
 
      return 0;
 }
@@ -642,6 +659,7 @@ fusion_ioctl (struct inode *inode, struct file *file,
 static struct file_operations fusion_fops = {
      .owner   = THIS_MODULE,
      .open    = fusion_open,
+     .flush   = fusion_flush,
      .release = fusion_release,
      .read    = fusion_read,
      .poll    = fusion_poll,

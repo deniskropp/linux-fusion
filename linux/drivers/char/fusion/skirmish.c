@@ -315,6 +315,32 @@ fusion_skirmish_dismiss_all (FusionDev *dev, int fusion_id)
      up (&dev->skirmish.lock);
 }
 
+void
+fusion_skirmish_dismiss_all_from_pid (FusionDev *dev, int pid)
+{
+     FusionLink *l;
+
+     down (&dev->skirmish.lock);
+
+     fusion_list_foreach (l, dev->skirmish.list) {
+          FusionSkirmish *skirmish = (FusionSkirmish *) l;
+
+          down (&skirmish->lock);
+
+          if (skirmish->lock_pid == pid) {
+               skirmish->lock_fid   = 0;
+               skirmish->lock_pid   = 0;
+               skirmish->lock_count = 0;
+
+               wake_up_interruptible_all (&skirmish->wait);
+          }
+
+          up (&skirmish->lock);
+     }
+
+     up (&dev->skirmish.lock);
+}
+
 /******************************************************************************/
 
 static int
