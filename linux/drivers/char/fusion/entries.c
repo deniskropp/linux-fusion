@@ -197,7 +197,7 @@ fusion_entry_lock( FusionEntries  *entries,
           return -EINVAL;
      }
 
-     FUSION_ASSERT( entry->lock_pid != current->pid );
+     FUSION_ASSUME( entry->lock_pid != current->pid );
 
      /* Move the entry to the front of all entries. */
      fusion_list_move_to_front( &entries->list, &entry->link );
@@ -224,7 +224,7 @@ void
 fusion_entry_unlock( FusionEntry *entry )
 {
      FUSION_ASSERT( entry != NULL );
-     FUSION_ASSERT( entry->lock_pid == current->pid );
+     FUSION_ASSUME( entry->lock_pid == current->pid );
 
      entry->lock_pid = 0;
 
@@ -242,7 +242,7 @@ fusion_entry_wait( FusionEntry *entry, long *timeout )
 
      FUSION_ASSERT( entry != NULL );
      FUSION_ASSERT( entry->entries != NULL );
-     FUSION_ASSERT( entry->lock_pid == current->pid );
+     FUSION_ASSUME( entry->lock_pid == current->pid );
 
      id      = entry->id;
      entries = entry->entries;
@@ -272,7 +272,7 @@ void
 fusion_entry_notify( FusionEntry *entry, bool all )
 {
      FUSION_ASSERT( entry != NULL );
-     FUSION_ASSERT( entry->lock_pid == current->pid );
+     FUSION_ASSUME( entry->lock_pid == current->pid );
 
      if (all)
           wake_up_interruptible_all( &entry->wait );

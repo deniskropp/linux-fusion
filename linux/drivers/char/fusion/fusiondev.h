@@ -21,6 +21,7 @@
 #include "list.h"
 
 #define FUSION_ASSERT(exp)    if (!(exp)) BUG()
+#define FUSION_ASSUME(exp)    if (!(exp)) printk( KERN_ERR "fusiondev: assumption '" #exp "' failed!\n" )
 
 typedef struct {
      int refs;
