@@ -41,3 +41,22 @@ fusion_list_remove (FusionLink **list, FusionLink *link)
 
      link->next = link->prev = NULL;
 }
+
+void
+fusion_list_move_to_front (FusionLink **list, FusionLink *link)
+{
+  if (*list == link)
+    return;
+
+  link->prev->next = link->next;
+
+  if (link->next)
+    link->next->prev = link->prev;
+
+  link->prev = NULL;
+  link->next = *list;
+
+  (*list)->prev = link;
+
+  *list = link;
+}

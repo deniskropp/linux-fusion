@@ -340,6 +340,8 @@ lock_skirmish (int id)
 {
   FusionSkirmish *skirmish = lookup_skirmish (id);
 
+  fusion_list_move_to_front (&skirmishs, &skirmish->link);
+
   if (skirmish)
     {
       spin_lock (&skirmish->lock);
