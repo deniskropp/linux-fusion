@@ -60,7 +60,7 @@ receiver_thread (void *arg)
 
 #if 0
   struct sched_param param;
-  
+
   param.sched_priority = 1;
 
   if (sched_setscheduler (0, SCHED_FIFO, &param))
@@ -88,7 +88,7 @@ receiver_thread (void *arg)
 
           /* Its data follows immediately. */
           void *data = buf_p + sizeof(FusionReadMessage);
-          
+
           /* Process the message depending on its type (origin). */
           switch (header->msg_type)
             {
@@ -123,8 +123,9 @@ main (int argc, char *argv[])
   int  n;
   int  synchronous = 0;
   long d;
-  int  fusion_id; /* Our own fusion id. */
   struct timeval t1, t2;
+
+  FusionEnter enter = {{ FUSION_API_MAJOR, FUSION_API_MINOR }};
 
   /* Open the Fusion Kernel Device. */
   fd = open ("/dev/fusion/0", O_RDWR);
@@ -135,9 +136,9 @@ main (int argc, char *argv[])
     }
 
   /* Query our fusion id. */
-  if (ioctl (fd, FUSION_GET_ID, &fusion_id))
+  if (ioctl (fd, FUSION_ENTER, &enter))
     {
-      perror ("FUSION_GET_ID failed");
+      perror ("FUSION_ENTER failed");
       close (fd);
       return -2;
     }
@@ -158,7 +159,7 @@ main (int argc, char *argv[])
       TestMessage       message;        /* Message data. */
 
       /* Fill message header. */
-      send.fusion_id = fusion_id;       /* recipient */
+      send.fusion_id = enter.fusion_id; /* recipient */
       send.msg_id    = 0;               /* optional */
       send.msg_size  = sizeof(TestMessage);
       send.msg_data  = &message;

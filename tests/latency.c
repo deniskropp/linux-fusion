@@ -87,7 +87,7 @@ receiver_thread (void *arg)
 
           /* Its data follows immediately. */
           void *data = buf_p + sizeof(FusionReadMessage);
-          
+
           /* Process the message depending on its type (origin). */
           switch (header->msg_type)
             {
@@ -120,7 +120,7 @@ int
 main (int argc, char *argv[])
 {
   int n;
-  int fusion_id; /* Our own fusion id. */
+  FusionEnter enter = {{ FUSION_API_MAJOR, FUSION_API_MINOR }};
 
   /* Open the Fusion Kernel Device. */
   fd = open ("/dev/fusion/0", O_RDWR);
@@ -131,9 +131,9 @@ main (int argc, char *argv[])
     }
 
   /* Query our fusion id. */
-  if (ioctl (fd, FUSION_GET_ID, &fusion_id))
+  if (ioctl (fd, FUSION_ENTER, &enter))
     {
-      perror ("FUSION_GET_ID failed");
+      perror ("FUSION_ENTER failed");
       close (fd);
       return -2;
     }
@@ -151,7 +151,7 @@ main (int argc, char *argv[])
       TestMessage       message;        /* Message data. */
 
       /* Fill message header. */
-      send.fusion_id = fusion_id;       /* recipient */
+      send.fusion_id = enter.fusion_id; /* recipient */
       send.msg_id    = 0;               /* optional */
       send.msg_size  = sizeof(TestMessage);
       send.msg_data  = &message;

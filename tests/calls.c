@@ -103,7 +103,7 @@ receiver_thread (void *arg)
 
           /* Its data follows immediately. */
           void *data = buf_p + sizeof(FusionReadMessage);
-          
+
           /* Process the message depending on its type (origin). */
           switch (header->msg_type)
             {
@@ -131,10 +131,11 @@ int
 main (int argc, char *argv[])
 {
   long              d = 0;
-  int               fusion_id; /* Our own fusion id. */
   FusionCallNew     call_new;
   FusionCallExecute call_exec;
   struct timeval    t1, t2;
+
+  FusionEnter enter = {{ FUSION_API_MAJOR, FUSION_API_MINOR }};
 
   /* Open the Fusion Kernel Device. */
   fd = open ("/dev/fusion/0", O_RDWR);
@@ -145,9 +146,9 @@ main (int argc, char *argv[])
     }
 
   /* Query our fusion id. */
-  if (ioctl (fd, FUSION_GET_ID, &fusion_id))
+  if (ioctl (fd, FUSION_ENTER, &enter))
     {
-      perror ("FUSION_GET_ID failed");
+      perror ("FUSION_ENTER failed");
       close (fd);
       return -2;
     }
@@ -186,7 +187,7 @@ main (int argc, char *argv[])
       if (counter % 1000 == 0)
         {
           gettimeofday (&t2, NULL);
-          
+
           d = (t2.tv_sec - t1.tv_sec) * 1000 + (t2.tv_usec - t1.tv_usec) / 1000;
         }
     }
