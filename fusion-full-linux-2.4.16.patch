@@ -1,4 +1,4 @@
-diff -Naur linux-2.4.16/drivers/char/Config.in linux-2.4.16-fusion/drivers/char/Config.in
+diff -uraN linux-2.4.16/drivers/char/Config.in linux-2.4.16-fusion/drivers/char/Config.in
 --- linux-2.4.16/drivers/char/Config.in	2001-11-12 18:34:16.000000000 +0100
 +++ linux-2.4.16-fusion/drivers/char/Config.in	2002-11-02 07:06:24.000000000 +0100
 @@ -185,6 +185,7 @@
@@ -9,7 +9,7 @@ diff -Naur linux-2.4.16/drivers/char/Config.in linux-2.4.16-fusion/drivers/char/
  tristate 'Enhanced Real Time Clock Support' CONFIG_RTC
  if [ "$CONFIG_IA64" = "y" ]; then
     bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
-diff -Naur linux-2.4.16/drivers/char/Makefile linux-2.4.16-fusion/drivers/char/Makefile
+diff -uraN linux-2.4.16/drivers/char/Makefile linux-2.4.16-fusion/drivers/char/Makefile
 --- linux-2.4.16/drivers/char/Makefile	2001-11-11 19:09:32.000000000 +0100
 +++ linux-2.4.16-fusion/drivers/char/Makefile	2002-11-02 07:06:24.000000000 +0100
 @@ -240,6 +240,12 @@
@@ -25,20 +25,20 @@ diff -Naur linux-2.4.16/drivers/char/Makefile linux-2.4.16-fusion/drivers/char/M
  include $(TOPDIR)/Rules.make
  
  fastdep:
-diff -Naur linux-2.4.16/drivers/char/fusion/Makefile linux-2.4.16-fusion/drivers/char/fusion/Makefile
+diff -uraN linux-2.4.16/drivers/char/fusion/Makefile linux-2.4.16-fusion/drivers/char/fusion/Makefile
 --- linux-2.4.16/drivers/char/fusion/Makefile	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/Makefile	2002-11-02 07:06:24.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/Makefile	2002-11-04 17:29:17.000000000 +0100
 @@ -0,0 +1,6 @@
 +O_TARGET := fusion.o
 +
-+obj-y   := fusiondev.o fusionee.o list.o ref.o skirmish.o
++obj-y   := fusiondev.o fusionee.o list.o property.o ref.o skirmish.o
 +obj-m   := $(O_TARGET)
 +
 +include $(TOPDIR)/Rules.make
-diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/drivers/char/fusion/fusiondev.c
+diff -uraN linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/drivers/char/fusion/fusiondev.c
 --- linux-2.4.16/drivers/char/fusion/fusiondev.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/fusiondev.c	2002-11-02 07:07:16.000000000 +0100
-@@ -0,0 +1,238 @@
++++ linux-2.4.16-fusion/drivers/char/fusion/fusiondev.c	2002-11-04 17:29:17.000000000 +0100
+@@ -0,0 +1,278 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -68,6 +68,7 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +
 +#include "fusiondev.h"
 +#include "fusionee.h"
++#include "property.h"
 +#include "ref.h"
 +#include "skirmish.h"
 +
@@ -118,6 +119,7 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +    case FUSION_GET_ID:
 +      put_user (fusion_id, (int*) arg);
 +      break;
++
 +
 +    case FUSION_REF_NEW:
 +      ret = fusion_ref_new (&id);
@@ -176,6 +178,7 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +
 +      return fusion_ref_destroy (id);
 +
++
 +    case FUSION_SKIRMISH_NEW:
 +      ret = fusion_skirmish_new (&id);
 +      if (ret)
@@ -203,6 +206,35 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +      get_user (id, (int*) arg);
 +
 +      return fusion_skirmish_destroy (id);
++
++
++    case FUSION_PROPERTY_NEW:
++      ret = fusion_property_new (&id);
++      if (ret)
++        return ret;
++
++      put_user (id, (int*) arg);
++      break;
++
++    case FUSION_PROPERTY_LEASE:
++      get_user (id, (int*) arg);
++
++      return fusion_property_lease (id, fusion_id);
++
++    case FUSION_PROPERTY_PURCHASE:
++      get_user (id, (int*) arg);
++
++      return fusion_property_purchase (id, fusion_id);
++
++    case FUSION_PROPERTY_CEDE:
++      get_user (id, (int*) arg);
++
++      return fusion_property_cede (id, fusion_id);
++
++    case FUSION_PROPERTY_DESTROY:
++      get_user (id, (int*) arg);
++
++      return fusion_property_destroy (id);
 +
 +    default:
 +      return -ENOTTY;
@@ -245,6 +277,10 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +  if (ret)
 +    goto error_skirmish;
 +
++  ret = fusion_property_init();
++  if (ret)
++    goto error_property;
++
 +  ret = misc_register (&fusion_miscdev);
 +  if (ret)
 +    goto error_misc;
@@ -253,6 +289,9 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +
 +
 + error_misc:
++  fusion_property_cleanup();
++
++ error_property:
 +  fusion_skirmish_cleanup();
 +
 + error_skirmish:
@@ -270,6 +309,7 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +{
 +  misc_deregister (&fusion_miscdev);
 +  
++  fusion_property_cleanup();
 +  fusion_skirmish_cleanup();
 +  fusion_ref_cleanup();
 +  fusionee_cleanup();
@@ -277,9 +317,9 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.c linux-2.4.16-fusion/driv
 +
 +module_init(fusion_init);
 +module_exit(fusion_exit);
-diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.h linux-2.4.16-fusion/drivers/char/fusion/fusiondev.h
+diff -uraN linux-2.4.16/drivers/char/fusion/fusiondev.h linux-2.4.16-fusion/drivers/char/fusion/fusiondev.h
 --- linux-2.4.16/drivers/char/fusion/fusiondev.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/fusiondev.h	2002-11-02 07:07:16.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/fusiondev.h	2002-11-04 17:29:17.000000000 +0100
 @@ -0,0 +1,22 @@
 +/*
 + *	Fusion Kernel Module
@@ -303,10 +343,10 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusiondev.h linux-2.4.16-fusion/driv
 +extern struct proc_dir_entry *proc_fusion_dir;
 +
 +#endif
-diff -Naur linux-2.4.16/drivers/char/fusion/fusionee.c linux-2.4.16-fusion/drivers/char/fusion/fusionee.c
+diff -uraN linux-2.4.16/drivers/char/fusion/fusionee.c linux-2.4.16-fusion/drivers/char/fusion/fusionee.c
 --- linux-2.4.16/drivers/char/fusion/fusionee.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/fusionee.c	2002-11-02 07:07:16.000000000 +0100
-@@ -0,0 +1,213 @@
++++ linux-2.4.16-fusion/drivers/char/fusion/fusionee.c	2002-11-04 17:29:17.000000000 +0100
+@@ -0,0 +1,215 @@
 +/*
 + *	Fusion Kernel Module
 + *
@@ -332,6 +372,7 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusionee.c linux-2.4.16-fusion/drive
 +#include "list.h"
 +#include "fusiondev.h"
 +#include "fusionee.h"
++#include "property.h"
 +#include "ref.h"
 +#include "skirmish.h"
 +
@@ -470,6 +511,7 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusionee.c linux-2.4.16-fusion/drive
 +  fusion_list_remove (&fusionees, &fusionee->link);
 +
 +  fusion_skirmish_dismiss_all (id);
++  fusion_property_cede_all (id);
 +  fusion_ref_clear_all_local (id);
 +
 +  spin_unlock (&fusionees_lock);
@@ -520,9 +562,9 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusionee.c linux-2.4.16-fusion/drive
 +{
 +  spin_unlock (&fusionee->lock);
 +}
-diff -Naur linux-2.4.16/drivers/char/fusion/fusionee.h linux-2.4.16-fusion/drivers/char/fusion/fusionee.h
+diff -uraN linux-2.4.16/drivers/char/fusion/fusionee.h linux-2.4.16-fusion/drivers/char/fusion/fusionee.h
 --- linux-2.4.16/drivers/char/fusion/fusionee.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/fusionee.h	2002-11-02 07:07:16.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/fusionee.h	2002-11-04 17:29:17.000000000 +0100
 @@ -0,0 +1,34 @@
 +/*
 + *	Fusion Kernel Module
@@ -558,9 +600,9 @@ diff -Naur linux-2.4.16/drivers/char/fusion/fusionee.h linux-2.4.16-fusion/drive
 +
 +
 +#endif
-diff -Naur linux-2.4.16/drivers/char/fusion/list.c linux-2.4.16-fusion/drivers/char/fusion/list.c
+diff -uraN linux-2.4.16/drivers/char/fusion/list.c linux-2.4.16-fusion/drivers/char/fusion/list.c
 --- linux-2.4.16/drivers/char/fusion/list.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/list.c	2002-11-02 07:07:16.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/list.c	2002-11-04 17:29:17.000000000 +0100
 @@ -0,0 +1,43 @@
 +/*
 + *	Fusion Kernel Module
@@ -605,9 +647,9 @@ diff -Naur linux-2.4.16/drivers/char/fusion/list.c linux-2.4.16-fusion/drivers/c
 +
 +     link->next = link->prev = NULL;
 +}
-diff -Naur linux-2.4.16/drivers/char/fusion/list.h linux-2.4.16-fusion/drivers/char/fusion/list.h
+diff -uraN linux-2.4.16/drivers/char/fusion/list.h linux-2.4.16-fusion/drivers/char/fusion/list.h
 --- linux-2.4.16/drivers/char/fusion/list.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/list.h	2002-11-02 07:07:16.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/list.h	2002-11-04 17:29:17.000000000 +0100
 @@ -0,0 +1,32 @@
 +/*
 + *	Fusion Kernel Module
@@ -641,9 +683,417 @@ diff -Naur linux-2.4.16/drivers/char/fusion/list.h linux-2.4.16-fusion/drivers/c
 +
 +#endif /* __FUSION__LIST_H__ */
 +
-diff -Naur linux-2.4.16/drivers/char/fusion/ref.c linux-2.4.16-fusion/drivers/char/fusion/ref.c
+diff -uraN linux-2.4.16/drivers/char/fusion/property.c linux-2.4.16-fusion/drivers/char/fusion/property.c
+--- linux-2.4.16/drivers/char/fusion/property.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/property.c	2002-11-04 17:29:17.000000000 +0100
+@@ -0,0 +1,360 @@
++/*
++ *	Fusion Kernel Module
++ *
++ *	(c) Copyright 2002  convergence integrated media GmbH
++ *
++ *      Written by Denis Oliver Kropp <dok@directfb.org>
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++ 
++#include <linux/config.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/smp_lock.h>
++#include <linux/sched.h>
++
++#include <linux/fusion.h>
++
++#include "fusiondev.h"
++#include "fusionee.h"
++#include "list.h"
++#include "property.h"
++
++typedef enum {
++     FUSION_PROPERTY_AVAILABLE = 0,
++     FUSION_PROPERTY_LEASED,
++     FUSION_PROPERTY_PURCHASED
++} FusionPropertyState;
++
++typedef struct {
++  FusionLink          link;
++
++  spinlock_t          lock;
++
++  int                 id;
++  int                 pid;
++
++  FusionPropertyState state;
++  int                 fusion_id; /* non-zero if leased/purchased */
++
++  wait_queue_head_t   wait;
++} FusionProperty;
++
++/******************************************************************************/
++
++static FusionProperty *lookup_property     (int id);
++
++static FusionProperty *lock_property       (int id);
++static void            unlock_property     (FusionProperty *property);
++
++/******************************************************************************/
++
++static int         ids             = 0;
++static FusionLink *properties      = NULL;
++static spinlock_t  properties_lock = SPIN_LOCK_UNLOCKED;
++
++/******************************************************************************/
++
++static int
++fusion_property_read_proc(char *buf, char **start, off_t offset,
++                     int len, int *eof, void *private)
++{
++  FusionLink *l;
++  int written = 0;
++
++  spin_lock (&properties_lock);
++
++  fusion_list_foreach (l, properties)
++    {
++      FusionProperty *property = (FusionProperty*) l;
++
++      written += sprintf(buf+written, "(%5d) 0x%08x %s\n",
++                         property->pid, property->id,
++                         property->state ?
++                           (property->state == FUSION_PROPERTY_LEASED ?
++                              "leased" : "purchased") :
++                           "");
++      if (written < offset)
++        {
++          offset -= written;
++          written = 0;
++        }
++
++      if (written >= len)
++        break;
++    }
++
++  spin_unlock (&properties_lock);
++
++  *start = buf + offset;
++  written -= offset;
++  if(written > len)
++    {
++      *eof = 0;
++      return len;
++    }
++
++  *eof = 1;
++  return (written<0) ? 0 : written;
++}
++
++int
++fusion_property_init()
++{
++  create_proc_read_entry("properties", 0, proc_fusion_dir,
++                         fusion_property_read_proc, NULL);
++
++  return 0;
++}
++
++void
++fusion_property_cleanup()
++{
++  FusionLink *l = properties;
++
++  while (l)
++    {
++      FusionLink     *next     = l->next;
++      FusionProperty *property = (FusionProperty *) l;
++
++      kfree (property);
++
++      l = next;
++    }
++
++  properties = NULL;
++
++  remove_proc_entry ("properties", proc_fusion_dir);
++}
++
++/******************************************************************************/
++
++int
++fusion_property_new (int *id)
++{
++  FusionProperty *property;
++
++  property = kmalloc (sizeof(FusionProperty), GFP_KERNEL);
++  if (!property)
++    return -ENOMEM;
++
++  memset (property, 0, sizeof(FusionProperty));
++
++  spin_lock (&properties_lock);
++
++  property->id   = ids++;
++  property->pid  = current->pid;
++  property->lock = SPIN_LOCK_UNLOCKED;
++
++  init_waitqueue_head (&property->wait);
++
++  fusion_list_prepend (&properties, &property->link);
++
++  spin_unlock (&properties_lock);
++
++  *id = property->id;
++
++  return 0;
++}
++
++int
++fusion_property_lease (int id, int fusion_id)
++{
++  FusionProperty *property;
++
++  while (true)
++    {
++      property = lock_property (id);
++      if (!property)
++        return -EINVAL;
++
++      switch (property->state)
++        {
++        case FUSION_PROPERTY_AVAILABLE:
++          property->state     = FUSION_PROPERTY_LEASED;
++          property->fusion_id = fusion_id;
++
++          unlock_property (property);
++          return 0;
++
++        case FUSION_PROPERTY_LEASED:
++          unlock_property (property);
++
++          interruptible_sleep_on (&property->wait);
++
++          if (signal_pending(current))
++            return -ERESTARTSYS;
++
++          break;
++
++        case FUSION_PROPERTY_PURCHASED:
++          unlock_property (property);
++          return -EAGAIN;
++        }
++    }
++
++  /* won't reach this */
++  return 0;
++}
++
++int
++fusion_property_purchase (int id, int fusion_id)
++{
++  FusionProperty *property;
++
++  while (true)
++    {
++      property = lock_property (id);
++      if (!property)
++        return -EINVAL;
++
++      switch (property->state)
++        {
++        case FUSION_PROPERTY_AVAILABLE:
++          property->state     = FUSION_PROPERTY_PURCHASED;
++          property->fusion_id = fusion_id;
++
++          wake_up_interruptible_all (&property->wait);
++
++          unlock_property (property);
++          return 0;
++
++        case FUSION_PROPERTY_LEASED:
++          unlock_property (property);
++
++          interruptible_sleep_on (&property->wait);
++
++          if (signal_pending(current))
++            return -ERESTARTSYS;
++
++          break;
++
++        case FUSION_PROPERTY_PURCHASED:
++          unlock_property (property);
++          return -EAGAIN;
++        }
++    }
++
++  /* won't reach this */
++  return 0;
++}
++
++int
++fusion_property_cede (int id, int fusion_id)
++{
++  FusionProperty *property = lock_property (id);
++
++  if (!property)
++    return -EINVAL;
++
++  if (property->fusion_id != fusion_id)
++    {
++      unlock_property (property);
++      return -EIO;
++    }
++
++  property->state     = FUSION_PROPERTY_AVAILABLE;
++  property->fusion_id = 0;
++
++  wake_up_interruptible_all (&property->wait);
++
++  unlock_property (property);
++
++  return 0;
++}
++
++int
++fusion_property_destroy (int id)
++{
++  FusionProperty *property = lookup_property (id);
++
++  if (!property)
++    return -EINVAL;
++
++  spin_lock (&property->lock);
++
++  fusion_list_remove (&properties, &property->link);
++
++  wake_up_interruptible_all (&property->wait);
++
++  spin_unlock (&properties_lock);
++
++  kfree (property);
++
++  return 0;
++}
++
++void
++fusion_property_cede_all (int fusion_id)
++{
++  FusionLink *l;
++
++  spin_lock (&properties_lock);
++
++  fusion_list_foreach (l, properties)
++    {
++      FusionProperty *property = (FusionProperty *) l;
++
++      spin_lock (&property->lock);
++
++      if (property->fusion_id == fusion_id)
++        {
++          property->state     = FUSION_PROPERTY_AVAILABLE;
++          property->fusion_id = 0;
++
++          wake_up_interruptible_all (&property->wait);
++        }
++
++      spin_unlock (&property->lock);
++    }
++
++  spin_unlock (&properties_lock);
++}
++
++/******************************************************************************/
++
++static FusionProperty *
++lookup_property (int id)
++{
++  FusionLink *l;
++
++  spin_lock (&properties_lock);
++
++  fusion_list_foreach (l, properties)
++    {
++      FusionProperty *property = (FusionProperty *) l;
++
++      if (property->id == id)
++        return property;
++    }
++
++  spin_unlock (&properties_lock);
++
++  return NULL;
++}
++
++static FusionProperty *
++lock_property (int id)
++{
++  FusionProperty *property = lookup_property (id);
++
++  if (property)
++    {
++      spin_lock (&property->lock);
++      spin_unlock (&properties_lock);
++    }
++
++  return property;
++}
++
++static void
++unlock_property (FusionProperty *property)
++{
++  spin_unlock (&property->lock);
++}
+diff -uraN linux-2.4.16/drivers/char/fusion/property.h linux-2.4.16-fusion/drivers/char/fusion/property.h
+--- linux-2.4.16/drivers/char/fusion/property.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/property.h	2002-11-04 17:29:17.000000000 +0100
+@@ -0,0 +1,40 @@
++/*
++ *	Fusion Kernel Module
++ *
++ *	(c) Copyright 2002  convergence integrated media GmbH
++ *
++ *      Written by Denis Oliver Kropp <dok@directfb.org>
++ *
++ *
++ *	This program is free software; you can redistribute it and/or
++ *	modify it under the terms of the GNU General Public License
++ *	as published by the Free Software Foundation; either version
++ *	2 of the License, or (at your option) any later version.
++ */
++ 
++#ifndef __FUSION__PROPERTY_H__
++#define __FUSION__PROPERTY_H__
++
++#include "types.h"
++
++
++/* module init/cleanup */
++
++int  fusion_property_init (void);
++void fusion_property_cleanup (void);
++
++
++/* public API */
++
++int fusion_property_new (int *id);
++int fusion_property_lease (int id, int fusion_id);
++int fusion_property_purchase (int id, int fusion_id);
++int fusion_property_cede (int id, int fusion_id);
++int fusion_property_destroy (int id);
++
++
++/* internal functions */
++
++void fusion_property_cede_all (int fusion_id);
++
++#endif
+diff -uraN linux-2.4.16/drivers/char/fusion/ref.c linux-2.4.16-fusion/drivers/char/fusion/ref.c
 --- linux-2.4.16/drivers/char/fusion/ref.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/ref.c	2002-11-02 07:07:16.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/ref.c	2002-11-04 17:29:17.000000000 +0100
 @@ -0,0 +1,503 @@
 +/*
 + *	Fusion Kernel Module
@@ -1148,9 +1598,9 @@ diff -Naur linux-2.4.16/drivers/char/fusion/ref.c linux-2.4.16-fusion/drivers/ch
 +
 +  ref->local_refs = NULL;
 +}
-diff -Naur linux-2.4.16/drivers/char/fusion/ref.h linux-2.4.16-fusion/drivers/char/fusion/ref.h
+diff -uraN linux-2.4.16/drivers/char/fusion/ref.h linux-2.4.16-fusion/drivers/char/fusion/ref.h
 --- linux-2.4.16/drivers/char/fusion/ref.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/ref.h	2002-11-02 07:07:16.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/ref.h	2002-11-04 17:29:17.000000000 +0100
 @@ -0,0 +1,43 @@
 +/*
 + *	Fusion Kernel Module
@@ -1195,9 +1645,9 @@ diff -Naur linux-2.4.16/drivers/char/fusion/ref.h linux-2.4.16-fusion/drivers/ch
 +void fusion_ref_clear_all_local (int fusion_id);
 +
 +#endif
-diff -Naur linux-2.4.16/drivers/char/fusion/skirmish.c linux-2.4.16-fusion/drivers/char/fusion/skirmish.c
+diff -uraN linux-2.4.16/drivers/char/fusion/skirmish.c linux-2.4.16-fusion/drivers/char/fusion/skirmish.c
 --- linux-2.4.16/drivers/char/fusion/skirmish.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/skirmish.c	2002-11-02 07:07:16.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/skirmish.c	2002-11-04 17:29:17.000000000 +0100
 @@ -0,0 +1,318 @@
 +/*
 + *	Fusion Kernel Module
@@ -1517,9 +1967,9 @@ diff -Naur linux-2.4.16/drivers/char/fusion/skirmish.c linux-2.4.16-fusion/drive
 +{
 +  spin_unlock (&skirmish->lock);
 +}
-diff -Naur linux-2.4.16/drivers/char/fusion/skirmish.h linux-2.4.16-fusion/drivers/char/fusion/skirmish.h
+diff -uraN linux-2.4.16/drivers/char/fusion/skirmish.h linux-2.4.16-fusion/drivers/char/fusion/skirmish.h
 --- linux-2.4.16/drivers/char/fusion/skirmish.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/skirmish.h	2002-11-02 07:07:16.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/skirmish.h	2002-11-04 17:29:17.000000000 +0100
 @@ -0,0 +1,40 @@
 +/*
 + *	Fusion Kernel Module
@@ -1561,9 +2011,9 @@ diff -Naur linux-2.4.16/drivers/char/fusion/skirmish.h linux-2.4.16-fusion/drive
 +void fusion_skirmish_dismiss_all (int fusion_id);
 +
 +#endif
-diff -Naur linux-2.4.16/drivers/char/fusion/types.h linux-2.4.16-fusion/drivers/char/fusion/types.h
+diff -uraN linux-2.4.16/drivers/char/fusion/types.h linux-2.4.16-fusion/drivers/char/fusion/types.h
 --- linux-2.4.16/drivers/char/fusion/types.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/drivers/char/fusion/types.h	2002-11-02 07:07:16.000000000 +0100
++++ linux-2.4.16-fusion/drivers/char/fusion/types.h	2002-11-04 17:29:17.000000000 +0100
 @@ -0,0 +1,23 @@
 +/*
 + *	Fusion Kernel Module
@@ -1588,7 +2038,7 @@ diff -Naur linux-2.4.16/drivers/char/fusion/types.h linux-2.4.16-fusion/drivers/
 +} bool;
 +
 +#endif
-diff -Naur linux-2.4.16/drivers/char/misc.c linux-2.4.16-fusion/drivers/char/misc.c
+diff -uraN linux-2.4.16/drivers/char/misc.c linux-2.4.16-fusion/drivers/char/misc.c
 --- linux-2.4.16/drivers/char/misc.c	2001-11-03 02:46:47.000000000 +0100
 +++ linux-2.4.16-fusion/drivers/char/misc.c	2002-11-02 07:06:24.000000000 +0100
 @@ -76,6 +76,7 @@
@@ -1609,10 +2059,10 @@ diff -Naur linux-2.4.16/drivers/char/misc.c linux-2.4.16-fusion/drivers/char/mis
  	if (devfs_register_chrdev(MISC_MAJOR,"misc",&misc_fops)) {
  		printk("unable to get major %d for misc devices\n",
  		       MISC_MAJOR);
-diff -Naur linux-2.4.16/include/linux/fusion.h linux-2.4.16-fusion/include/linux/fusion.h
+diff -uraN linux-2.4.16/include/linux/fusion.h linux-2.4.16-fusion/include/linux/fusion.h
 --- linux-2.4.16/include/linux/fusion.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.16-fusion/include/linux/fusion.h	2002-11-02 07:06:24.000000000 +0100
-@@ -0,0 +1,27 @@
++++ linux-2.4.16-fusion/include/linux/fusion.h	2002-11-04 17:29:02.000000000 +0100
+@@ -0,0 +1,33 @@
 +#ifndef __LINUX__FUSION_H__
 +#define __LINUX__FUSION_H__
 +
@@ -1638,9 +2088,15 @@ diff -Naur linux-2.4.16/include/linux/fusion.h linux-2.4.16-fusion/include/linux
 +#define FUSION_SKIRMISH_DISMISS         _IOW('F', 0x23, sizeof(int))
 +#define FUSION_SKIRMISH_DESTROY         _IOW('F', 0x24, sizeof(int))
 +
++#define FUSION_PROPERTY_NEW             _IOW('F', 0x30, sizeof(int))
++#define FUSION_PROPERTY_LEASE           _IOW('F', 0x31, sizeof(int))
++#define FUSION_PROPERTY_PURCHASE        _IOW('F', 0x32, sizeof(int))
++#define FUSION_PROPERTY_CEDE            _IOW('F', 0x33, sizeof(int))
++#define FUSION_PROPERTY_DESTROY         _IOW('F', 0x34, sizeof(int))
++
 +#endif
 +
-diff -Naur linux-2.4.16/include/linux/miscdevice.h linux-2.4.16-fusion/include/linux/miscdevice.h
+diff -uraN linux-2.4.16/include/linux/miscdevice.h linux-2.4.16-fusion/include/linux/miscdevice.h
 --- linux-2.4.16/include/linux/miscdevice.h	2001-11-22 20:47:07.000000000 +0100
 +++ linux-2.4.16-fusion/include/linux/miscdevice.h	2002-11-02 07:06:24.000000000 +0100
 @@ -13,6 +13,7 @@
