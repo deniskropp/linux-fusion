@@ -196,9 +196,7 @@ fusion_property_lease (int id, int fusion_id)
           return 0;
 
         case FUSION_PROPERTY_LEASED:
-          unlock_property (property);
-
-          interruptible_sleep_on (&property->wait);
+          fusion_sleep_on (&property->wait, &property->lock);
 
           if (signal_pending(current))
             return -ERESTARTSYS;
@@ -238,9 +236,7 @@ fusion_property_purchase (int id, int fusion_id)
           return 0;
 
         case FUSION_PROPERTY_LEASED:
-          unlock_property (property);
-
-          interruptible_sleep_on (&property->wait);
+          fusion_sleep_on (&property->wait, &property->lock);
 
           if (signal_pending(current))
             return -ERESTARTSYS;

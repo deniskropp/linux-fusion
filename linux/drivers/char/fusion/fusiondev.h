@@ -19,4 +19,10 @@
 
 extern struct proc_dir_entry *proc_fusion_dir;
 
+/*
+ * Special version of interruptible_sleep_on() that unlocks the spinlock
+ * after adding the entry to the queue (just before schedule).
+ */
+void fusion_sleep_on(wait_queue_head_t *q, spinlock_t *lock);
+
 #endif

@@ -49,6 +49,31 @@ static spinlock_t refs_lock = SPIN_LOCK_UNLOCKED;
 
 /******************************************************************************/
 
+void
+fusion_sleep_on(wait_queue_head_t *q, spinlock_t *lock)
+{
+  unsigned long flags;
+  wait_queue_t  wait;
+  
+  init_waitqueue_entry (&wait, current);
+
+  current->state = TASK_INTERRUPTIBLE;
+
+  wq_write_lock_irqsave (&q->lock,flags);
+  __add_wait_queue (q, &wait);
+  wq_write_unlock (&q->lock);
+
+  spin_unlock (lock);
+
+  schedule();
+
+  wq_write_lock_irq (&q->lock);
+  __remove_wait_queue (q, &wait);
+  wq_write_unlock_irqrestore (&q->lock,flags);
+}
+
+/******************************************************************************/
+
 static void
 fusion_reset (void)
 {

@@ -21,6 +21,7 @@
 
 #include <linux/fusion.h>
 
+#include "call.h"
 #include "fifo.h"
 #include "list.h"
 #include "fusiondev.h"
@@ -261,12 +262,13 @@ fusionee_get_messages (int id, void *buf, int buf_size, int block)
 
   while (!fusionee->messages.count)
     {
-      unlock_fusionee (fusionee);
-
       if (!block)
-        return -EAGAIN;
+        {
+          unlock_fusionee (fusionee);
+          return -EAGAIN;
+        }
 
-      interruptible_sleep_on (&fusionee->wait);
+      fusion_sleep_on (&fusionee->wait, &fusionee->lock);
 
       if (signal_pending(current))
         return -ERESTARTSYS;
@@ -378,6 +380,7 @@ fusionee_destroy (int id)
 
   spin_unlock (&fusionees_lock);
 
+  fusion_call_destroy_all (id);
   fusion_skirmish_dismiss_all (id);
   fusion_reactor_detach_all (id);
   fusion_property_cede_all (id);

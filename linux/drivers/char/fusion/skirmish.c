@@ -187,9 +187,7 @@ fusion_skirmish_prevail (int id, int fusion_id)
               return 0;
             }
 
-          unlock_skirmish (skirmish);
-
-          interruptible_sleep_on (&skirmish->wait);
+          fusion_sleep_on (&skirmish->wait, &skirmish->lock);
 
           if (signal_pending(current))
             return -ERESTARTSYS;

@@ -281,9 +281,7 @@ fusion_ref_zero_lock (int id)
 
       if (ref->global || ref->local)
         {
-          unlock_ref (ref);
-
-          interruptible_sleep_on (&ref->wait);
+          fusion_sleep_on (&ref->wait, &ref->lock);
 
           if (signal_pending(current))
             return -ERESTARTSYS;
