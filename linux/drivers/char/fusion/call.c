@@ -171,7 +171,7 @@ fusion_call_new (int fusion_id, FusionCallNew *call_new)
 {
   FusionCall *call;
 
-  call = kmalloc (sizeof(FusionCall), GFP_KERNEL);
+  call = kmalloc (sizeof(FusionCall), GFP_ATOMIC);
   if (!call)
     return -ENOMEM;
 
@@ -249,10 +249,7 @@ fusion_call_execute (int fusion_id, FusionCallExecute *execute)
   kfree (execution);
 
   if (signal_pending(current))
-    {
-      unlock_call (call);
-      return -ERESTARTSYS;
-    }
+    ret = -ERESTARTSYS;
 
   unlock_call (call);
 
@@ -312,6 +309,8 @@ fusion_call_destroy (int fusion_id, int call_id)
 
   spin_unlock (&calls_lock);
 
+  spin_unlock (&call->lock);
+  
   kfree (call);
 
   return 0;
@@ -339,6 +338,8 @@ fusion_call_destroy_all (int fusion_id)
 
           fusion_list_remove (&calls, &call->link);
 
+          spin_unlock (&call->lock);
+          
           kfree (call);
         }
       else
@@ -402,7 +403,7 @@ add_execution (FusionCall        *call,
   FusionCallExecution *execution;
 
   /* Allocate execution. */
-  execution = kmalloc (sizeof(FusionCallExecution), GFP_KERNEL);
+  execution = kmalloc (sizeof(FusionCallExecution), GFP_ATOMIC);
   if (!execution)
     return NULL;
 

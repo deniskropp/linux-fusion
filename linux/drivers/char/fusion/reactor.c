@@ -155,7 +155,7 @@ fusion_reactor_new (int *id)
 {
   FusionReactor *reactor;
 
-  reactor = kmalloc (sizeof(FusionReactor), GFP_KERNEL);
+  reactor = kmalloc (sizeof(FusionReactor), GFP_ATOMIC);
   if (!reactor)
     return -ENOMEM;
 
@@ -188,7 +188,7 @@ fusion_reactor_attach (int id, int fusion_id)
   node = get_node (reactor, fusion_id);
   if (!node)
     {
-      node = kmalloc (sizeof(ReactorNode), GFP_KERNEL);
+      node = kmalloc (sizeof(ReactorNode), GFP_ATOMIC);
       if (!node)
         {
           unlock_reactor (reactor);
@@ -277,6 +277,8 @@ fusion_reactor_destroy (int id)
 
   free_all_nodes (reactor);
 
+  spin_unlock (&reactor->lock);
+  
   kfree (reactor);
 
   return 0;

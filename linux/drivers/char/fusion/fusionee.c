@@ -174,7 +174,7 @@ fusionee_new (int *id)
 {
   Fusionee *fusionee;
 
-  fusionee = kmalloc (sizeof(Fusionee), GFP_KERNEL);
+  fusionee = kmalloc (sizeof(Fusionee), GFP_ATOMIC);
   if (!fusionee)
     return -ENOMEM;
 
@@ -215,7 +215,7 @@ fusionee_send_message (int id, int recipient, FusionMessageType msg_type,
       return -EIO;
     }
 
-  message = kmalloc (sizeof(Message) + msg_size, GFP_KERNEL);
+  message = kmalloc (sizeof(Message) + msg_size, GFP_ATOMIC);
   if (!message)
     {
       unlock_fusionee (sender);
@@ -444,6 +444,8 @@ fusionee_destroy (int id)
       kfree (message);
     }
 
+  spin_unlock (&fusionee->lock);
+  
   kfree (fusionee);
 
   return 0;

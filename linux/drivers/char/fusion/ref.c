@@ -162,7 +162,7 @@ fusion_ref_new (int *id)
 {
   FusionRef *ref;
 
-  ref = kmalloc (sizeof(FusionRef), GFP_KERNEL);
+  ref = kmalloc (sizeof(FusionRef), GFP_ATOMIC);
   if (!ref)
     return -ENOMEM;
 
@@ -381,6 +381,8 @@ fusion_ref_destroy (int id)
 
   free_all_local (ref);
 
+  spin_unlock (&ref->lock);
+  
   kfree (ref);
 
   return 0;
@@ -467,7 +469,7 @@ add_local (FusionRef *ref, int fusion_id, int add)
         }
     }
 
-  local = kmalloc (sizeof(LocalRef), GFP_KERNEL);
+  local = kmalloc (sizeof(LocalRef), GFP_ATOMIC);
   if (!local)
     return -ENOMEM;
 

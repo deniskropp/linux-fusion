@@ -144,7 +144,7 @@ fusion_skirmish_new (int *id)
 {
   FusionSkirmish *skirmish;
 
-  skirmish = kmalloc (sizeof(FusionSkirmish), GFP_KERNEL);
+  skirmish = kmalloc (sizeof(FusionSkirmish), GFP_ATOMIC);
   if (!skirmish)
     return -ENOMEM;
 
@@ -279,6 +279,8 @@ fusion_skirmish_destroy (int id)
 
   wake_up_interruptible_all (&skirmish->wait);
 
+  spin_unlock (&skirmish->lock);
+  
   kfree (skirmish);
 
   return 0;

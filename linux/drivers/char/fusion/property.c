@@ -153,7 +153,7 @@ fusion_property_new (int *id)
 {
   FusionProperty *property;
 
-  property = kmalloc (sizeof(FusionProperty), GFP_KERNEL);
+  property = kmalloc (sizeof(FusionProperty), GFP_ATOMIC);
   if (!property)
     return -ENOMEM;
 
@@ -371,6 +371,8 @@ fusion_property_destroy (int id)
 
   spin_unlock (&properties_lock);
 
+  spin_unlock (&property->lock);
+  
   kfree (property);
 
   return 0;
