@@ -53,6 +53,7 @@ struct __FD_FusionEntry {
 
      struct semaphore   lock;
      wait_queue_head_t  wait;
+     int                waiters;
 
      struct timeval     last_lock;
 

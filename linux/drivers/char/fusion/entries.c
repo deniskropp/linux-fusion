@@ -19,6 +19,7 @@
 #include <linux/smp_lock.h>
 #include <linux/sched.h>
 #include <linux/time.h>
+#include <linux/version.h>
 
 #include <linux/fusion.h>
 
@@ -331,7 +332,7 @@ fusion_entry_lock( FusionEntries  *entries,
 
      /* Keep timestamp, but use the slightly
         inexact version to avoid performance impacts. */
-#ifdef _STRUCT_TIMESPEC
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0) && defined _STRUCT_TIMESPEC
      entry->last_lock.tv_sec = xtime.tv_sec;
      entry->last_lock.tv_usec = xtime.tv_nsec / 1000;
 #else
@@ -374,7 +375,11 @@ fusion_entry_wait( FusionEntry *entry, long *timeout )
      id      = entry->id;
      entries = entry->entries;
 
+     entry->waiters++;
+
      fusion_sleep_on( &entry->wait, &entry->lock, timeout );
+
+     entry->waiters--;
 
      if (timeout && !*timeout)
           return -ETIMEDOUT;
@@ -400,6 +405,9 @@ fusion_entry_notify( FusionEntry *entry, bool all )
 {
      FUSION_ASSERT( entry != NULL );
      FUSION_ASSUME( entry->lock_pid == current->pid );
+
+     if (!entry->waiters)
+          return;
 
      if (all)
           wake_up_interruptible_all( &entry->wait );
