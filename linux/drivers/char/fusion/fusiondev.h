@@ -25,6 +25,20 @@ typedef struct {
      struct proc_dir_entry *proc_dir;
      
      struct {
+          int         property_lease_purchase;
+          int         property_cede;
+
+          int         reactor_attach;
+          int         reactor_detach;
+
+          int         ref_up;
+          int         ref_down;
+
+          int         skirmish_prevail_swoop;
+          int         skirmish_dismiss;
+     } stat;
+     
+     struct {
           int         ids;
           FusionLink *list;
           spinlock_t  lock;

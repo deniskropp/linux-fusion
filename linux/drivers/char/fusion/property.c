@@ -166,6 +166,8 @@ fusion_property_lease (FusionDev *dev, int id, int fusion_id)
      FusionProperty *property;
      signed long     timeout = -1;
 
+     dev->stat.property_lease_purchase++;
+     
      while (true) {
           property = lock_property (dev, id);
           if (!property)
@@ -214,7 +216,7 @@ fusion_property_lease (FusionDev *dev, int id, int fusion_id)
      }
 
      /* won't reach this */
-     return 0;
+     return -1;
 }
 
 int
@@ -223,6 +225,8 @@ fusion_property_purchase (FusionDev *dev, int id, int fusion_id)
      FusionProperty *property;
      signed long     timeout = -1;
 
+     dev->stat.property_lease_purchase++;
+     
      while (true) {
           property = lock_property (dev, id);
           if (!property)
@@ -274,7 +278,7 @@ fusion_property_purchase (FusionDev *dev, int id, int fusion_id)
      }
 
      /* won't reach this */
-     return 0;
+     return -1;
 }
 
 int
@@ -283,6 +287,8 @@ fusion_property_cede (FusionDev *dev, int id, int fusion_id)
      bool            purchased;
      FusionProperty *property = lock_property (dev, id);
 
+     dev->stat.property_cede++;
+     
      if (!property)
           return -EINVAL;
 

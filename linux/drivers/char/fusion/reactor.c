@@ -166,6 +166,8 @@ fusion_reactor_attach (FusionDev *dev, int id, int fusion_id)
      ReactorNode   *node;
      FusionReactor *reactor = lock_reactor (dev, id);
 
+     dev->stat.reactor_attach++;
+
      if (!reactor)
           return -EINVAL;
 
@@ -196,6 +198,8 @@ fusion_reactor_detach (FusionDev *dev, int id, int fusion_id)
      ReactorNode   *node;
      FusionReactor *reactor = lock_reactor (dev, id);
 
+     dev->stat.reactor_detach++;
+     
      if (!reactor)
           return -EINVAL;
 

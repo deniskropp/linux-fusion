@@ -162,6 +162,8 @@ fusion_skirmish_prevail (FusionDev *dev, int id, int fusion_id)
 {
      FusionSkirmish *skirmish;
 
+     dev->stat.skirmish_prevail_swoop++;
+     
      while (true) {
           skirmish = lock_skirmish (dev, id);
           if (!skirmish)
@@ -197,6 +199,8 @@ fusion_skirmish_swoop (FusionDev *dev, int id, int fusion_id)
 {
      FusionSkirmish *skirmish = lock_skirmish (dev, id);
 
+     dev->stat.skirmish_prevail_swoop++;
+     
      if (!skirmish)
           return -EINVAL;
 
@@ -226,6 +230,8 @@ fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
 {
      FusionSkirmish *skirmish = lock_skirmish (dev, id);
 
+     dev->stat.skirmish_dismiss++;
+     
      if (!skirmish)
           return -EINVAL;
 

@@ -181,6 +181,8 @@ fusion_ref_up (FusionDev *dev, int id, int fusion_id)
 {
      FusionRef *ref = lock_ref (dev, id);
 
+     dev->stat.ref_up++;
+     
      if (!ref)
           return -EINVAL;
 
@@ -213,6 +215,8 @@ fusion_ref_down (FusionDev *dev, int id, int fusion_id)
 {
      FusionRef *ref = lock_ref (dev, id);
 
+     dev->stat.ref_down++;
+     
      if (!ref)
           return -EINVAL;
 

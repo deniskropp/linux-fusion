@@ -106,6 +106,51 @@ fusion_sleep_on(wait_queue_head_t *q, spinlock_t *lock, signed long *timeout)
 /******************************************************************************/
 
 static int
+fusiondev_stat_read_proc(char *buf, char **start, off_t offset,
+                         int len, int *eof, void *private)
+{
+     FusionDev *dev     = private;
+     int        written = 0;
+
+     written += snprintf( buf, len,
+                          "lease/purchase   cede      attach     detach      "
+                          "ref up   ref down  prevail/swoop dismiss\n" );
+     if (written < offset) {
+          offset -= written;
+          written = 0;
+     }
+     
+     if (written < len) {
+          written += snprintf( buf+written, len - written,
+                               "%10d %10d  %10d %10d  %10d %10d  %10d %10d\n",
+                               dev->stat.property_lease_purchase,
+                               dev->stat.property_cede,
+                               dev->stat.reactor_attach,
+                               dev->stat.reactor_detach,
+                               dev->stat.ref_up,
+                               dev->stat.ref_down,
+                               dev->stat.skirmish_prevail_swoop,
+                               dev->stat.skirmish_dismiss );
+          if (written < offset) {
+               offset -= written;
+               written = 0;
+          }
+     }
+     
+     *start = buf + offset;
+     written -= offset;
+     if (written > len) {
+          *eof = 0;
+          return len;
+     }
+
+     *eof = 1;
+     return(written<0) ? 0 : written;
+}
+
+/******************************************************************************/
+
+static int
 fusiondev_init (FusionDev *dev)
 {
      int ret;
@@ -134,6 +179,9 @@ fusiondev_init (FusionDev *dev)
      if (ret)
           goto error_call;
 
+     create_proc_read_entry("stat", 0, dev->proc_dir,
+                            fusiondev_stat_read_proc, dev);
+     
      return 0;
 
 
@@ -159,6 +207,8 @@ error_fusionee:
 static void
 fusiondev_deinit (FusionDev *dev)
 {
+     remove_proc_entry ("stat", dev->proc_dir);
+     
      fusion_call_deinit (dev);
      fusion_reactor_deinit (dev);
      fusion_property_deinit (dev);
