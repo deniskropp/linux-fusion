@@ -63,7 +63,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/call.c linux-2.4.20-fusion/drivers/c
 +     int                pid;       /* owner pid */
 +     int                fusion_id; /* owner fusion id */
 +
-+     FusionCallHandler  handler;
++     void              *handler;
 +     void              *ctx;
 +
 +     FusionLink          *executions;      /* prepending! */
@@ -1309,7 +1309,7 @@ diff -uraN linux-2.4.20/drivers/char/fusion/fusiondev.h linux-2.4.20-fusion/driv
 +#endif
 diff -uraN linux-2.4.20/drivers/char/fusion/fusionee.c linux-2.4.20-fusion/drivers/char/fusion/fusionee.c
 --- linux-2.4.20/drivers/char/fusion/fusionee.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/drivers/char/fusion/fusionee.c	2003-06-16 18:45:16.000000000 +0200
++++ linux-2.4.20-fusion/drivers/char/fusion/fusionee.c	2003-07-07 19:53:13.000000000 +0200
 @@ -0,0 +1,455 @@
 +/*
 + *	Fusion Kernel Module
@@ -3889,8 +3889,8 @@ diff -uraN linux-2.4.20/drivers/char/Makefile linux-2.4.20-fusion/drivers/char/M
  fastdep:
 diff -uraN linux-2.4.20/include/linux/fusion.h linux-2.4.20-fusion/include/linux/fusion.h
 --- linux-2.4.20/include/linux/fusion.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.4.20-fusion/include/linux/fusion.h	2003-06-16 18:45:07.000000000 +0200
-@@ -0,0 +1,139 @@
++++ linux-2.4.20-fusion/include/linux/fusion.h	2003-07-07 19:49:04.000000000 +0200
+@@ -0,0 +1,133 @@
 +#ifndef __LINUX__FUSION_H__
 +#define __LINUX__FUSION_H__
 +
@@ -3940,16 +3940,10 @@ diff -uraN linux-2.4.20/include/linux/fusion.h linux-2.4.20-fusion/include/linux
 +/*
 + * Calling (synchronous RPC)
 + */
-+typedef int (*FusionCallHandler) (int   caller,   /* fusion id of the caller */
-+                                  int   call_arg, /* optional call parameter */
-+                                  void *call_ptr, /* optional call parameter */
-+                                  void *ctx       /* optional handler context */
-+                                  );
-+
 +typedef struct {
 +  int                call_id;   /* new call id returned */
 +
-+  FusionCallHandler  handler;   /* function pointer of handler to install */
++  void              *handler;   /* function pointer of handler to install */
 +  void              *ctx;       /* optional handler context */
 +} FusionCallNew;
 +
@@ -3969,7 +3963,7 @@ diff -uraN linux-2.4.20/include/linux/fusion.h linux-2.4.20-fusion/include/linux
 +} FusionCallReturn;
 +
 +typedef struct {
-+  FusionCallHandler  handler;   /* function pointer of handler to call */
++  void              *handler;   /* function pointer of handler to call */
 +  void              *ctx;       /* optional handler context */
 +
 +  int                caller;    /* fusion id of the caller */
