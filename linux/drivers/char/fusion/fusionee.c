@@ -41,6 +41,8 @@ typedef struct {
 
   FusionFifo        messages;
 
+  int               msg_total;  /* Total number of messages received. */
+
   wait_queue_head_t wait;
 } Fusionee;
 
@@ -65,6 +67,7 @@ static void      unlock_fusionee (Fusionee *fusionee);
 static int         last_id        = 0;
 static FusionLink *fusionees      = NULL;
 static spinlock_t  fusionees_lock = SPIN_LOCK_UNLOCKED;
+static atomic_t    msg_total;
 
 /******************************************************************************/
 
@@ -81,8 +84,8 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
     {
       Fusionee *fusionee = (Fusionee*) l;
 
-      written += sprintf(buf+written, "(%5d) 0x%08x (%3d messages waiting)\n",
-                         fusionee->pid, fusionee->id, fusionee->messages.count);
+      written += sprintf(buf+written, "(%5d) 0x%08x (%4d messages waiting, %4d messages total)\n",
+                         fusionee->pid, fusionee->id, fusionee->messages.count, fusionee->msg_total);
       if (written < offset)
         {
           offset -= written;
@@ -110,6 +113,8 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
 int
 fusionee_init()
 {
+  atomic_set (&msg_total, 0);
+
   create_proc_read_entry("fusionees", 0, proc_fusion_dir,
                          fusionees_read_proc, NULL);
 
@@ -144,6 +149,8 @@ fusionee_reset()
 
   last_id   = 0;
   fusionees = NULL;
+
+  atomic_set (&msg_total, 0);
 
   spin_unlock (&fusionees_lock);
 }
@@ -224,6 +231,10 @@ fusionee_send_message (int id, FusionMessageType msg_type,
   message->size = msg_size;
 
   fusion_fifo_put (&fusionee->messages, &message->link);
+
+  fusionee->msg_total++;
+
+  atomic_inc (&msg_total);
 
   wake_up_interruptible_all (&fusionee->wait);
 
