@@ -11,12 +11,15 @@ diff -Naur linux-2.4.20-rc1/drivers/char/Config.in linux-2.4.20-rc1-fusion/drive
     bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
 diff -Naur linux-2.4.20-rc1/drivers/char/Makefile linux-2.4.20-rc1-fusion/drivers/char/Makefile
 --- linux-2.4.20-rc1/drivers/char/Makefile	2002-11-01 13:32:31.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/drivers/char/Makefile	2002-11-02 03:11:39.000000000 +0100
-@@ -268,6 +268,9 @@
++++ linux-2.4.20-rc1-fusion/drivers/char/Makefile	2002-11-02 04:18:08.000000000 +0100
+@@ -268,6 +268,12 @@
    obj-y += mwave/mwave.o
  endif
  
 +subdir-$(CONFIG_FUSION_DEVICE) += fusion
++ifeq ($(CONFIG_FUSION_DEVICE),y)
++  obj-y += fusion/fusion.o
++endif
 +
 +
  include $(TOPDIR)/Rules.make
@@ -45,7 +48,7 @@ diff -Naur linux-2.4.20-rc1/drivers/char/misc.c linux-2.4.20-rc1-fusion/drivers/
  		       MISC_MAJOR);
 diff -Naur linux-2.4.20-rc1/include/linux/miscdevice.h linux-2.4.20-rc1-fusion/include/linux/miscdevice.h
 --- linux-2.4.20-rc1/include/linux/miscdevice.h	2002-11-01 13:33:02.000000000 +0100
-+++ linux-2.4.20-rc1-fusion/include/linux/miscdevice.h	2002-11-02 03:11:39.000000000 +0100
++++ linux-2.4.20-rc1-fusion/include/linux/miscdevice.h	2002-11-02 03:51:39.000000000 +0100
 @@ -14,6 +14,7 @@
  #define PC110PAD_MINOR 9
  #define ADB_MOUSE_MINOR 10
