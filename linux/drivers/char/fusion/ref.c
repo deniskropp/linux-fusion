@@ -626,14 +626,17 @@ clear_local (FusionDev *dev, FusionRef *ref, int fusion_id)
 
      down (&ref->lock);
 
-     if (ref->locked == fusion_id)
+     if (ref->locked == fusion_id) {
           ref->locked = 0;
+          wake_up_interruptible_all (&ref->wait);
+     }
 
      fusion_list_foreach (l, ref->local_refs) {
           LocalRef *local = (LocalRef *) l;
 
           if (local->fusion_id == fusion_id) {
-               propagate_local( dev, ref, - local->refs );
+               if (local->refs)
+                    propagate_local( dev, ref, - local->refs );
 
                fusion_list_remove( &ref->local_refs, l );
 
