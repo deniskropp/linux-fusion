@@ -21,6 +21,7 @@
 /* module init/cleanup */
 
 int  fusion_skirmish_init (void);
+void fusion_skirmish_reset (void);
 void fusion_skirmish_cleanup (void);
 
 

@@ -114,10 +114,13 @@ fusion_property_init()
 }
 
 void
-fusion_property_cleanup()
+fusion_property_reset()
 {
-  FusionLink *l = properties;
+  FusionLink *l;
 
+  spin_lock (&properties_lock);
+
+  l = properties;
   while (l)
     {
       FusionLink     *next     = l->next;
@@ -129,6 +132,14 @@ fusion_property_cleanup()
     }
 
   properties = NULL;
+
+  spin_unlock (&properties_lock);
+}
+
+void
+fusion_property_cleanup()
+{
+  fusion_property_reset();
 
   remove_proc_entry ("properties", proc_fusion_dir);
 }

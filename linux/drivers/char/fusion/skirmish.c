@@ -106,10 +106,13 @@ fusion_skirmish_init()
 }
 
 void
-fusion_skirmish_cleanup()
+fusion_skirmish_reset()
 {
-  FusionLink *l = skirmishs;
+  FusionLink *l;
 
+  spin_lock (&skirmishs_lock);
+
+  l = skirmishs;
   while (l)
     {
       FusionLink     *next     = l->next;
@@ -121,6 +124,14 @@ fusion_skirmish_cleanup()
     }
 
   skirmishs = NULL;
+
+  spin_unlock (&skirmishs_lock);
+}
+
+void
+fusion_skirmish_cleanup()
+{
+  fusion_skirmish_reset();
 
   remove_proc_entry ("skirmishs", proc_fusion_dir);
 }

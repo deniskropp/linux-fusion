@@ -21,6 +21,7 @@
 /* module init/cleanup */
 
 int  fusion_ref_init (void);
+void fusion_ref_reset (void);
 void fusion_ref_cleanup (void);
 
 

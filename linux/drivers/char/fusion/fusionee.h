@@ -23,6 +23,7 @@
 /* module init/cleanup */
 
 int  fusionee_init (void);
+void fusionee_reset (void);
 void fusionee_cleanup (void);
 
 

@@ -21,6 +21,7 @@
 /* module init/cleanup */
 
 int  fusion_property_init (void);
+void fusion_property_reset (void);
 void fusion_property_cleanup (void);
 
 

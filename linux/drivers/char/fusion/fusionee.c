@@ -117,10 +117,13 @@ fusionee_init()
 }
 
 void
-fusionee_cleanup()
+fusionee_reset()
 {
-  FusionLink *l = fusionees;
+  FusionLink *l;
 
+  spin_lock (&fusionees_lock);
+
+  l = fusionees;
   while (l)
     {
       FusionLink *next     = l->next;
@@ -140,6 +143,14 @@ fusionee_cleanup()
     }
 
   fusionees = NULL;
+
+  spin_unlock (&fusionees_lock);
+}
+
+void
+fusionee_cleanup()
+{
+  fusionee_reset();
 
   remove_proc_entry ("fusionees", proc_fusion_dir);
 }

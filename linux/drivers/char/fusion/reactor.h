@@ -21,6 +21,7 @@
 /* module init/cleanup */
 
 int  fusion_reactor_init (void);
+void fusion_reactor_reset (void);
 void fusion_reactor_cleanup (void);
 
 

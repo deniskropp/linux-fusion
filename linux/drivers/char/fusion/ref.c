@@ -118,10 +118,13 @@ fusion_ref_init()
 }
 
 void
-fusion_ref_cleanup()
+fusion_ref_reset()
 {
-  FusionLink *l = refs;
+  FusionLink *l;
 
+  spin_lock (&refs_lock);
+
+  l = refs;
   while (l)
     {
       FusionLink *next = l->next;
@@ -135,6 +138,14 @@ fusion_ref_cleanup()
     }
 
   refs = NULL;
+
+  spin_unlock (&refs_lock);
+}
+
+void
+fusion_ref_cleanup()
+{
+  fusion_ref_reset();
 
   remove_proc_entry ("refs", proc_fusion_dir);
 }

@@ -115,10 +115,13 @@ fusion_reactor_init()
 }
 
 void
-fusion_reactor_cleanup()
+fusion_reactor_reset()
 {
-  FusionLink *l = reactors;
+  FusionLink *l;
 
+  spin_lock (&reactors_lock);
+
+  l = reactors;
   while (l)
     {
       FusionLink    *next    = l->next;
@@ -132,6 +135,14 @@ fusion_reactor_cleanup()
     }
 
   reactors = NULL;
+
+  spin_unlock (&reactors_lock);
+}
+
+void
+fusion_reactor_cleanup()
+{
+  fusion_reactor_reset();
 
   remove_proc_entry ("reactors", proc_fusion_dir);
 }

@@ -38,6 +38,21 @@ MODULE_LICENSE("GPL");
 
 struct proc_dir_entry *proc_fusion_dir;
 
+static int        refs      = 0;
+static spinlock_t refs_lock = SPIN_LOCK_UNLOCKED;
+
+/******************************************************************************/
+
+static void
+fusion_reset (void)
+{
+  fusion_reactor_reset();
+  fusion_property_reset();
+  fusion_skirmish_reset();
+  fusion_ref_reset();
+  fusionee_reset();
+}
+
 /******************************************************************************/
 
 static int
@@ -46,9 +61,20 @@ fusion_open (struct inode *inode, struct file *file)
   int ret;
   int fusion_id;
 
+  spin_lock (&refs_lock);
+
   ret = fusionee_new (&fusion_id);
   if (ret)
-    return ret;
+    {
+      spin_unlock (&refs_lock);
+
+      return ret;
+    }
+
+  refs++;
+
+  spin_unlock (&refs_lock);
+
 
   file->private_data = (void*) fusion_id;
 
@@ -61,6 +87,13 @@ fusion_release (struct inode *inode, struct file *file)
   int fusion_id = (int) file->private_data;
 
   fusionee_destroy (fusion_id);
+
+  spin_lock (&refs_lock);
+
+  if (! --refs)
+    fusion_reset();
+
+  spin_unlock (&refs_lock);
 
   return 0;
 }
