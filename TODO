@@ -1,0 +1,9 @@
+Improve performance of reference code by using a hash table or a
+faster approach.
+
+Implement Skirmish with the advantage of defering/blocking SIGSTOP
+while a Skirmish is locked by the process. This will avoid rare
+deadlocks when pressing Ctrl-Z in the terminal where a DirectFB
+slave application has been started.
+
+Implement other Fusion parts like Reactor or Object(Pool).
