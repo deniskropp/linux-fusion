@@ -790,7 +790,7 @@ fusion_ioctl (struct inode *inode, struct file *file,
               unsigned int cmd, unsigned long arg)
 {
      int        id  = (int) file->private_data;
-     FusionDev *dev = fusion_devs[MINOR(inode->i_rdev)];
+     FusionDev *dev = fusion_devs[iminor(inode)];
 
      DEBUG( "fusion_ioctl (0x%08x)\n", cmd );
 
