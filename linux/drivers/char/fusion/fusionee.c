@@ -84,7 +84,7 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
      fusion_list_foreach (l, dev->fusionee.list) {
           Fusionee *fusionee = (Fusionee*) l;
 
-          written += sprintf(buf+written, "(%5d) 0x%08x (%4d messages waiting, %5d received, %5d sent)\n",
+          written += sprintf(buf+written, "(%5d) 0x%08x (%4d messages waiting, %7d received, %7d sent)\n",
                              fusionee->pid, fusionee->id, fusionee->messages.count, fusionee->rcv_total, fusionee->snd_total);
           if (written < offset) {
                offset -= written;
