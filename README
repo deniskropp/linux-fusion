@@ -3,7 +3,7 @@ Quick installation
 
 Patch your kernel:
 
-	patch -p1 < fusion-full-linux-2.4.20-pre11.patch
+	patch -p1 < fusion-full-linux-2.4.20-rc1.patch
 
 Enable the character device driver module "Fusion Kernel Device",
 build and install modules, insmod fusion. Maybe check /proc/misc.
@@ -23,6 +23,6 @@ Development installation
 Instead of using the full patch you can use the partial patch
 and add the new files afterwards (possibly with CVS sub directory).
 
-	patch -p1 < fusion-part-linux-2.4.20-pre11.patch
+	patch -p1 < fusion-part-linux-2.4.20-rc1.patch
 
 Copy everything in the "linux" sub directory into the kernel tree.

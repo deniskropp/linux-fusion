@@ -1,7 +1,7 @@
-diff -Naur linux-2.4.20-pre11/drivers/char/Config.in linux-2.4.20-pre11-fusion/drivers/char/Config.in
---- linux-2.4.20-pre11/drivers/char/Config.in	2002-10-16 14:04:12.000000000 +0200
-+++ linux-2.4.20-pre11-fusion/drivers/char/Config.in	2002-10-28 18:11:54.000000000 +0100
-@@ -244,6 +244,7 @@
+diff -Naur linux-2.4.20-rc1/drivers/char/Config.in linux-2.4.20-rc1-fusion/drivers/char/Config.in
+--- linux-2.4.20-rc1/drivers/char/Config.in	2002-11-01 13:32:31.000000000 +0100
++++ linux-2.4.20-rc1-fusion/drivers/char/Config.in	2002-11-02 03:11:39.000000000 +0100
+@@ -228,6 +228,7 @@
     dep_tristate 'Intel i8x0 Random Number Generator support' CONFIG_INTEL_RNG $CONFIG_PCI
  fi
  tristate '/dev/nvram support' CONFIG_NVRAM
@@ -9,10 +9,10 @@ diff -Naur linux-2.4.20-pre11/drivers/char/Config.in linux-2.4.20-pre11-fusion/d
  tristate 'Enhanced Real Time Clock Support' CONFIG_RTC
  if [ "$CONFIG_IA64" = "y" ]; then
     bool 'EFI Real Time Clock Services' CONFIG_EFI_RTC
-diff -Naur linux-2.4.20-pre11/drivers/char/Makefile linux-2.4.20-pre11-fusion/drivers/char/Makefile
---- linux-2.4.20-pre11/drivers/char/Makefile	2002-10-16 14:04:12.000000000 +0200
-+++ linux-2.4.20-pre11-fusion/drivers/char/Makefile	2002-10-28 18:11:54.000000000 +0100
-@@ -288,6 +288,9 @@
+diff -Naur linux-2.4.20-rc1/drivers/char/Makefile linux-2.4.20-rc1-fusion/drivers/char/Makefile
+--- linux-2.4.20-rc1/drivers/char/Makefile	2002-11-01 13:32:31.000000000 +0100
++++ linux-2.4.20-rc1-fusion/drivers/char/Makefile	2002-11-02 03:11:39.000000000 +0100
+@@ -268,6 +268,9 @@
    obj-y += mwave/mwave.o
  endif
  
@@ -22,9 +22,9 @@ diff -Naur linux-2.4.20-pre11/drivers/char/Makefile linux-2.4.20-pre11-fusion/dr
  include $(TOPDIR)/Rules.make
  
  fastdep:
-diff -Naur linux-2.4.20-pre11/drivers/char/misc.c linux-2.4.20-pre11-fusion/drivers/char/misc.c
---- linux-2.4.20-pre11/drivers/char/misc.c	2002-10-16 14:02:02.000000000 +0200
-+++ linux-2.4.20-pre11-fusion/drivers/char/misc.c	2002-10-28 18:10:48.000000000 +0100
+diff -Naur linux-2.4.20-rc1/drivers/char/misc.c linux-2.4.20-rc1-fusion/drivers/char/misc.c
+--- linux-2.4.20-rc1/drivers/char/misc.c	2002-11-01 13:32:32.000000000 +0100
++++ linux-2.4.20-rc1-fusion/drivers/char/misc.c	2002-11-02 03:11:39.000000000 +0100
 @@ -77,6 +77,7 @@
  extern int tosh_init(void);
  extern int i8k_init(void);
@@ -43,9 +43,9 @@ diff -Naur linux-2.4.20-pre11/drivers/char/misc.c linux-2.4.20-pre11-fusion/driv
  	if (devfs_register_chrdev(MISC_MAJOR,"misc",&misc_fops)) {
  		printk("unable to get major %d for misc devices\n",
  		       MISC_MAJOR);
-diff -Naur linux-2.4.20-pre11/include/linux/miscdevice.h linux-2.4.20-pre11-fusion/include/linux/miscdevice.h
---- linux-2.4.20-pre11/include/linux/miscdevice.h	2002-10-16 14:03:45.000000000 +0200
-+++ linux-2.4.20-pre11-fusion/include/linux/miscdevice.h	2002-10-28 18:11:54.000000000 +0100
+diff -Naur linux-2.4.20-rc1/include/linux/miscdevice.h linux-2.4.20-rc1-fusion/include/linux/miscdevice.h
+--- linux-2.4.20-rc1/include/linux/miscdevice.h	2002-11-01 13:33:02.000000000 +0100
++++ linux-2.4.20-rc1-fusion/include/linux/miscdevice.h	2002-11-02 03:11:39.000000000 +0100
 @@ -14,6 +14,7 @@
  #define PC110PAD_MINOR 9
  #define ADB_MOUSE_MINOR 10
