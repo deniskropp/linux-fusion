@@ -335,6 +335,21 @@ fusionee_poll (int id, struct file *file, poll_table * wait)
 }
 
 int
+fusionee_kill (int id)
+{
+  Fusionee *fusionee = lock_fusionee (id);
+
+  if (!fusionee)
+    return -EINVAL;
+
+  kill_proc (fusionee->pid, SIGKILL, 0);
+
+  unlock_fusionee (fusionee);
+
+  return 0;
+}
+
+int
 fusionee_destroy (int id)
 {
   Fusionee *fusionee = lookup_fusionee (id);

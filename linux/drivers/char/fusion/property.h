@@ -31,6 +31,7 @@ int fusion_property_new (int *id);
 int fusion_property_lease (int id, int fusion_id);
 int fusion_property_purchase (int id, int fusion_id);
 int fusion_property_cede (int id, int fusion_id);
+int fusion_property_holdup (int id, int fusion_id);
 int fusion_property_destroy (int id);
 
 

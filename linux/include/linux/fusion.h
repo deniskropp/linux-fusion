@@ -58,7 +58,8 @@ typedef struct {
 #define FUSION_PROPERTY_LEASE           _IOW('F', 0x31, sizeof(int))
 #define FUSION_PROPERTY_PURCHASE        _IOW('F', 0x32, sizeof(int))
 #define FUSION_PROPERTY_CEDE            _IOW('F', 0x33, sizeof(int))
-#define FUSION_PROPERTY_DESTROY         _IOW('F', 0x34, sizeof(int))
+#define FUSION_PROPERTY_HOLDUP          _IOW('F', 0x34, sizeof(int))
+#define FUSION_PROPERTY_DESTROY         _IOW('F', 0x35, sizeof(int))
 
 #define FUSION_REACTOR_NEW              _IOR('F', 0x50, sizeof(int))
 #define FUSION_REACTOR_ATTACH           _IOW('F', 0x51, sizeof(int))

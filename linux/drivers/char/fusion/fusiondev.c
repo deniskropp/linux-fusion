@@ -288,6 +288,12 @@ fusion_ioctl (struct inode *inode, struct file *file,
 
       return fusion_property_cede (id, fusion_id);
 
+    case FUSION_PROPERTY_HOLDUP:
+      if (get_user (id, (int*) arg))
+        return -EFAULT;
+
+      return fusion_property_holdup (id, fusion_id);
+
     case FUSION_PROPERTY_DESTROY:
       if (get_user (id, (int*) arg))
         return -EFAULT;

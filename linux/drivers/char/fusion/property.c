@@ -281,6 +281,30 @@ fusion_property_cede (int id, int fusion_id)
 }
 
 int
+fusion_property_holdup (int id, int fusion_id)
+{
+  FusionProperty *property = lock_property (id);
+
+  if (!property)
+    return -EINVAL;
+
+  if (property->state == FUSION_PROPERTY_PURCHASED)
+    {
+      if (property->fusion_id == fusion_id)
+        {
+          unlock_property (property);
+          return -EIO;
+        }
+
+      fusionee_kill (property->fusion_id);
+    }
+
+  unlock_property (property);
+
+  return 0;
+}
+
+int
 fusion_property_destroy (int id)
 {
   FusionProperty *property = lookup_property (id);
