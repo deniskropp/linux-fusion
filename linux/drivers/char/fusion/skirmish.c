@@ -63,9 +63,15 @@ skirmishs_read_proc(char *buf, char **start, off_t offset,
      fusion_list_foreach (l, dev->skirmish.list) {
           FusionSkirmish *skirmish = (FusionSkirmish*) l;
 
-          written += sprintf(buf+written, "(%5d) 0x%08x %s\n",
-                             skirmish->pid, skirmish->id,
-                             skirmish->lock_fid ? "(locked)" : "");
+          if (skirmish->lock_fid) {
+               written += sprintf(buf+written, "(%5d) 0x%08x (locked 0x%08x "
+                                  "%d)\n", skirmish->pid, skirmish->id,
+                                  skirmish->lock_fid, skirmish->lock_pid);
+          }
+          else {
+               written += sprintf(buf+written, "(%5d) 0x%08x\n",
+                                  skirmish->pid, skirmish->id);
+          }
           if (written < offset) {
                offset -= written;
                written = 0;
