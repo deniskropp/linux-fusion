@@ -48,7 +48,7 @@ typedef struct {
      int                pid;       /* owner pid */
      int                fusion_id; /* owner fusion id */
 
-     FusionCallHandler  handler;
+     void              *handler;
      void              *ctx;
 
      FusionLink          *executions;      /* prepending! */
