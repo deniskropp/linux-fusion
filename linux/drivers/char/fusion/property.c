@@ -19,6 +19,10 @@
 #include <linux/smp_lock.h>
 #include <linux/sched.h>
 
+#ifndef yield
+#define yield schedule
+#endif
+
 #include <linux/fusion.h>
 
 #include "fusiondev.h"
@@ -44,6 +48,7 @@ typedef struct {
      int                 fusion_id; /* non-zero if leased/purchased */
      unsigned long       purchase_stamp;
      int                 lock_pid;
+     int                 count;    /* lock counter */
 
      wait_queue_head_t   wait;
 } FusionProperty;
@@ -191,11 +196,19 @@ fusion_property_lease (FusionDev *dev, int id, int fusion_id)
                     property->state     = FUSION_PROPERTY_LEASED;
                     property->fusion_id = fusion_id;
                     property->lock_pid  = current->pid;
+                    property->count     = 1;
 
                     unlock_property (property);
                     return 0;
 
                case FUSION_PROPERTY_LEASED:
+                    if (property->lock_pid == current->pid) {
+                         property->count++;
+
+                         unlock_property (property);
+                         return 0;
+                    }
+
                     fusion_sleep_on (&property->wait, &property->lock, NULL);
 
                     if (signal_pending(current))
@@ -254,6 +267,7 @@ fusion_property_purchase (FusionDev *dev, int id, int fusion_id)
                     property->fusion_id      = fusion_id;
                     property->purchase_stamp = jiffies;
                     property->lock_pid       = current->pid;
+                    property->count          = 1;
 
                     wake_up_interruptible_all (&property->wait);
 
@@ -311,9 +325,14 @@ fusion_property_cede (FusionDev *dev, int id, int fusion_id)
 
      dev->stat.property_cede++;
 
-     if (property->fusion_id != fusion_id) {
+     if (property->lock_pid != current->pid) {
           unlock_property (property);
           return -EIO;
+     }
+
+     if (--property->count) {
+          unlock_property (property);
+          return 0;
      }
 
      purchased = (property->state == FUSION_PROPERTY_PURCHASED);
