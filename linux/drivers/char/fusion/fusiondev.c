@@ -632,15 +632,15 @@ fusion_init(void)
 {
      int ret;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+     devfs_mk_dir("fusion");
+#endif
+
      ret = register_devices();
      if (ret)
           return ret;
 
      proc_fusion_dir = proc_mkdir ("fusion", NULL);
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-     devfs_mk_dir("fusion");
-#endif
      
      return 0;
 }
