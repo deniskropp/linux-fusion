@@ -40,7 +40,7 @@
 typedef struct {
      FusionLink        link;
 
-     spinlock_t        lock;
+     struct semaphore  lock;
 
      int               id;
      int               pid;
@@ -64,10 +64,9 @@ typedef struct {
 
 /******************************************************************************/
 
-static Fusionee *lookup_fusionee (FusionDev *dev, int id);
-
-static Fusionee *lock_fusionee   (FusionDev *dev, int id);
-static void      unlock_fusionee (Fusionee *fusionee);
+static int  lookup_fusionee (FusionDev *dev, int id, Fusionee **ret_fusionee);
+static int  lock_fusionee   (FusionDev *dev, int id, Fusionee **ret_fusionee);
+static void unlock_fusionee (Fusionee *fusionee);
 
 /******************************************************************************/
 
@@ -79,7 +78,8 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
      FusionDev  *dev     = private;
      int         written = 0;
 
-     spin_lock (&dev->fusionee.lock);
+     if (down_interruptible (&dev->fusionee.lock))
+          return -EINTR;
 
      fusion_list_foreach (l, dev->fusionee.list) {
           Fusionee *fusionee = (Fusionee*) l;
@@ -95,7 +95,7 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
                break;
      }
 
-     spin_unlock (&dev->fusionee.lock);
+     up (&dev->fusionee.lock);
 
      *start = buf + offset;
      written -= offset;
@@ -113,8 +113,8 @@ fusionee_init (FusionDev *dev)
 {
      init_waitqueue_head (&dev->fusionee.wait);
 
-     dev->fusionee.lock = SPIN_LOCK_UNLOCKED;
-     
+     init_MUTEX (&dev->fusionee.lock);
+
      create_proc_read_entry("fusionees", 0, dev->proc_dir,
                             fusionees_read_proc, dev);
 
@@ -126,10 +126,10 @@ fusionee_deinit (FusionDev *dev)
 {
      FusionLink *l;
 
-     spin_lock (&dev->fusionee.lock);
+     down (&dev->fusionee.lock);
 
      remove_proc_entry ("fusionees", dev->proc_dir);
-     
+
      l = dev->fusionee.list;
      while (l) {
           FusionLink *next     = l->next;
@@ -146,7 +146,7 @@ fusionee_deinit (FusionDev *dev)
           l = next;
      }
 
-     spin_unlock (&dev->fusionee.lock);
+     up (&dev->fusionee.lock);
 }
 
 /******************************************************************************/
@@ -156,23 +156,27 @@ fusionee_new (FusionDev *dev, int *id)
 {
      Fusionee *fusionee;
 
-     fusionee = kmalloc (sizeof(Fusionee), GFP_ATOMIC);
+     fusionee = kmalloc (sizeof(Fusionee), GFP_KERNEL);
      if (!fusionee)
           return -ENOMEM;
 
      memset (fusionee, 0, sizeof(Fusionee));
 
-     spin_lock (&dev->fusionee.lock);
+     if (down_interruptible (&dev->fusionee.lock)) {
+          kfree (fusionee);
+          return -EINTR;
+     }
 
-     fusionee->id   = ++dev->fusionee.last_id;
-     fusionee->pid  = current->pid;
-     fusionee->lock = SPIN_LOCK_UNLOCKED;
+     fusionee->id  = ++dev->fusionee.last_id;
+     fusionee->pid = current->pid;
+
+     init_MUTEX (&fusionee->lock);
 
      init_waitqueue_head (&fusionee->wait);
 
      fusion_list_prepend (&dev->fusionee.list, &fusionee->link);
 
-     spin_unlock (&dev->fusionee.lock);
+     up (&dev->fusionee.lock);
 
      *id = fusionee->id;
 
@@ -184,30 +188,32 @@ fusionee_send_message (FusionDev *dev, int id, int recipient,
                        FusionMessageType msg_type, int msg_id,
                        int msg_size, const void *msg_data)
 {
+     int       ret;
      Message  *message;
      Fusionee *sender   = NULL;
-     Fusionee *fusionee = lock_fusionee (dev, recipient);
+     Fusionee *fusionee;
 
      DEBUG( "fusionee_send_message (%d -> %d, type %d, id %d, size %d)\n",
             id, recipient, msg_type, msg_id, msg_size );
 
-     if (!fusionee)
-          return -EINVAL;
+     ret = lock_fusionee (dev, recipient, &fusionee);
+     if (ret)
+          return ret;
 
      if (id) {
           if (id == recipient) {
                sender = fusionee;
           }
           else {
-               sender = lock_fusionee (dev, id);
-               if (!sender) {
+               ret = lock_fusionee (dev, id, &sender);
+               if (ret) {
                     unlock_fusionee (fusionee);
-                    return -EIO;
+                    return ret == -EINVAL ? -EIO : ret;
                }
           }
      }
 
-     message = kmalloc (sizeof(Message) + msg_size, GFP_ATOMIC);
+     message = kmalloc (sizeof(Message) + msg_size, GFP_KERNEL);
      if (!message) {
           if (sender && sender != fusionee)
                unlock_fusionee (sender);
@@ -251,11 +257,13 @@ int
 fusionee_get_messages (FusionDev *dev,
                        int id, void *buf, int buf_size, bool block)
 {
+     int       ret;
      int       written  = 0;
-     Fusionee *fusionee = lock_fusionee (dev, id);
+     Fusionee *fusionee;
 
-     if (!fusionee)
-          return -EINVAL;
+     ret = lock_fusionee (dev, id, &fusionee);
+     if (ret)
+          return ret;
 
      while (!fusionee->messages.count) {
           if (!block) {
@@ -268,9 +276,9 @@ fusionee_get_messages (FusionDev *dev,
           if (signal_pending(current))
                return -ERESTARTSYS;
 
-          fusionee = lock_fusionee (dev, id);
-          if (!fusionee)
-               return -EINVAL;
+          ret = lock_fusionee (dev, id, &fusionee);
+          if (ret)
+               return ret;
      }
 
      while (fusionee->messages.count) {
@@ -314,10 +322,12 @@ fusionee_get_messages (FusionDev *dev,
 unsigned int
 fusionee_poll (FusionDev *dev, int id, struct file *file, poll_table * wait)
 {
-     Fusionee *fusionee = lock_fusionee (dev, id);
+     int       ret;
+     Fusionee *fusionee;
 
-     if (!fusionee)
-          return -EINVAL;
+     ret = lock_fusionee (dev, id, &fusionee);
+     if (ret)
+          return ret;
 
      unlock_fusionee (fusionee);
 
@@ -325,7 +335,9 @@ fusionee_poll (FusionDev *dev, int id, struct file *file, poll_table * wait)
      poll_wait (file, &fusionee->wait, wait);
 
 
-     fusionee = lock_fusionee (dev, id);
+     ret = lock_fusionee (dev, id, &fusionee);
+     if (ret)
+          return ret;
 
      if (!fusionee)
           return -EINVAL;
@@ -347,12 +359,14 @@ fusionee_kill (FusionDev *dev, int id, int target, int signal, int timeout_ms)
      long timeout = -1;
 
      while (true) {
+          int         ret;
           FusionLink *l;
-          Fusionee   *fusionee = lookup_fusionee (dev, id);
+          Fusionee   *fusionee;
           int         killed   = 0;
 
-          if (!fusionee)
-               return -EINVAL;
+          ret = lookup_fusionee (dev, id, &fusionee);
+          if (ret)
+               return ret;
 
           fusion_list_foreach (l, dev->fusionee.list) {
                Fusionee *f = (Fusionee*) l;
@@ -369,7 +383,7 @@ fusionee_kill (FusionDev *dev, int id, int target, int signal, int timeout_ms)
           if (timeout_ms) {
                switch (timeout) {
                     case 0:  /* timed out */
-                         spin_unlock (&dev->fusionee.lock);
+                         up (&dev->fusionee.lock);
                          return -ETIMEDOUT;
 
                     case -1: /* setup timeout */
@@ -392,7 +406,7 @@ fusionee_kill (FusionDev *dev, int id, int target, int signal, int timeout_ms)
                return -ERESTARTSYS;
      }
 
-     spin_unlock (&dev->fusionee.lock);
+     up (&dev->fusionee.lock);
 
      return 0;
 }
@@ -400,18 +414,20 @@ fusionee_kill (FusionDev *dev, int id, int target, int signal, int timeout_ms)
 int
 fusionee_destroy (FusionDev *dev, int id)
 {
-     Fusionee *fusionee = lookup_fusionee (dev, id);
+     int       ret;
+     Fusionee *fusionee;
 
-     if (!fusionee)
-          return -EINVAL;
+     ret = lookup_fusionee (dev, id, &fusionee);
+     if (ret)
+          return ret;
 
-     spin_lock (&fusionee->lock);
+     down (&fusionee->lock);
 
      fusion_list_remove (&dev->fusionee.list, &fusionee->link);
 
      wake_up_interruptible_all (&dev->fusionee.wait);
 
-     spin_unlock (&dev->fusionee.lock);
+     up (&dev->fusionee.lock);
 
 
      fusion_call_destroy_all (dev, id);
@@ -426,50 +442,66 @@ fusionee_destroy (FusionDev *dev, int id)
           kfree (message);
      }
 
-     spin_unlock (&fusionee->lock);
+     up (&fusionee->lock);
 
      kfree (fusionee);
 
-     return 0;
+     return ret;
 }
 
 /******************************************************************************/
 
-static Fusionee *
-lookup_fusionee (FusionDev *dev, int id)
+static int
+lookup_fusionee (FusionDev *dev, int id, Fusionee **ret_fusionee)
 {
      FusionLink *l;
 
-     spin_lock (&dev->fusionee.lock);
+     if (down_interruptible (&dev->fusionee.lock))
+          return -EINTR;
 
      fusion_list_foreach (l, dev->fusionee.list) {
           Fusionee *fusionee = (Fusionee *) l;
 
-          if (fusionee->id == id)
-               return fusionee;
+          if (fusionee->id == id) {
+               *ret_fusionee = fusionee;
+               return 0;
+          }
      }
 
-     spin_unlock (&dev->fusionee.lock);
+     up (&dev->fusionee.lock);
 
-     return NULL;
+     return -EINVAL;
 }
 
-static Fusionee *
-lock_fusionee (FusionDev *dev, int id)
+static int
+lock_fusionee (FusionDev *dev, int id, Fusionee **ret_fusionee)
 {
-     Fusionee *fusionee = lookup_fusionee (dev, id);
+     int       ret;
+     Fusionee *fusionee;
+
+     ret = lookup_fusionee (dev, id, &fusionee);
+     if (ret)
+          return ret;
 
      if (fusionee) {
-          spin_lock (&fusionee->lock);
-          spin_unlock (&dev->fusionee.lock);
+          fusion_list_move_to_front (&dev->fusionee.list, &fusionee->link);
+
+          if (down_interruptible (&fusionee->lock)) {
+               up (&dev->fusionee.lock);
+               return -EINTR;
+          }
+
+          up (&dev->fusionee.lock);
      }
 
-     return fusionee;
+     *ret_fusionee = fusionee;
+
+     return 0;
 }
 
 static void
 unlock_fusionee (Fusionee *fusionee)
 {
-     spin_unlock (&fusionee->lock);
+     up (&fusionee->lock);
 }
 

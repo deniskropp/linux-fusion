@@ -29,7 +29,7 @@
 typedef struct {
      FusionLink         link;
 
-     spinlock_t         lock;
+     struct semaphore   lock;
 
      int                id;
      int                pid;
@@ -43,10 +43,9 @@ typedef struct {
 
 /******************************************************************************/
 
-static FusionSkirmish *lookup_skirmish     (FusionDev *dev, int id);
-
-static FusionSkirmish *lock_skirmish       (FusionDev *dev, int id);
-static void            unlock_skirmish     (FusionSkirmish *skirmish);
+static int  lookup_skirmish (FusionDev *dev, int id, FusionSkirmish **ret_skirmish);
+static int  lock_skirmish   (FusionDev *dev, int id, FusionSkirmish **ret_skirmish);
+static void unlock_skirmish (FusionSkirmish *skirmish);
 
 /******************************************************************************/
 
@@ -58,7 +57,8 @@ skirmishs_read_proc(char *buf, char **start, off_t offset,
      FusionDev  *dev     = private;
      int         written = 0;
 
-     spin_lock (&dev->skirmish.lock);
+     if (down_interruptible (&dev->skirmish.lock))
+          return -EINTR;
 
      fusion_list_foreach (l, dev->skirmish.list) {
           FusionSkirmish *skirmish = (FusionSkirmish*) l;
@@ -81,7 +81,7 @@ skirmishs_read_proc(char *buf, char **start, off_t offset,
                break;
      }
 
-     spin_unlock (&dev->skirmish.lock);
+     up (&dev->skirmish.lock);
 
      *start = buf + offset;
      written -= offset;
@@ -97,7 +97,7 @@ skirmishs_read_proc(char *buf, char **start, off_t offset,
 int
 fusion_skirmish_init (FusionDev *dev)
 {
-     dev->skirmish.lock = SPIN_LOCK_UNLOCKED;
+     init_MUTEX (&dev->skirmish.lock);
 
      create_proc_read_entry("skirmishs", 0, dev->proc_dir,
                             skirmishs_read_proc, dev);
@@ -110,7 +110,7 @@ fusion_skirmish_deinit (FusionDev *dev)
 {
      FusionLink *l;
 
-     spin_lock (&dev->skirmish.lock);
+     down (&dev->skirmish.lock);
 
      remove_proc_entry ("skirmishs", dev->proc_dir);
 
@@ -124,7 +124,7 @@ fusion_skirmish_deinit (FusionDev *dev)
           l = next;
      }
 
-     spin_unlock (&dev->skirmish.lock);
+     up (&dev->skirmish.lock);
 }
 
 /******************************************************************************/
@@ -134,23 +134,27 @@ fusion_skirmish_new (FusionDev *dev, int *id)
 {
      FusionSkirmish *skirmish;
 
-     skirmish = kmalloc (sizeof(FusionSkirmish), GFP_ATOMIC);
+     skirmish = kmalloc (sizeof(FusionSkirmish), GFP_KERNEL);
      if (!skirmish)
           return -ENOMEM;
 
      memset (skirmish, 0, sizeof(FusionSkirmish));
 
-     spin_lock (&dev->skirmish.lock);
+     if (down_interruptible (&dev->skirmish.lock)) {
+          kfree (skirmish);
+          return -EINTR;
+     }
 
      skirmish->id   = dev->skirmish.ids++;
      skirmish->pid  = current->pid;
-     skirmish->lock = SPIN_LOCK_UNLOCKED;
+
+     init_MUTEX (&skirmish->lock);
 
      init_waitqueue_head (&skirmish->wait);
 
      fusion_list_prepend (&dev->skirmish.list, &skirmish->link);
 
-     spin_unlock (&dev->skirmish.lock);
+     up (&dev->skirmish.lock);
 
      *id = skirmish->id;
 
@@ -160,14 +164,15 @@ fusion_skirmish_new (FusionDev *dev, int *id)
 int
 fusion_skirmish_prevail (FusionDev *dev, int id, int fusion_id)
 {
+     int             ret;
      FusionSkirmish *skirmish;
 
      dev->stat.skirmish_prevail_swoop++;
-     
+
      while (true) {
-          skirmish = lock_skirmish (dev, id);
-          if (!skirmish)
-               return -EINVAL;
+          ret = lock_skirmish (dev, id, &skirmish);
+          if (ret)
+               return ret;
 
           if (skirmish->lock_fid) {
                if (skirmish->lock_pid == current->pid) {
@@ -197,12 +202,14 @@ fusion_skirmish_prevail (FusionDev *dev, int id, int fusion_id)
 int
 fusion_skirmish_swoop (FusionDev *dev, int id, int fusion_id)
 {
-     FusionSkirmish *skirmish = lock_skirmish (dev, id);
+     int             ret;
+     FusionSkirmish *skirmish;
+
+     ret = lock_skirmish (dev, id, &skirmish);
+     if (ret)
+          return ret;
 
      dev->stat.skirmish_prevail_swoop++;
-     
-     if (!skirmish)
-          return -EINVAL;
 
      if (skirmish->lock_fid) {
           if (skirmish->lock_pid == current->pid) {
@@ -228,12 +235,14 @@ fusion_skirmish_swoop (FusionDev *dev, int id, int fusion_id)
 int
 fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
 {
-     FusionSkirmish *skirmish = lock_skirmish (dev, id);
+     int             ret;
+     FusionSkirmish *skirmish;
+
+     ret = lock_skirmish (dev, id, &skirmish);
+     if (ret)
+          return ret;
 
      dev->stat.skirmish_dismiss++;
-     
-     if (!skirmish)
-          return -EINVAL;
 
      if (skirmish->lock_pid != current->pid) {
           unlock_skirmish (skirmish);
@@ -255,20 +264,25 @@ fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
 int
 fusion_skirmish_destroy (FusionDev *dev, int id)
 {
-     FusionSkirmish *skirmish = lookup_skirmish (dev, id);
+     int             ret;
+     FusionSkirmish *skirmish;
 
-     if (!skirmish)
-          return -EINVAL;
+     ret = lookup_skirmish (dev, id, &skirmish);
+     if (ret)
+          return ret;
 
-     spin_lock (&skirmish->lock);
+     if (down_interruptible (&skirmish->lock)) {
+          up (&dev->skirmish.lock);
+          return -EINTR;
+     }
 
      fusion_list_remove (&dev->skirmish.list, &skirmish->link);
 
-     spin_unlock (&dev->skirmish.lock);
+     up (&dev->skirmish.lock);
 
      wake_up_interruptible_all (&skirmish->wait);
 
-     spin_unlock (&skirmish->lock);
+     up (&skirmish->lock);
 
      kfree (skirmish);
 
@@ -280,12 +294,12 @@ fusion_skirmish_dismiss_all (FusionDev *dev, int fusion_id)
 {
      FusionLink *l;
 
-     spin_lock (&dev->skirmish.lock);
+     down (&dev->skirmish.lock);
 
      fusion_list_foreach (l, dev->skirmish.list) {
           FusionSkirmish *skirmish = (FusionSkirmish *) l;
 
-          spin_lock (&skirmish->lock);
+          down (&skirmish->lock);
 
           if (skirmish->lock_fid == fusion_id) {
                skirmish->lock_fid   = 0;
@@ -295,50 +309,65 @@ fusion_skirmish_dismiss_all (FusionDev *dev, int fusion_id)
                wake_up_interruptible_all (&skirmish->wait);
           }
 
-          spin_unlock (&skirmish->lock);
+          up (&skirmish->lock);
      }
 
-     spin_unlock (&dev->skirmish.lock);
+     up (&dev->skirmish.lock);
 }
 
 /******************************************************************************/
 
-static FusionSkirmish *
-lookup_skirmish (FusionDev *dev, int id)
+static int
+lookup_skirmish (FusionDev *dev, int id, FusionSkirmish **ret_skirmish)
 {
      FusionLink *l;
 
-     spin_lock (&dev->skirmish.lock);
+     if (down_interruptible (&dev->skirmish.lock))
+          return -EINTR;
 
      fusion_list_foreach (l, dev->skirmish.list) {
           FusionSkirmish *skirmish = (FusionSkirmish *) l;
 
-          if (skirmish->id == id)
-               return skirmish;
+          if (skirmish->id == id) {
+               *ret_skirmish = skirmish;
+               return 0;
+          }
      }
 
-     spin_unlock (&dev->skirmish.lock);
+     up (&dev->skirmish.lock);
 
-     return NULL;
+     return -EINVAL;
 }
 
-static FusionSkirmish *
-lock_skirmish (FusionDev *dev, int id)
+static int
+lock_skirmish (FusionDev *dev, int id, FusionSkirmish **ret_skirmish)
 {
-     FusionSkirmish *skirmish = lookup_skirmish (dev, id);
+     int         ret;
+     FusionSkirmish *skirmish;
+
+     ret = lookup_skirmish (dev, id, &skirmish);
+     if (ret)
+          return ret;
 
      if (skirmish) {
           fusion_list_move_to_front (&dev->skirmish.list, &skirmish->link);
 
-          spin_lock (&skirmish->lock);
-          spin_unlock (&dev->skirmish.lock);
+          if (down_interruptible (&skirmish->lock)) {
+               up (&dev->skirmish.lock);
+               return -EINTR;
+          }
+
+          up (&dev->skirmish.lock);
      }
 
-     return skirmish;
+     *ret_skirmish = skirmish;
+
+     return 0;
 }
 
 static void
 unlock_skirmish (FusionSkirmish *skirmish)
 {
-     spin_unlock (&skirmish->lock);
+     up (&skirmish->lock);
 }
+

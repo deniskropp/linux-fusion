@@ -35,7 +35,7 @@ typedef enum {
 typedef struct {
      FusionLink          link;
 
-     spinlock_t          lock;
+     struct semaphore    lock;
 
      int                 id;
      int                 pid;
@@ -50,10 +50,9 @@ typedef struct {
 
 /******************************************************************************/
 
-static FusionProperty *lookup_property     (FusionDev *dev, int id);
-
-static FusionProperty *lock_property       (FusionDev *dev, int id);
-static void            unlock_property     (FusionProperty *property);
+static int  lookup_property (FusionDev *dev, int id, FusionProperty **ret_property);
+static int  lock_property   (FusionDev *dev, int id, FusionProperty **ret_property);
+static void unlock_property (FusionProperty *property);
 
 /******************************************************************************/
 
@@ -65,7 +64,8 @@ properties_read_proc(char *buf, char **start, off_t offset,
      FusionDev  *dev     = private;
      int         written = 0;
 
-     spin_lock (&dev->property.lock);
+     if (down_interruptible (&dev->property.lock))
+          return -EINTR;
 
      fusion_list_foreach (l, dev->property.list) {
           FusionProperty *property = (FusionProperty*) l;
@@ -91,7 +91,7 @@ properties_read_proc(char *buf, char **start, off_t offset,
                break;
      }
 
-     spin_unlock (&dev->property.lock);
+     up (&dev->property.lock);
 
      *start = buf + offset;
      written -= offset;
@@ -107,7 +107,7 @@ properties_read_proc(char *buf, char **start, off_t offset,
 int
 fusion_property_init (FusionDev *dev)
 {
-     dev->property.lock = SPIN_LOCK_UNLOCKED;
+     init_MUTEX (&dev->property.lock);
 
      create_proc_read_entry("properties", 0, dev->proc_dir,
                             properties_read_proc, dev);
@@ -120,10 +120,10 @@ fusion_property_deinit (FusionDev *dev)
 {
      FusionLink *l;
 
-     spin_lock (&dev->property.lock);
+     down (&dev->property.lock);
 
      remove_proc_entry ("properties", dev->proc_dir);
-     
+
      l = dev->property.list;
      while (l) {
           FusionLink     *next     = l->next;
@@ -134,7 +134,7 @@ fusion_property_deinit (FusionDev *dev)
           l = next;
      }
 
-     spin_unlock (&dev->property.lock);
+     up (&dev->property.lock);
 }
 
 /******************************************************************************/
@@ -144,23 +144,27 @@ fusion_property_new (FusionDev *dev, int *id)
 {
      FusionProperty *property;
 
-     property = kmalloc (sizeof(FusionProperty), GFP_ATOMIC);
+     property = kmalloc (sizeof(FusionProperty), GFP_KERNEL);
      if (!property)
           return -ENOMEM;
 
      memset (property, 0, sizeof(FusionProperty));
 
-     spin_lock (&dev->property.lock);
+     if (down_interruptible (&dev->property.lock)) {
+          kfree (property);
+          return -EINTR;
+     }
 
      property->id   = dev->property.ids++;
      property->pid  = current->pid;
-     property->lock = SPIN_LOCK_UNLOCKED;
+
+     init_MUTEX (&property->lock);
 
      init_waitqueue_head (&property->wait);
 
      fusion_list_prepend (&dev->property.list, &property->link);
 
-     spin_unlock (&dev->property.lock);
+     up (&dev->property.lock);
 
      *id = property->id;
 
@@ -174,11 +178,13 @@ fusion_property_lease (FusionDev *dev, int id, int fusion_id)
      signed long     timeout = -1;
 
      dev->stat.property_lease_purchase++;
-     
+
      while (true) {
-          property = lock_property (dev, id);
-          if (!property)
-               return -EINVAL;
+          int ret;
+
+          ret = lock_property (dev, id, &property);
+          if (ret)
+               return ret;
 
           switch (property->state) {
                case FUSION_PROPERTY_AVAILABLE:
@@ -234,11 +240,13 @@ fusion_property_purchase (FusionDev *dev, int id, int fusion_id)
      signed long     timeout = -1;
 
      dev->stat.property_lease_purchase++;
-     
+
      while (true) {
-          property = lock_property (dev, id);
-          if (!property)
-               return -EINVAL;
+          int ret;
+
+          ret = lock_property (dev, id, &property);
+          if (ret)
+               return ret;
 
           switch (property->state) {
                case FUSION_PROPERTY_AVAILABLE:
@@ -293,13 +301,15 @@ fusion_property_purchase (FusionDev *dev, int id, int fusion_id)
 int
 fusion_property_cede (FusionDev *dev, int id, int fusion_id)
 {
+     int             ret;
      bool            purchased;
-     FusionProperty *property = lock_property (dev, id);
+     FusionProperty *property;
+
+     ret = lock_property (dev, id, &property);
+     if (ret)
+          return ret;
 
      dev->stat.property_cede++;
-     
-     if (!property)
-          return -EINVAL;
 
      if (property->fusion_id != fusion_id) {
           unlock_property (property);
@@ -325,10 +335,12 @@ fusion_property_cede (FusionDev *dev, int id, int fusion_id)
 int
 fusion_property_holdup (FusionDev *dev, int id, int fusion_id)
 {
-     FusionProperty *property = lock_property (dev, id);
+     int             ret;
+     FusionProperty *property;
 
-     if (!property)
-          return -EINVAL;
+     ret = lock_property (dev, id, &property);
+     if (ret)
+          return ret;
 
      if (property->state == FUSION_PROPERTY_PURCHASED) {
           if (property->fusion_id == fusion_id) {
@@ -347,20 +359,25 @@ fusion_property_holdup (FusionDev *dev, int id, int fusion_id)
 int
 fusion_property_destroy (FusionDev *dev, int id)
 {
-     FusionProperty *property = lookup_property (dev, id);
+     int             ret;
+     FusionProperty *property;
 
-     if (!property)
-          return -EINVAL;
+     ret = lookup_property (dev, id, &property);
+     if (ret)
+          return ret;
 
-     spin_lock (&property->lock);
+     if (down_interruptible (&property->lock)) {
+          up (&dev->property.lock);
+          return -EINTR;
+     }
 
      fusion_list_remove (&dev->property.list, &property->link);
 
      wake_up_interruptible_all (&property->wait);
 
-     spin_unlock (&dev->property.lock);
+     up (&dev->property.lock);
 
-     spin_unlock (&property->lock);
+     up (&property->lock);
 
      kfree (property);
 
@@ -372,12 +389,12 @@ fusion_property_cede_all (FusionDev *dev, int fusion_id)
 {
      FusionLink *l;
 
-     spin_lock (&dev->property.lock);
+     down (&dev->property.lock);
 
      fusion_list_foreach (l, dev->property.list) {
           FusionProperty *property = (FusionProperty *) l;
 
-          spin_lock (&property->lock);
+          down (&property->lock);
 
           if (property->fusion_id == fusion_id) {
                property->state     = FUSION_PROPERTY_AVAILABLE;
@@ -387,50 +404,65 @@ fusion_property_cede_all (FusionDev *dev, int fusion_id)
                wake_up_interruptible_all (&property->wait);
           }
 
-          spin_unlock (&property->lock);
+          up (&property->lock);
      }
 
-     spin_unlock (&dev->property.lock);
+     up (&dev->property.lock);
 }
 
 /******************************************************************************/
 
-static FusionProperty *
-lookup_property (FusionDev *dev, int id)
+static int
+lookup_property (FusionDev *dev, int id, FusionProperty **ret_property)
 {
      FusionLink *l;
 
-     spin_lock (&dev->property.lock);
+     if (down_interruptible (&dev->property.lock))
+          return -EINTR;
 
      fusion_list_foreach (l, dev->property.list) {
           FusionProperty *property = (FusionProperty *) l;
 
-          if (property->id == id)
-               return property;
+          if (property->id == id) {
+               *ret_property = property;
+               return 0;
+          }
      }
 
-     spin_unlock (&dev->property.lock);
+     up (&dev->property.lock);
 
-     return NULL;
+     return -EINVAL;
 }
 
-static FusionProperty *
-lock_property (FusionDev *dev, int id)
+static int
+lock_property (FusionDev *dev, int id, FusionProperty **ret_property)
 {
-     FusionProperty *property = lookup_property (dev, id);
+     int             ret;
+     FusionProperty *property;
+
+     ret = lookup_property (dev, id, &property);
+     if (ret)
+          return ret;
 
      if (property) {
           fusion_list_move_to_front (&dev->property.list, &property->link);
 
-          spin_lock (&property->lock);
-          spin_unlock (&dev->property.lock);
+          if (down_interruptible (&property->lock)) {
+               up (&dev->property.lock);
+               return -EINTR;
+          }
+
+          up (&dev->property.lock);
      }
 
-     return property;
+     *ret_property = property;
+
+     return 0;
 }
 
 static void
 unlock_property (FusionProperty *property)
 {
-     spin_unlock (&property->lock);
+     up (&property->lock);
 }
+

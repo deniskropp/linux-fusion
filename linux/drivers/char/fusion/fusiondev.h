@@ -11,7 +11,7 @@
  *	as published by the Free Software Foundation; either version
  *	2 of the License, or (at your option) any later version.
  */
- 
+
 #ifndef __FUSIONDEV_H__
 #define __FUSIONDEV_H__
 
@@ -21,67 +21,67 @@
 
 typedef struct {
      int refs;
-     
+
      struct proc_dir_entry *proc_dir;
-     
+
      struct {
-          int         property_lease_purchase;
-          int         property_cede;
+          int property_lease_purchase;
+          int property_cede;
 
-          int         reactor_attach;
-          int         reactor_detach;
+          int reactor_attach;
+          int reactor_detach;
 
-          int         ref_up;
-          int         ref_down;
+          int ref_up;
+          int ref_down;
 
-          int         skirmish_prevail_swoop;
-          int         skirmish_dismiss;
+          int skirmish_prevail_swoop;
+          int skirmish_dismiss;
      } stat;
-     
+
      struct {
-          int         ids;
-          FusionLink *list;
-          spinlock_t  lock;
+          int                ids;
+          FusionLink        *list;
+          struct semaphore   lock;
      } call;
 
      struct {
           int                last_id;
           FusionLink        *list;
-          spinlock_t         lock;
+          struct semaphore   lock;
           wait_queue_head_t  wait;
      } fusionee;
-     
+
      struct {
-          int         ids;
-          FusionLink *list;
-          spinlock_t  lock;
+          int                ids;
+          FusionLink        *list;
+          struct semaphore   lock;
      } property;
-     
+
      struct {
-          int         ids;
-          FusionLink *list;
-          spinlock_t  lock;
+          int                ids;
+          FusionLink        *list;
+          struct semaphore   lock;
      } reactor;
-     
+
      struct {
-          int         ids;
-          FusionLink *list;
-          spinlock_t  lock;
+          int                ids;
+          FusionLink        *list;
+          struct semaphore   lock;
      } ref;
-     
+
      struct {
-          int         ids;
-          FusionLink *list;
-          spinlock_t  lock;
+          int                ids;
+          FusionLink        *list;
+          struct semaphore   lock;
      } skirmish;
 } FusionDev;
 
 /*
- * Special version of interruptible_sleep_on() that unlocks the spinlock
+ * Special version of interruptible_sleep_on() that unlocks the mutex
  * after adding the entry to the queue (just before schedule).
  */
 void fusion_sleep_on (wait_queue_head_t *q,
-                      spinlock_t        *lock,
+                      struct semaphore  *lock,
                       signed long       *timeout_ms);
 
 #endif

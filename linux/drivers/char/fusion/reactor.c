@@ -37,7 +37,7 @@ typedef struct {
 typedef struct {
      FusionLink         link;
 
-     spinlock_t         lock;
+     struct semaphore   lock;
 
      int                id;
      int                pid;
@@ -47,16 +47,15 @@ typedef struct {
 
 /******************************************************************************/
 
-static FusionReactor *lookup_reactor     (FusionDev *dev, int id);
+static int  lookup_reactor (FusionDev *dev, int id, FusionReactor **ret_reactor);
+static int  lock_reactor   (FusionDev *dev, int id, FusionReactor **ret_reactor);
+static void unlock_reactor (FusionReactor *reactor);
 
-static FusionReactor *lock_reactor       (FusionDev *dev, int id);
-static void           unlock_reactor     (FusionReactor *reactor);
-
-static ReactorNode   *get_node           (FusionReactor *reactor,
-                                          int            fusion_id);
-static void           remove_node        (FusionReactor *reactor,
-                                          int            fusion_id);
-static void           free_all_nodes     (FusionReactor *reactor);
+static ReactorNode *get_node           (FusionReactor *reactor,
+                                        int            fusion_id);
+static void         remove_node        (FusionReactor *reactor,
+                                        int            fusion_id);
+static void         free_all_nodes     (FusionReactor *reactor);
 
 /******************************************************************************/
 
@@ -68,7 +67,8 @@ reactors_read_proc(char *buf, char **start, off_t offset,
      FusionDev  *dev     = private;
      int         written = 0;
 
-     spin_lock (&dev->reactor.lock);
+     if (down_interruptible (&dev->reactor.lock))
+          return -EINTR;
 
      fusion_list_foreach (l, dev->reactor.list) {
           FusionReactor *reactor = (FusionReactor*) l;
@@ -84,7 +84,7 @@ reactors_read_proc(char *buf, char **start, off_t offset,
                break;
      }
 
-     spin_unlock (&dev->reactor.lock);
+     up (&dev->reactor.lock);
 
      *start = buf + offset;
      written -= offset;
@@ -100,7 +100,7 @@ reactors_read_proc(char *buf, char **start, off_t offset,
 int
 fusion_reactor_init (FusionDev *dev)
 {
-     dev->reactor.lock = SPIN_LOCK_UNLOCKED;
+     init_MUTEX (&dev->reactor.lock);
 
      create_proc_read_entry("reactors", 0, dev->proc_dir,
                             reactors_read_proc, dev);
@@ -113,10 +113,10 @@ fusion_reactor_deinit (FusionDev *dev)
 {
      FusionLink *l;
 
-     spin_lock (&dev->reactor.lock);
+     down (&dev->reactor.lock);
 
      remove_proc_entry ("reactors", dev->proc_dir);
-     
+
      l = dev->reactor.list;
      while (l) {
           FusionLink    *next    = l->next;
@@ -129,7 +129,7 @@ fusion_reactor_deinit (FusionDev *dev)
           l = next;
      }
 
-     spin_unlock (&dev->reactor.lock);
+     up (&dev->reactor.lock);
 }
 
 /******************************************************************************/
@@ -139,21 +139,25 @@ fusion_reactor_new (FusionDev *dev, int *id)
 {
      FusionReactor *reactor;
 
-     reactor = kmalloc (sizeof(FusionReactor), GFP_ATOMIC);
+     reactor = kmalloc (sizeof(FusionReactor), GFP_KERNEL);
      if (!reactor)
           return -ENOMEM;
 
      memset (reactor, 0, sizeof(FusionReactor));
 
-     spin_lock (&dev->reactor.lock);
+     if (down_interruptible (&dev->reactor.lock)) {
+          kfree (reactor);
+          return -EINTR;
+     }
 
-     reactor->id   = dev->reactor.ids++;
-     reactor->pid  = current->pid;
-     reactor->lock = SPIN_LOCK_UNLOCKED;
+     reactor->id  = dev->reactor.ids++;
+     reactor->pid = current->pid;
+
+     init_MUTEX (&reactor->lock);
 
      fusion_list_prepend (&dev->reactor.list, &reactor->link);
 
-     spin_unlock (&dev->reactor.lock);
+     up (&dev->reactor.lock);
 
      *id = reactor->id;
 
@@ -163,17 +167,19 @@ fusion_reactor_new (FusionDev *dev, int *id)
 int
 fusion_reactor_attach (FusionDev *dev, int id, int fusion_id)
 {
+     int            ret;
      ReactorNode   *node;
-     FusionReactor *reactor = lock_reactor (dev, id);
+     FusionReactor *reactor;
+
+     ret = lock_reactor (dev, id, &reactor);
+     if (ret)
+          return ret;
 
      dev->stat.reactor_attach++;
 
-     if (!reactor)
-          return -EINVAL;
-
      node = get_node (reactor, fusion_id);
      if (!node) {
-          node = kmalloc (sizeof(ReactorNode), GFP_ATOMIC);
+          node = kmalloc (sizeof(ReactorNode), GFP_KERNEL);
           if (!node) {
                unlock_reactor (reactor);
                return -ENOMEM;
@@ -195,13 +201,15 @@ fusion_reactor_attach (FusionDev *dev, int id, int fusion_id)
 int
 fusion_reactor_detach (FusionDev *dev, int id, int fusion_id)
 {
+     int            ret;
      ReactorNode   *node;
-     FusionReactor *reactor = lock_reactor (dev, id);
+     FusionReactor *reactor;
+
+     ret = lock_reactor (dev, id, &reactor);
+     if (ret)
+          return ret;
 
      dev->stat.reactor_detach++;
-     
-     if (!reactor)
-          return -EINVAL;
 
      node = get_node (reactor, fusion_id);
      if (!node) {
@@ -223,11 +231,13 @@ int
 fusion_reactor_dispatch (FusionDev *dev, int id, int fusion_id,
                          int msg_size, const void *msg_data)
 {
+     int            ret;
      FusionLink    *l;
-     FusionReactor *reactor = lock_reactor (dev, id);
+     FusionReactor *reactor;
 
-     if (!reactor)
-          return -EINVAL;
+     ret = lock_reactor (dev, id, &reactor);
+     if (ret)
+          return ret;
 
      fusion_list_foreach (l, reactor->nodes) {
           ReactorNode *node = (ReactorNode *) l;
@@ -247,20 +257,25 @@ fusion_reactor_dispatch (FusionDev *dev, int id, int fusion_id,
 int
 fusion_reactor_destroy (FusionDev *dev, int id)
 {
-     FusionReactor *reactor = lookup_reactor (dev, id);
+     int            ret;
+     FusionReactor *reactor;
 
-     if (!reactor)
-          return -EINVAL;
+     ret = lookup_reactor (dev, id, &reactor);
+     if (ret)
+          return ret;
 
-     spin_lock (&reactor->lock);
+     if (down_interruptible (&reactor->lock)) {
+          up (&dev->reactor.lock);
+          return -EINTR;
+     }
 
      fusion_list_remove (&dev->reactor.list, &reactor->link);
 
-     spin_unlock (&dev->reactor.lock);
+     up (&dev->reactor.lock);
 
      free_all_nodes (reactor);
 
-     spin_unlock (&reactor->lock);
+     up (&reactor->lock);
 
      kfree (reactor);
 
@@ -272,7 +287,7 @@ fusion_reactor_detach_all (FusionDev *dev, int fusion_id)
 {
      FusionLink *l;
 
-     spin_lock (&dev->reactor.lock);
+     down (&dev->reactor.lock);
 
      fusion_list_foreach (l, dev->reactor.list) {
           FusionReactor *reactor = (FusionReactor *) l;
@@ -280,49 +295,63 @@ fusion_reactor_detach_all (FusionDev *dev, int fusion_id)
           remove_node (reactor, fusion_id);
      }
 
-     spin_unlock (&dev->reactor.lock);
+     up (&dev->reactor.lock);
 }
 
 /******************************************************************************/
 
-static FusionReactor *
-lookup_reactor (FusionDev *dev, int id)
+static int
+lookup_reactor (FusionDev *dev, int id, FusionReactor **ret_reactor)
 {
      FusionLink *l;
 
-     spin_lock (&dev->reactor.lock);
+     if (down_interruptible (&dev->reactor.lock))
+          return -EINTR;
 
      fusion_list_foreach (l, dev->reactor.list) {
           FusionReactor *reactor = (FusionReactor *) l;
 
-          if (reactor->id == id)
-               return reactor;
+          if (reactor->id == id) {
+               *ret_reactor = reactor;
+               return 0;
+          }
      }
 
-     spin_unlock (&dev->reactor.lock);
+     up (&dev->reactor.lock);
 
-     return NULL;
+     return -EINVAL;
 }
 
-static FusionReactor *
-lock_reactor (FusionDev *dev, int id)
+static int
+lock_reactor (FusionDev *dev, int id, FusionReactor **ret_reactor)
 {
-     FusionReactor *reactor = lookup_reactor (dev, id);
+     int         ret;
+     FusionReactor *reactor;
+
+     ret = lookup_reactor (dev, id, &reactor);
+     if (ret)
+          return ret;
 
      if (reactor) {
           fusion_list_move_to_front (&dev->reactor.list, &reactor->link);
 
-          spin_lock (&reactor->lock);
-          spin_unlock (&dev->reactor.lock);
+          if (down_interruptible (&reactor->lock)) {
+               up (&dev->reactor.lock);
+               return -EINTR;
+          }
+
+          up (&dev->reactor.lock);
      }
 
-     return reactor;
+     *ret_reactor = reactor;
+
+     return 0;
 }
 
 static void
 unlock_reactor (FusionReactor *reactor)
 {
-     spin_unlock (&reactor->lock);
+     up (&reactor->lock);
 }
 
 static ReactorNode *
@@ -346,7 +375,7 @@ remove_node (FusionReactor *reactor, int fusion_id)
 {
      FusionLink *l;
 
-     spin_lock (&reactor->lock);
+     down (&reactor->lock);
 
      fusion_list_foreach (l, reactor->nodes) {
           ReactorNode *node = (ReactorNode *) l;
@@ -357,7 +386,7 @@ remove_node (FusionReactor *reactor, int fusion_id)
           }
      }
 
-     spin_unlock (&reactor->lock);
+     up (&reactor->lock);
 }
 
 static void
