@@ -134,6 +134,7 @@ fusion_reactor_reset()
       l = next;
     }
 
+  ids      = 0;
   reactors = NULL;
 
   spin_unlock (&reactors_lock);
@@ -324,6 +325,8 @@ lock_reactor (int id)
 
   if (reactor)
     {
+      fusion_list_move_to_front (&reactors, &reactor->link);
+
       spin_lock (&reactor->lock);
       spin_unlock (&reactors_lock);
     }

@@ -137,6 +137,7 @@ fusion_ref_reset()
       l = next;
     }
 
+  ids  = 0;
   refs = NULL;
 
   spin_unlock (&refs_lock);
@@ -422,6 +423,8 @@ lock_ref (int id)
 
   if (ref)
     {
+      fusion_list_move_to_front (&refs, &ref->link);
+
       spin_lock (&ref->lock);
       spin_unlock (&refs_lock);
     }

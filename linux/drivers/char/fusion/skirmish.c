@@ -123,6 +123,7 @@ fusion_skirmish_reset()
       l = next;
     }
 
+  ids       = 0;
   skirmishs = NULL;
 
   spin_unlock (&skirmishs_lock);
@@ -340,10 +341,10 @@ lock_skirmish (int id)
 {
   FusionSkirmish *skirmish = lookup_skirmish (id);
 
-  fusion_list_move_to_front (&skirmishs, &skirmish->link);
-
   if (skirmish)
     {
+      fusion_list_move_to_front (&skirmishs, &skirmish->link);
+
       spin_lock (&skirmish->lock);
       spin_unlock (&skirmishs_lock);
     }

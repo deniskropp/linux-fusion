@@ -142,6 +142,7 @@ fusionee_reset()
       l = next;
     }
 
+  last_id   = 0;
   fusionees = NULL;
 
   spin_unlock (&fusionees_lock);
@@ -169,9 +170,6 @@ fusionee_new (int *id)
   memset (fusionee, 0, sizeof(Fusionee));
 
   spin_lock (&fusionees_lock);
-
-  if (!fusionees)
-    last_id = 0;
 
   fusionee->id   = ++last_id;
   fusionee->pid  = current->pid;

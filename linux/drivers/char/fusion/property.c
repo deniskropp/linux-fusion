@@ -131,6 +131,7 @@ fusion_property_reset()
       l = next;
     }
 
+  ids        = 0;
   properties = NULL;
 
   spin_unlock (&properties_lock);
@@ -381,6 +382,8 @@ lock_property (int id)
 
   if (property)
     {
+      fusion_list_move_to_front (&properties, &property->link);
+
       spin_lock (&property->lock);
       spin_unlock (&properties_lock);
     }
