@@ -27,6 +27,7 @@ typedef const struct {
 
      int  (*Init)   ( FusionEntry *entry, void *ctx );
      void (*Destroy)( FusionEntry *entry, void *ctx );
+     int  (*Print)  ( FusionEntry *entry, void *ctx, char *buf );
 } FusionEntryClass;
 
 
@@ -62,6 +63,12 @@ void fusion_entries_init  ( FusionEntries    *entries,
                             void             *ctx );
 
 void fusion_entries_deinit( FusionEntries    *entries );
+
+
+/* '/proc' support */
+
+int  fusion_entries_read_proc( char *buf, char **start, off_t offset,
+                               int len, int *eof, void *private );
 
 
 /* Create & Destroy */
@@ -110,42 +117,43 @@ void fusion_entry_notify  ( FusionEntry      *entry,
                             bool              all );
 
 
-#define FUSION_ENTRY_CLASS( Type, name, init_func, destroy_func )          \
-                                                                           \
-     static FusionEntryClass name##_class = {                              \
-          .object_size = sizeof(Type),                                     \
-          .Init        = init_func,                                        \
-          .Destroy     = destroy_func                                      \
-     };                                                                    \
-                                                                           \
-     static inline int fusion_##name##_lock( FusionEntries  *entries,      \
-                                             int             id,           \
-                                             Type          **ret_##name )  \
-     {                                                                     \
-          int          ret;                                                \
-          FusionEntry *entry;                                              \
-                                                                           \
-          ret = fusion_entry_lock( entries, id, &entry );                  \
-                                                                           \
-          if (!ret)                                                        \
-               *ret_##name = (Type *) entry;                               \
-                                                                           \
-          return ret;                                                      \
-     }                                                                     \
-                                                                           \
-     static inline void fusion_##name##_unlock( Type *name )               \
-     {                                                                     \
-          fusion_entry_unlock( (FusionEntry*) name );                      \
-     }                                                                     \
-                                                                           \
-     static inline int fusion_##name##_wait( Type *name, long *timeout )   \
-     {                                                                     \
-          return fusion_entry_wait( (FusionEntry*) name, timeout );        \
-     }                                                                     \
-                                                                           \
-     static inline void fusion_##name##_notify( Type *name, bool all )     \
-     {                                                                     \
-          fusion_entry_notify( (FusionEntry*) name, all );                 \
+#define FUSION_ENTRY_CLASS( Type, name, init_func, destroy_func, print_func )   \
+                                                                                \
+     static FusionEntryClass name##_class = {                                   \
+          .object_size = sizeof(Type),                                          \
+          .Init        = init_func,                                             \
+          .Destroy     = destroy_func,                                          \
+          .Print       = print_func                                             \
+     };                                                                         \
+                                                                                \
+     static inline int fusion_##name##_lock( FusionEntries  *entries,           \
+                                             int             id,                \
+                                             Type          **ret_##name )       \
+     {                                                                          \
+          int          ret;                                                     \
+          FusionEntry *entry;                                                   \
+                                                                                \
+          ret = fusion_entry_lock( entries, id, &entry );                       \
+                                                                                \
+          if (!ret)                                                             \
+               *ret_##name = (Type *) entry;                                    \
+                                                                                \
+          return ret;                                                           \
+     }                                                                          \
+                                                                                \
+     static inline void fusion_##name##_unlock( Type *name )                    \
+     {                                                                          \
+          fusion_entry_unlock( (FusionEntry*) name );                           \
+     }                                                                          \
+                                                                                \
+     static inline int fusion_##name##_wait( Type *name, long *timeout )        \
+     {                                                                          \
+          return fusion_entry_wait( (FusionEntry*) name, timeout );             \
+     }                                                                          \
+                                                                                \
+     static inline void fusion_##name##_notify( Type *name, bool all )          \
+     {                                                                          \
+          fusion_entry_notify( (FusionEntry*) name, all );                      \
      }
 
 

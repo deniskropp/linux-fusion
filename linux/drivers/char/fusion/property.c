@@ -47,7 +47,7 @@ typedef struct {
      int                 count;    /* lock counter */
 } FusionProperty;
 
-FUSION_ENTRY_CLASS( FusionProperty, property, NULL, NULL )
+FUSION_ENTRY_CLASS( FusionProperty, property, NULL, NULL, NULL )
 
 /******************************************************************************/
 

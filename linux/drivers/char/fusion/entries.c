@@ -66,6 +66,51 @@ fusion_entries_deinit( FusionEntries *entries )
      up( &entries->lock );
 }
 
+int
+fusion_entries_read_proc(char *buf, char **start, off_t offset,
+                         int len, int *eof, void *private)
+{
+     FusionEntry      *entry;
+     FusionEntryClass *class;
+     FusionEntries    *entries = private;
+     int               written = 0;
+
+     FUSION_ASSERT( entries != NULL );
+     FUSION_ASSERT( entries->class != NULL );
+
+     class = entries->class;
+
+     if (!class->Print)
+          return -ENOTSUPP;
+
+     if (down_interruptible (&entries->lock))
+          return -EINTR;
+
+     fusion_list_foreach (entry, entries->list) {
+          written += class->Print( entry, entries->ctx, buf + written );
+
+          if (written < offset) {
+               offset -= written;
+               written = 0;
+          }
+
+          if (written >= len)
+               break;
+     }
+
+     up (&entries->lock);
+
+     *start = buf + offset;
+     written -= offset;
+     if (written > len) {
+          *eof = 0;
+          return len;
+     }
+
+     *eof = 1;
+
+     return (written<0) ? 0 : written;
+}
 
 int
 fusion_entry_create( FusionEntries *entries,

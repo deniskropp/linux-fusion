@@ -26,6 +26,7 @@
 #include "list.h"
 #include "skirmish.h"
 
+
 typedef struct {
      FusionEntry        entry;
 
@@ -34,61 +35,32 @@ typedef struct {
      int                lock_count;
 } FusionSkirmish;
 
-FUSION_ENTRY_CLASS( FusionSkirmish, skirmish, NULL, NULL )
+static int
+fusion_skirmish_print( FusionEntry *entry,
+                       void        *ctx,
+                       char        *buf )
+{
+     FusionSkirmish *skirmish = (FusionSkirmish*) entry;
+
+     if (skirmish->lock_fid)
+          return sprintf( buf, "(%5d) 0x%08x (locked 0x%08x %d)\n",
+                          skirmish->entry.pid, skirmish->entry.id,
+                          skirmish->lock_fid, skirmish->lock_pid);
+
+     return sprintf( buf, "(%5d) 0x%08x\n", skirmish->entry.pid, skirmish->entry.id);
+}
+
+FUSION_ENTRY_CLASS( FusionSkirmish, skirmish, NULL, NULL, fusion_skirmish_print )
 
 /******************************************************************************/
-
-static int
-skirmishs_read_proc(char *buf, char **start, off_t offset,
-                    int len, int *eof, void *private)
-{
-     FusionLink *l;
-     FusionDev  *dev     = private;
-     int         written = 0;
-
-     if (down_interruptible (&dev->skirmish.lock))
-          return -EINTR;
-
-     fusion_list_foreach (l, dev->skirmish.list) {
-          FusionSkirmish *skirmish = (FusionSkirmish*) l;
-
-          if (skirmish->lock_fid) {
-               written += sprintf(buf+written, "(%5d) 0x%08x (locked 0x%08x "
-                                  "%d)\n", skirmish->entry.pid, skirmish->entry.id,
-                                  skirmish->lock_fid, skirmish->lock_pid);
-          }
-          else {
-               written += sprintf(buf+written, "(%5d) 0x%08x\n",
-                                  skirmish->entry.pid, skirmish->entry.id);
-          }
-          if (written < offset) {
-               offset -= written;
-               written = 0;
-          }
-
-          if (written >= len)
-               break;
-     }
-
-     up (&dev->skirmish.lock);
-
-     *start = buf + offset;
-     written -= offset;
-     if (written > len) {
-          *eof = 0;
-          return len;
-     }
-
-     *eof = 1;
-     return(written<0) ? 0 : written;
-}
 
 int
 fusion_skirmish_init (FusionDev *dev)
 {
      fusion_entries_init( &dev->skirmish, &skirmish_class, dev );
 
-     create_proc_read_entry( "skirmishs", 0, dev->proc_dir, skirmishs_read_proc, dev );
+     create_proc_read_entry( "skirmishs", 0, dev->proc_dir,
+                             fusion_entries_read_proc, &dev->skirmish );
 
      return 0;
 }
