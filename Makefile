@@ -6,6 +6,13 @@ KERNEL_PATCHLEVEL = $(shell uname -r | cut -d . -f 2)
 SUB = linux/drivers/char/fusion
 
 
+#KERNEL_MODLIB     = /tmp
+#KERNEL_SOURCE     = /home/dok/PixelWorks/linux-2.4.20_mvl31
+#KERNEL_PATCHLEVEL = 4
+
+export CONFIG_FUSION_DEVICE=m
+
+
 all:
 	rm -f $(SUB)/Makefile
 	ln -s Makefile-2.$(KERNEL_PATCHLEVEL) $(SUB)/Makefile
