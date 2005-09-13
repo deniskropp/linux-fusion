@@ -68,7 +68,11 @@ static inline unsigned iminor(struct inode *inode)
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
+static struct class *fusion_class;
+#else
 static struct class_simple *fusion_class;
+#endif
 #endif
 
 /******************************************************************************/
@@ -844,7 +848,11 @@ register_devices(void)
      }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
+     fusion_class = class_create (THIS_MODULE, "fusion");
+#else
      fusion_class = class_simple_create (THIS_MODULE, "fusion");
+#endif
      if (IS_ERR(fusion_class)) {
           unregister_chrdev (FUSION_MAJOR, "fusion");
           return PTR_ERR(fusion_class);
@@ -855,9 +863,15 @@ register_devices(void)
 
      for (i=0; i<NUM_MINORS; i++) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
+          class_device_create (fusion_class,
+                               MKDEV(FUSION_MAJOR, i),
+                               NULL, "fusion%d", i);
+#else
           class_simple_device_add (fusion_class,
                                    MKDEV(FUSION_MAJOR, i),
                                    NULL, "fusion%d", i);
+#endif
 #endif
 
           devfs_mk_cdev (MKDEV(FUSION_MAJOR, i),
@@ -918,14 +932,22 @@ deregister_devices(void)
 
      for (i=0; i<NUM_MINORS; i++) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
+          class_device_destroy (fusion_class, MKDEV(FUSION_MAJOR, i));
+#else
           class_simple_device_remove (MKDEV(FUSION_MAJOR, i));
+#endif
 #endif
 
           devfs_remove ("fusion/%d", i);
      }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
+     class_destroy (fusion_class);
+#else
      class_simple_destroy (fusion_class);
+#endif
 #endif
 
      devfs_remove ("fusion");
