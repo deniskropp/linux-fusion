@@ -1,11 +1,12 @@
-Easy installation without kernel patch (recommended)
------------------------------------------------------
+Easy installation without kernel patch
+--------------------------------------
 
 1) Copy linux/include/linux/fusion.h to the location where DirectFB
    can find it, e.g. "/usr/include/linux/".
 
 2) Run 'make' and 'make install'. It builds and installs the module
    for the running kernel version as reported by 'uname -r'.
+   If you want to build for another kernel, edit the Makefile.
 
 3) Either run 'modprobe fusion' manually or add "fusion" to "/etc/modules".
 
@@ -28,20 +29,3 @@ Easy installation without kernel patch (recommended)
 
 	# permissions
 	fusion/*:root:root:0600
-
-
-Alternative installation using a kernel patch
-----------------------------------------------
-
-1) Patch your kernel
-
-	patch -p1 < fusion-full-linux-2.4.24.patch
-
-2) Enable the character device driver module "Fusion Kernel Device".
-
-3) Make sure /usr/include/linux points to the patched kernel tree
-   so that <linux/fusion.h> is found at "./configure" time of DirectFB.
-
-4) See step four of the quick installation.
-
-5) See step five of the quick installation.
