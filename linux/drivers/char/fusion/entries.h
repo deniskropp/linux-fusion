@@ -25,7 +25,7 @@ typedef struct __FD_FusionEntry FusionEntry;
 typedef const struct {
      int object_size;
 
-     int  (*Init)   ( FusionEntry *entry, void *ctx );
+     int  (*Init)   ( FusionEntry *entry, void *ctx, void *create_ctx );
      void (*Destroy)( FusionEntry *entry, void *ctx );
      int  (*Print)  ( FusionEntry *entry, void *ctx, char *buf );
 } FusionEntryClass;
@@ -79,7 +79,8 @@ int  fusion_entries_read_proc( char *buf, char **start, off_t offset,
 /* Create & Destroy */
 
 int  fusion_entry_create  ( FusionEntries    *entries,
-                            int              *ret_id );
+                            int              *ret_id,
+                            void             *create_ctx );
 
 int  fusion_entry_destroy ( FusionEntries    *entries,
                             int               id );

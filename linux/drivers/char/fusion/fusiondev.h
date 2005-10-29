@@ -24,7 +24,13 @@
 #define FUSION_ASSUME(exp)    if (!(exp)) printk( KERN_ERR "fusiondev: assumption '" #exp "' failed!\n" )
 
 typedef struct {
-     int refs;
+     int                    refs;
+
+     struct semaphore       enter_lock;
+     int                    enter_ok;
+     wait_queue_head_t      enter_wait;
+
+     unsigned long          shared_area;
 
      struct proc_dir_entry *proc_dir;
 
@@ -40,6 +46,9 @@ typedef struct {
 
           int skirmish_prevail_swoop;
           int skirmish_dismiss;
+
+          int shmpool_attach;
+          int shmpool_detach;
      } stat;
 
      struct {
@@ -58,6 +67,8 @@ typedef struct {
      FusionEntries  properties;
 
      FusionEntries  reactor;
+
+     FusionEntries  shmpool;
 
      struct {
           int                ids;

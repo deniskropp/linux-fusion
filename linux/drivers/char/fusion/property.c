@@ -91,7 +91,7 @@ fusion_property_deinit( FusionDev *dev )
 int
 fusion_property_new( FusionDev *dev, int *ret_id )
 {
-     return fusion_entry_create( &dev->properties, ret_id );
+     return fusion_entry_create( &dev->properties, ret_id, NULL );
 }
 
 int

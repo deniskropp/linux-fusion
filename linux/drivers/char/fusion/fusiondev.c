@@ -23,6 +23,7 @@
 #include <linux/proc_fs.h>
 #include <linux/poll.h>
 #include <linux/init.h>
+#include <asm/io.h>
 #include <asm/uaccess.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
@@ -38,6 +39,7 @@
 #include "reactor.h"
 #include "ref.h"
 #include "skirmish.h"
+#include "shmpool.h"
 
 #if 0
 #define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
@@ -171,6 +173,9 @@ fusiondev_init (FusionDev *dev)
 {
      int ret;
 
+     init_MUTEX( &dev->enter_lock );
+     init_waitqueue_head( &dev->enter_wait );
+
      ret = fusionee_init (dev);
      if (ret)
           goto error_fusionee;
@@ -191,17 +196,24 @@ fusiondev_init (FusionDev *dev)
      if (ret)
           goto error_reactor;
 
+     ret = fusion_shmpool_init (dev);
+     if (ret)
+          goto error_shmpool;
+
      ret = fusion_call_init (dev);
      if (ret)
           goto error_call;
 
-     create_proc_read_entry("stat", 0, dev->proc_dir,
-                            fusiondev_stat_read_proc, dev);
+     create_proc_read_entry( "stat", 0, dev->proc_dir,
+                             fusiondev_stat_read_proc, dev );
 
      return 0;
 
 
 error_call:
+     fusion_shmpool_deinit (dev);
+
+error_shmpool:
      fusion_reactor_deinit (dev);
 
 error_reactor:
@@ -226,11 +238,15 @@ fusiondev_deinit (FusionDev *dev)
      remove_proc_entry ("stat", dev->proc_dir);
 
      fusion_call_deinit (dev);
+     fusion_shmpool_deinit (dev);
      fusion_reactor_deinit (dev);
      fusion_property_deinit (dev);
      fusion_skirmish_deinit (dev);
      fusion_ref_deinit (dev);
      fusionee_deinit (dev);
+
+     if (dev->shared_area)
+          free_page( dev->shared_area );
 }
 
 /******************************************************************************/
@@ -389,13 +405,27 @@ lounge_ioctl (FusionDev *dev, int fusion_id,
                if (copy_from_user (&enter, (FusionEnter*) arg, sizeof(enter)))
                     return -EFAULT;
 
-               if (enter.api.major != FUSION_API_MAJOR || enter.api.minor > FUSION_API_MINOR)
-                    return -ENOPROTOOPT;
-
-               enter.fusion_id = fusion_id;
+               ret = fusionee_enter( dev, &enter, fusion_id );
+               if (ret)
+                    return ret;
 
                if (copy_to_user ((FusionEnter*) arg, &enter, sizeof(enter)))
                     return -EFAULT;
+
+               return 0;
+
+          case _IOC_NR(FUSION_UNBLOCK):
+               if (fusion_id != FUSION_ID_MASTER)
+                    return -EPERM;
+
+               if (down_interruptible( &dev->enter_lock ))
+                    return -EINTR;
+
+               dev->enter_ok = 1;
+
+               wake_up_interruptible_all( &dev->enter_wait );
+
+               up( &dev->enter_lock );
 
                return 0;
 
@@ -420,6 +450,9 @@ lounge_ioctl (FusionDev *dev, int fusion_id,
                     case FT_REACTOR:
                          return fusion_entry_set_info (&dev->reactor, &info);
 
+                    case FT_SHMPOOL:
+                         return fusion_entry_set_info (&dev->shmpool, &info);
+
                     default:
                          return -ENOSYS;
                }
@@ -439,6 +472,10 @@ lounge_ioctl (FusionDev *dev, int fusion_id,
 
                     case FT_REACTOR:
                          ret = fusion_entry_get_info (&dev->reactor, &info);
+                         break;
+
+                    case FT_SHMPOOL:
+                         ret = fusion_entry_get_info (&dev->shmpool, &info);
                          break;
 
                     default:
@@ -790,6 +827,71 @@ reactor_ioctl (FusionDev *dev, int fusion_id,
 }
 
 static int
+shmpool_ioctl (FusionDev *dev, int fusion_id,
+               unsigned int cmd, unsigned long arg)
+{
+     int                   id;
+     int                   ret;
+     FusionSHMPoolNew      pool;
+     FusionSHMPoolAttach   attach;
+     FusionSHMPoolDispatch dispatch;
+
+     switch (_IOC_NR(cmd)) {
+          case _IOC_NR(FUSION_SHMPOOL_NEW):
+               if (copy_from_user (&pool, (FusionSHMPoolNew*) arg, sizeof(pool)))
+                    return -EFAULT;
+
+               ret = fusion_shmpool_new (dev, &pool);
+               if (ret)
+                    return ret;
+
+               if (copy_to_user ((FusionSHMPoolNew*) arg, &pool, sizeof(pool))) {
+                    fusion_shmpool_destroy (dev, pool.pool_id);
+                    return -EFAULT;
+               }
+
+               return 0;
+
+          case _IOC_NR(FUSION_SHMPOOL_ATTACH):
+               if (copy_from_user (&attach,
+                                   (FusionSHMPoolAttach*) arg, sizeof(attach)))
+                    return -EFAULT;
+
+               ret = fusion_shmpool_attach (dev, &attach, fusion_id);
+               if (ret)
+                    return ret;
+
+               if (copy_to_user ((FusionSHMPoolAttach*) arg, &attach, sizeof(attach))) {
+                    fusion_shmpool_detach (dev, attach.pool_id, fusion_id);
+                    return -EFAULT;
+               }
+
+               return 0;
+
+          case _IOC_NR(FUSION_SHMPOOL_DETACH):
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
+
+               return fusion_shmpool_detach (dev, id, fusion_id);
+
+          case _IOC_NR(FUSION_SHMPOOL_DISPATCH):
+               if (copy_from_user (&dispatch,
+                                   (FusionSHMPoolDispatch*) arg, sizeof(dispatch)))
+                    return -EFAULT;
+
+               return fusion_shmpool_dispatch (dev, &dispatch, fusion_id);
+
+          case _IOC_NR(FUSION_SHMPOOL_DESTROY):
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
+
+               return fusion_shmpool_destroy (dev, id);
+     }
+
+     return -ENOSYS;
+}
+
+static int
 fusion_ioctl (struct inode *inode, struct file *file,
               unsigned int cmd, unsigned long arg)
 {
@@ -819,9 +921,43 @@ fusion_ioctl (struct inode *inode, struct file *file,
 
           case FT_REACTOR:
                return reactor_ioctl( dev, id, cmd, arg );
+
+          case FT_SHMPOOL:
+               return shmpool_ioctl( dev, id, cmd, arg );
      }
 
      return -ENOSYS;
+}
+
+static int
+fusion_mmap( struct file           *file,
+             struct vm_area_struct *vma )
+{
+     int           fusion_id = (int) file->private_data;
+     FusionDev    *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
+     unsigned int  size;
+
+     if (vma->vm_pgoff != 0)
+          return -EINVAL;
+
+     size = vma->vm_end - vma->vm_start;
+     if (!size || size > PAGE_SIZE)
+          return -EINVAL;
+
+     if (!dev->shared_area) {
+          if (fusion_id != 1)
+               return -EPERM;
+
+          dev->shared_area = get_zeroed_page( GFP_KERNEL );
+          if (!dev->shared_area)
+               return -ENOMEM;
+
+          SetPageReserved( virt_to_page(dev->shared_area) );
+     }
+
+     return remap_pfn_range( vma, vma->vm_start,
+                             virt_to_phys((void*)dev->shared_area) >> PAGE_SHIFT,
+                             PAGE_SIZE, vma->vm_page_prot );
 }
 
 static struct file_operations fusion_fops = {
@@ -831,7 +967,8 @@ static struct file_operations fusion_fops = {
      .release = fusion_release,
      .read    = fusion_read,
      .poll    = fusion_poll,
-     .ioctl   = fusion_ioctl
+     .ioctl   = fusion_ioctl,
+     .mmap    = fusion_mmap
 };
 
 /******************************************************************************/

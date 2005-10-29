@@ -33,6 +33,10 @@ void fusionee_deinit (FusionDev *dev);
 int fusionee_new           (FusionDev         *dev,
                             int               *id);
 
+int fusionee_enter         (FusionDev         *dev,
+                            FusionEnter       *enter,
+                            int                id);
+
 int fusionee_send_message  (FusionDev         *dev,
                             int                id,
                             int                recipient,

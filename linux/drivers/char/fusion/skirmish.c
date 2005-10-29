@@ -82,7 +82,7 @@ fusion_skirmish_deinit (FusionDev *dev)
 int
 fusion_skirmish_new (FusionDev *dev, int *ret_id)
 {
-     return fusion_entry_create( &dev->skirmish, ret_id );
+     return fusion_entry_create( &dev->skirmish, ret_id, NULL );
 }
 
 int

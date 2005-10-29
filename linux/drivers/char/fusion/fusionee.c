@@ -30,6 +30,7 @@
 #include "reactor.h"
 #include "ref.h"
 #include "skirmish.h"
+#include "shmpool.h"
 
 #if 0
 #define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
@@ -184,6 +185,37 @@ fusionee_new (FusionDev *dev, int *id)
 }
 
 int
+fusionee_enter (FusionDev   *dev,
+                FusionEnter *enter,
+                int          id)
+{
+     if (enter->api.major != FUSION_API_MAJOR || enter->api.minor > FUSION_API_MINOR)
+          return -ENOPROTOOPT;
+
+     enter->fusion_id = id;
+
+     if (id != FUSION_ID_MASTER) {
+          if (down_interruptible( &dev->enter_lock ))
+               return -EINTR;
+
+          if (dev->enter_ok) {
+               up( &dev->enter_lock );
+               return 0;
+          }
+
+          fusion_sleep_on( &dev->enter_wait, &dev->enter_lock, NULL );
+
+          if (signal_pending(current))
+               return -EINTR;
+
+          if (!dev->enter_ok)
+               return -EAGAIN;
+     }
+
+     return 0;
+}
+
+int
 fusionee_send_message (FusionDev *dev, int id, int recipient,
                        FusionMessageType msg_type, int msg_id,
                        int msg_size, const void *msg_data)
@@ -223,7 +255,7 @@ fusionee_send_message (FusionDev *dev, int id, int recipient,
 
      message->data = message + 1;
 
-     if (msg_type == FMT_CALL)
+     if (msg_type == FMT_CALL || msg_type == FMT_SHMPOOL)
           memcpy (message->data, msg_data, msg_size);
      else if (copy_from_user (message->data, msg_data, msg_size)) {
           kfree (message);
@@ -435,6 +467,7 @@ fusionee_destroy (FusionDev *dev, int id)
      fusion_reactor_detach_all (dev, id);
      fusion_property_cede_all (dev, id);
      fusion_ref_clear_all_local (dev, id);
+     fusion_shmpool_detach_all (dev, id);
 
      while (fusionee->messages.count) {
           Message *message = (Message*) fusion_fifo_get (&fusionee->messages);
@@ -445,6 +478,10 @@ fusionee_destroy (FusionDev *dev, int id)
      up (&fusionee->lock);
 
      kfree (fusionee);
+
+
+     if (id == FUSION_ID_MASTER && !dev->enter_ok)
+          wake_up_interruptible_all (&dev->enter_wait);
 
      return ret;
 }

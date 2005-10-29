@@ -146,7 +146,8 @@ fusion_entries_read_proc(char *buf, char **start, off_t offset,
 
 int
 fusion_entry_create( FusionEntries *entries,
-                     int           *ret_id )
+                     int           *ret_id,
+                     void          *create_ctx )
 {
      int               ret;
      FusionEntry      *entry;
@@ -178,8 +179,9 @@ fusion_entry_create( FusionEntries *entries,
      init_waitqueue_head( &entry->wait );
 
      if (class->Init) {
-          ret = class->Init( entry, entries->ctx );
+          ret = class->Init( entry, entries->ctx, create_ctx );
           if (ret) {
+               up( &entries->lock );
                kfree( entry );
                return ret;
           }
