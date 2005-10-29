@@ -955,9 +955,15 @@ fusion_mmap( struct file           *file,
           SetPageReserved( virt_to_page(dev->shared_area) );
      }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
      return remap_pfn_range( vma, vma->vm_start,
                              virt_to_phys((void*)dev->shared_area) >> PAGE_SHIFT,
                              PAGE_SIZE, vma->vm_page_prot );
+#else
+     return io_remap_page_range( vma->vm_start,
+                                 virt_to_phys((void*)dev->shared_area),
+                                 PAGE_SIZE, vma->vm_page_prot );
+#endif
 }
 
 static struct file_operations fusion_fops = {
