@@ -22,10 +22,8 @@ Easy installation without kernel patch
 
 	...and so on (currently limited to eight sessions)
 
-5) Add udev rules and permissions if using udev:
+5) Add udev rules to /etc/udev/rules.d/40-fusion.rules if using udev:
 
-	# rules
-	KERNEL="fusion[0-9]*",  NAME="fusion/%n"
+	KERNEL="fusion[0-9]*", NAME="fusion/%n", GROUP="video", MODE="0660"
 
-	# permissions
-	fusion/*:root:root:0600
+	...customize to suit your needs
