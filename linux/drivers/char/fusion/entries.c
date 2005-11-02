@@ -379,6 +379,7 @@ fusion_entry_wait( FusionEntry *entry, long *timeout )
 
      entry->waiters++;
 
+     entry->lock_pid = 0;
      fusion_sleep_on( &entry->wait, &entry->lock, timeout );
 
      entry->waiters--;
