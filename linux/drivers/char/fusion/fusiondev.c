@@ -245,8 +245,10 @@ fusiondev_deinit (FusionDev *dev)
      fusion_ref_deinit (dev);
      fusionee_deinit (dev);
 
-     if (dev->shared_area)
+     if (dev->shared_area) {
+          ClearPageReserved( virt_to_page(dev->shared_area) );
           free_page( dev->shared_area );
+     }
 }
 
 /******************************************************************************/
