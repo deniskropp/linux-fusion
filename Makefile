@@ -5,9 +5,7 @@ KERNEL_PATCHLEVEL = $(shell uname -r | cut -d . -f 2)
 
 SUB = linux/drivers/char/fusion
 
-
 export CONFIG_FUSION_DEVICE=m
-
 
 all:
 	rm -f $(SUB)/Makefile
@@ -16,8 +14,19 @@ all:
 		CPPFLAGS="-D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_SOURCE)/include" \
 		SUBDIRS=`pwd`/$(SUB) modules
 
-install:
-	(if test $(KERNEL_PATCHLEVEL) = 4; then cp $(SUB)/fusion.o $(KERNEL_MODLIB); else cp $(SUB)/fusion.ko $(KERNEL_MODLIB); fi) && depmod -ae
+install-header:
+	install -m 644 linux/include/linux/fusion.h /usr/include/linux
+
+install-module:
+	mkdir -p $(KERNEL_MODLIB)/drivers/char/fusion
+ifeq ($(KERNEL_PATCHLEVEL),4)
+	cp $(SUB)/fusion.o $(KERNEL_MODLIB)/drivers/char/fusion
+else
+	cp $(SUB)/fusion.ko $(KERNEL_MODLIB)/drivers/char/fusion
+endif
+	depmod -ae
+
+install: all install-module install-header
 
 clean:
 	find $(SUB) -name *.o -o -name *.ko -o -name .*.o.cmd -o \
