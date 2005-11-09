@@ -7,6 +7,8 @@ SUB = linux/drivers/char/fusion
 
 export CONFIG_FUSION_DEVICE=m
 
+.PHONY: all install-header install-module install clean
+
 all:
 	rm -f $(SUB)/Makefile
 	ln -s Makefile-2.$(KERNEL_PATCHLEVEL) $(SUB)/Makefile
