@@ -21,8 +21,10 @@ install-module:
 	mkdir -p $(KERNEL_MODLIB)/drivers/char/fusion
 ifeq ($(KERNEL_PATCHLEVEL),4)
 	cp $(SUB)/fusion.o $(KERNEL_MODLIB)/drivers/char/fusion
+	rm -f $(KERNEL_MODLIB)/fusion.o
 else
 	cp $(SUB)/fusion.ko $(KERNEL_MODLIB)/drivers/char/fusion
+	rm -f $(KERNEL_MODLIB)/fusion.ko
 endif
 	depmod -ae
 
