@@ -24,6 +24,6 @@ Easy installation without kernel patch
 
 5) Add udev rules to /etc/udev/rules.d/40-fusion.rules if using udev:
 
-	KERNEL="fusion[0-9]*", NAME="fusion/%n", GROUP="video", MODE="0660"
+	KERNEL=="fusion[0-9]*", NAME="fusion/%n", GROUP="video", MODE="0660"
 
 	...customize to suit your needs
