@@ -228,22 +228,48 @@ fusionee_send_message (FusionDev *dev, int id, int recipient,
      DEBUG( "fusionee_send_message (%d -> %d, type %d, id %d, size %d)\n",
             id, recipient, msg_type, msg_id, msg_size );
 
-     ret = lock_fusionee (dev, recipient, &fusionee);
+     ret = lookup_fusionee (dev, recipient, &fusionee);
      if (ret)
           return ret;
+
+     if (down_interruptible (&fusionee->lock)) {
+          up (&dev->fusionee.lock);
+          return -EINTR;
+     }
+
 
      if (id) {
           if (id == recipient) {
                sender = fusionee;
           }
           else {
-               ret = lock_fusionee (dev, id, &sender);
-               if (ret) {
+               FusionLink *l;
+
+               fusion_list_foreach (l, dev->fusionee.list) {
+                    Fusionee *f = (Fusionee *) l;
+
+                    if (f->id == id) {
+                         sender = f;
+                         break;
+                    }
+               }
+
+               if (!sender) {
                     unlock_fusionee (fusionee);
-                    return ret == -EINVAL ? -EIO : ret;
+                    up (&dev->fusionee.lock);
+                    return -EIO;
+               }
+
+               if (down_interruptible (&sender->lock)) {
+                    unlock_fusionee (fusionee);
+                    up (&dev->fusionee.lock);
+                    return -EINTR;
                }
           }
      }
+
+     up (&dev->fusionee.lock);
+
 
      message = kmalloc (sizeof(Message) + msg_size, GFP_KERNEL);
      if (!message) {
