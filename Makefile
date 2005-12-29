@@ -7,7 +7,7 @@ SUB = linux/drivers/char/fusion
 
 export CONFIG_FUSION_DEVICE=m
 
-.PHONY: all install-header install-module install clean
+.PHONY: all install clean
 
 all:
 	rm -f $(SUB)/Makefile
@@ -16,10 +16,9 @@ all:
 		CPPFLAGS="-D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_SOURCE)/include" \
 		SUBDIRS=`pwd`/$(SUB) modules
 
-install-header:
+install: all
 	install -m 644 linux/include/linux/fusion.h /usr/include/linux
 
-install-module:
 	mkdir -p $(KERNEL_MODLIB)/drivers/char/fusion
 ifeq ($(KERNEL_PATCHLEVEL),4)
 	cp $(SUB)/fusion.o $(KERNEL_MODLIB)/drivers/char/fusion
@@ -30,7 +29,6 @@ else
 endif
 	depmod -ae
 
-install: all install-module install-header
 
 clean:
 	find $(SUB) -name *.o -o -name *.ko -o -name .*.o.cmd -o \
