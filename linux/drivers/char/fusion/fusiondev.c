@@ -1007,16 +1007,19 @@ register_devices(void)
      devfs_mk_dir("fusion");
 
      for (i=0; i<NUM_MINORS; i++) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 15)
+          class_device_create (fusion_class,
+                               NULL,
+                               MKDEV(FUSION_MAJOR, i),
+                               NULL, "fusion%d", i);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
           class_device_create (fusion_class,
                                MKDEV(FUSION_MAJOR, i),
                                NULL, "fusion%d", i);
-#else
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
           class_simple_device_add (fusion_class,
                                    MKDEV(FUSION_MAJOR, i),
                                    NULL, "fusion%d", i);
-#endif
 #endif
 
           devfs_mk_cdev (MKDEV(FUSION_MAJOR, i),
