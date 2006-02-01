@@ -17,15 +17,17 @@ all:
 		SUBDIRS=`pwd`/$(SUB) modules
 
 install: all
-	install -m 644 linux/include/linux/fusion.h /usr/include/linux
+	install -d $(DESTDIR)/usr/include/linux
+	install -m 644 linux/include/linux/fusion.h $(DESTDIR)/usr/include/linux
 
-	mkdir -p $(KERNEL_MODLIB)/drivers/char/fusion
+	install -d $(DESTDIR)$(KERNEL_MODLIB)/drivers/char/fusion
+
 ifeq ($(KERNEL_PATCHLEVEL),4)
-	cp $(SUB)/fusion.o $(KERNEL_MODLIB)/drivers/char/fusion
-	rm -f $(KERNEL_MODLIB)/fusion.o
+	install -m 644 $(SUB)/fusion.o $(DESTDIR)$(KERNEL_MODLIB)/drivers/char/fusion
+	rm -f $(DESTDIR)$(KERNEL_MODLIB)/fusion.o
 else
-	cp $(SUB)/fusion.ko $(KERNEL_MODLIB)/drivers/char/fusion
-	rm -f $(KERNEL_MODLIB)/fusion.ko
+	install -m 644 $(SUB)/fusion.ko $(DESTDIR)$(KERNEL_MODLIB)/drivers/char/fusion
+	rm -f $(DESTDIR)$(KERNEL_MODLIB)/fusion.ko
 endif
 	depmod -ae
 
