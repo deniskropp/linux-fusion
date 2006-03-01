@@ -7,7 +7,7 @@
 /*
  * Fusion Kernel Device API Version
  */
-#define FUSION_API_MAJOR      2         /* Increased if backward compatibility is dropped. */
+#define FUSION_API_MAJOR      3         /* Increased if backward compatibility is dropped. */
 #define FUSION_API_MINOR      0         /* Increased if new features are added. */
 
 /*
@@ -81,6 +81,12 @@ typedef struct {
      void               *ctx;           /* optional handler context */
 } FusionCallNew;
 
+typedef enum {
+     FCEF_NONE   = 0x00000000,
+     FCEF_ONEWAY = 0x00000001,
+     FCEF_ALL    = 0x00000001
+} FusionCallExecFlags;
+
 typedef struct {
      int                 ret_val;       /* return value of the call */
 
@@ -88,6 +94,8 @@ typedef struct {
 
      int                 call_arg;      /* optional int argument */
      void               *call_ptr;      /* optional pointer argument (shared memory) */
+
+     FusionCallExecFlags flags;         /* execution flags */
 } FusionCallExecute;
 
 typedef struct {

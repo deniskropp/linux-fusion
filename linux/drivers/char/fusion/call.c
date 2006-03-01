@@ -233,7 +233,7 @@ fusion_call_execute (FusionDev *dev, int fusion_id, FusionCallExecute *execute)
 
      call->count++;
 
-     if (fusion_id) {
+     if (fusion_id && !(execute->flags & FCEF_ONEWAY)) {
           /* TODO: implement timeout */
           fusion_sleep_on (&execution->wait, &call->lock, 0);
 
