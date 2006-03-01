@@ -47,9 +47,15 @@ fusion_skirmish_print( FusionEntry *entry,
 
      written = sprintf( buf, "%6dx total", skirmish->lock_total );
 
-     if (skirmish->lock_fid)
-          return sprintf( buf + written, ", now %dx by 0x%08x (%d)\n",
-                          skirmish->lock_count, skirmish->lock_fid, skirmish->lock_pid) + written;
+     if (skirmish->lock_fid) {
+          if (skirmish->entry.waiters)
+               return sprintf( buf + written, ", %dx [0x%08x] (%d)  %d WAITING\n",
+                               skirmish->lock_count, skirmish->lock_fid, skirmish->lock_pid,
+                               skirmish->entry.waiters ) + written;
+          else
+               return sprintf( buf + written, ", %dx [0x%08x] (%d)\n",
+                               skirmish->lock_count, skirmish->lock_fid, skirmish->lock_pid ) + written;
+     }
 
      return sprintf( buf + written, "\n" ) + written;
 }

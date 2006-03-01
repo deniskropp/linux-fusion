@@ -76,7 +76,7 @@ static int
 fusion_call_read_proc (char *buf, char **start, off_t offset,
                        int len, int *eof, void *private)
 {
-     FusionLink *l;
+     FusionLink *l, *e;
      FusionDev  *dev     = private;
      int         written = 0;
 
@@ -91,9 +91,17 @@ fusion_call_read_proc (char *buf, char **start, off_t offset,
                idle = ((FusionCallExecution*) call->executions)->executed;
 
           written += sprintf(buf+written,
-                             "(%5d) 0x%08x (%d calls) %s\n",
+                             "(%5d) 0x%08x (%d calls) %s",
                              call->pid, call->id, call->count,
                              idle ? "idle" : "executing");
+
+          fusion_list_foreach (e, call->executions) {
+               FusionCallExecution *exec = (FusionCallExecution *) e;
+
+               written += sprintf(buf+written, "  [0x%08x]", exec->caller);
+          }
+
+          written += sprintf(buf+written, "\n");
 
           if (written < offset) {
                offset -= written;
