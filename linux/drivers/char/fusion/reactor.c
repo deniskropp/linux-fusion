@@ -119,7 +119,7 @@ fusion_reactor_attach (FusionDev *dev, int id, int fusion_id)
      ReactorNode   *node;
      FusionReactor *reactor;
 
-     ret = fusion_reactor_lock( &dev->reactor, id, &reactor );
+     ret = fusion_reactor_lock( &dev->reactor, id, false, &reactor );
      if (ret)
           return ret;
 
@@ -153,7 +153,7 @@ fusion_reactor_detach (FusionDev *dev, int id, int fusion_id)
      ReactorNode   *node;
      FusionReactor *reactor;
 
-     ret = fusion_reactor_lock( &dev->reactor, id, &reactor );
+     ret = fusion_reactor_lock( &dev->reactor, id, false, &reactor );
      if (ret)
           return ret;
 
@@ -183,7 +183,7 @@ fusion_reactor_dispatch (FusionDev *dev, int id, int fusion_id,
      FusionLink    *l;
      FusionReactor *reactor;
 
-     ret = fusion_reactor_lock( &dev->reactor, id, &reactor );
+     ret = fusion_reactor_lock( &dev->reactor, id, false, &reactor );
      if (ret)
           return ret;
 

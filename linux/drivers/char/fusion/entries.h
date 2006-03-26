@@ -99,6 +99,7 @@ int  fusion_entry_get_info( FusionEntries          *entries,
 
 int  fusion_entry_lock    ( FusionEntries    *entries,
                             int               id,
+                            bool              keep_entries_lock,
                             FusionEntry     **ret_entry );
 
 void fusion_entry_unlock  ( FusionEntry      *entry );
@@ -143,12 +144,13 @@ void fusion_entry_notify  ( FusionEntry      *entry,
                                                                                 \
      static inline int fusion_##name##_lock( FusionEntries  *entries,           \
                                              int             id,                \
+                                             bool            keep,              \
                                              Type          **ret_##name )       \
      {                                                                          \
           int          ret;                                                     \
           FusionEntry *entry;                                                   \
                                                                                 \
-          ret = fusion_entry_lock( entries, id, &entry );                       \
+          ret = fusion_entry_lock( entries, id, keep, &entry );                 \
                                                                                 \
           if (!ret)                                                             \
                *ret_##name = (Type *) entry;                                    \

@@ -103,7 +103,7 @@ fusion_property_lease( FusionDev *dev, int id, int fusion_id )
 
      dev->stat.property_lease_purchase++;
 
-     ret = fusion_property_lock( &dev->properties, id, &property );
+     ret = fusion_property_lock( &dev->properties, id, false, &property );
      if (ret)
           return ret;
 
@@ -173,7 +173,7 @@ fusion_property_purchase( FusionDev *dev, int id, int fusion_id )
 
      dev->stat.property_lease_purchase++;
 
-     ret = fusion_property_lock( &dev->properties, id, &property );
+     ret = fusion_property_lock( &dev->properties, id, false, &property );
      if (ret)
           return ret;
 
@@ -246,7 +246,7 @@ fusion_property_cede( FusionDev *dev, int id, int fusion_id )
 
      dev->stat.property_cede++;
 
-     ret = fusion_property_lock( &dev->properties, id, &property );
+     ret = fusion_property_lock( &dev->properties, id, false, &property );
      if (ret)
           return ret;
 
@@ -285,7 +285,7 @@ fusion_property_holdup( FusionDev *dev, int id, int fusion_id )
      if (fusion_id > 1)
           return -EPERM;
 
-     ret = fusion_property_lock( &dev->properties, id, &property );
+     ret = fusion_property_lock( &dev->properties, id, false, &property );
      if (ret)
           return ret;
 

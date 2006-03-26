@@ -7,13 +7,19 @@ SUB = linux/drivers/char/fusion
 
 export CONFIG_FUSION_DEVICE=m
 
+
+ifeq ($(DEBUG),yes)
+  CPPFLAGS += -DFUSION_DEBUG_SKIRMISH_DEADLOCK
+endif
+
+
 .PHONY: all install clean
 
 all:
 	rm -f $(SUB)/Makefile
 	ln -s Makefile-2.$(KERNEL_PATCHLEVEL) $(SUB)/Makefile
-	make -C $(KERNEL_SOURCE) \
-		CPPFLAGS="-D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_SOURCE)/include" \
+	$(MAKE) -C $(KERNEL_SOURCE) \
+		CPPFLAGS="$(CPPFLAGS) -D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_SOURCE)/include" \
 		SUBDIRS=`pwd`/$(SUB) modules
 
 install: all

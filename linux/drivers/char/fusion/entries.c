@@ -260,7 +260,7 @@ fusion_entry_set_info( FusionEntries         *entries,
      FUSION_ASSERT( entries != NULL );
      FUSION_ASSERT( info != NULL );
 
-     ret = fusion_entry_lock( entries, info->id, &entry );
+     ret = fusion_entry_lock( entries, info->id, false, &entry );
      if (ret)
           return ret;
 
@@ -281,7 +281,7 @@ fusion_entry_get_info( FusionEntries   *entries,
      FUSION_ASSERT( entries != NULL );
      FUSION_ASSERT( info != NULL );
 
-     ret = fusion_entry_lock( entries, info->id, &entry );
+     ret = fusion_entry_lock( entries, info->id, false, &entry );
      if (ret)
           return ret;
 
@@ -295,6 +295,7 @@ fusion_entry_get_info( FusionEntries   *entries,
 int
 fusion_entry_lock( FusionEntries  *entries,
                    int             id,
+                   bool            keep_entries_lock,
                    FusionEntry   **ret_entry )
 {
      FusionEntry *entry;
@@ -342,7 +343,8 @@ fusion_entry_lock( FusionEntries  *entries,
 #endif
 
      /* Unlock entries. */
-     up( &entries->lock );
+     if (!keep_entries_lock)
+          up( &entries->lock );
 
      /* Return the locked entry. */
      *ret_entry = entry;
@@ -390,7 +392,7 @@ fusion_entry_wait( FusionEntry *entry, long *timeout )
      if (signal_pending(current))
           return -EINTR;
 
-     ret = fusion_entry_lock( entries, id, &entry2 );
+     ret = fusion_entry_lock( entries, id, false, &entry2 );
      switch (ret) {
           case -EINVAL:
                return -EIDRM;

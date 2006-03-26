@@ -25,6 +25,7 @@
 
 typedef struct {
      int                    refs;
+     int                    index;
 
      struct semaphore       enter_lock;
      int                    enter_ok;

@@ -279,6 +279,7 @@ fusion_open (struct inode *inode, struct file *file)
           snprintf (buf, 4, "%d", minor);
 
           fusion_devs[minor]->proc_dir = proc_mkdir (buf, proc_fusion_dir);
+          fusion_devs[minor]->index    = minor;
 
           ret = fusiondev_init (fusion_devs[minor]);
           if (ret) {

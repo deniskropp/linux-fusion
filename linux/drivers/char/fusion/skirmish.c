@@ -27,34 +27,65 @@
 #include "skirmish.h"
 
 
-typedef struct {
-     FusionEntry        entry;
+#define MAX_PRE_ACQUISITIONS  32
 
-     int                lock_fid;  /* non-zero if locked */
-     int                lock_pid;
-     int                lock_count;
 
-     int                lock_total;
-} FusionSkirmish;
+typedef struct __FUSION_FusionSkirmish FusionSkirmish;
+
+struct __FUSION_FusionSkirmish {
+     FusionEntry entry;
+
+     int         lock_fid;  /* non-zero if locked */
+     int         lock_pid;
+     int         lock_count;
+
+     int         lock_total;
+
+#ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
+     int         pre_acquis[MAX_PRE_ACQUISITIONS];
+
+     bool        outer;
+#endif
+};
 
 static int
 fusion_skirmish_print( FusionEntry *entry,
                        void        *ctx,
                        char        *buf )
 {
-     int             written;
+     int             written  = 0;
      FusionSkirmish *skirmish = (FusionSkirmish*) entry;
 
-     written = sprintf( buf, "%6dx total", skirmish->lock_total );
+#ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
+     int             i, n;
+
+
+     for (i=0, n=0; i<MAX_PRE_ACQUISITIONS; i++) {
+          if (skirmish->pre_acquis[i]) {
+               n++;
+          }
+     }
+
+     written += sprintf( buf + written, "[%2d]%s", n, skirmish->outer ? "." : " " );
+
+     for (i=0, n=0; i<MAX_PRE_ACQUISITIONS; i++) {
+          if (skirmish->pre_acquis[i]) {
+               written += sprintf( buf + written, "%s%02x", n ? "," : "", skirmish->pre_acquis[i] - 1 );
+
+               n++;
+          }
+     }
+#endif
 
      if (skirmish->lock_fid) {
           if (skirmish->entry.waiters)
-               return sprintf( buf + written, ", %dx [0x%08x] (%d)  %d WAITING\n",
-                               skirmish->lock_count, skirmish->lock_fid, skirmish->lock_pid,
-                               skirmish->entry.waiters ) + written;
+               return sprintf( buf + written, " - %dx [0x%08x] (%d)  %d WAITING\n",
+                               skirmish->lock_count, skirmish->lock_fid,
+                               skirmish->lock_pid, skirmish->entry.waiters ) + written;
           else
-               return sprintf( buf + written, ", %dx [0x%08x] (%d)\n",
-                               skirmish->lock_count, skirmish->lock_fid, skirmish->lock_pid ) + written;
+               return sprintf( buf + written, " - %dx [0x%08x] (%d)\n",
+                               skirmish->lock_count, skirmish->lock_fid,
+                               skirmish->lock_pid ) + written;
      }
 
      return sprintf( buf + written, "\n" ) + written;
@@ -96,10 +127,15 @@ fusion_skirmish_prevail (FusionDev *dev, int id, int fusion_id)
 {
      int             ret;
      FusionSkirmish *skirmish;
+#ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
+     FusionSkirmish *s;
+     int             i;
+     bool            outer = true;
+#endif
 
      dev->stat.skirmish_prevail_swoop++;
 
-     ret = fusion_skirmish_lock( &dev->skirmish, id, &skirmish );
+     ret = fusion_skirmish_lock( &dev->skirmish, id, true, &skirmish );
      if (ret)
           return ret;
 
@@ -107,8 +143,69 @@ fusion_skirmish_prevail (FusionDev *dev, int id, int fusion_id)
           skirmish->lock_count++;
           skirmish->lock_total++;
           fusion_skirmish_unlock( skirmish );
+          up( &dev->skirmish.lock );
           return 0;
      }
+
+#ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
+     /* look in currently acquired skirmishs for this one being
+        a pre-acquisition, indicating a potential deadlock */
+     fusion_list_foreach (s, dev->skirmish.list) {
+          if (s->lock_pid != current->pid)
+               continue;
+
+          outer = false;
+
+          for (i=0; i<MAX_PRE_ACQUISITIONS; i++) {
+               if (s->pre_acquis[i] == id + 1) {
+                    printk( KERN_DEBUG "FusionSkirmish: Potential deadlock "
+                            "between locked 0x%x and to be locked 0x%x in world %d!\n",
+                            s->entry.id, skirmish->entry.id, dev->index );
+               }
+          }
+     }
+
+     if (outer)
+          skirmish->outer = true;
+
+     /* remember all previously acquired skirmishs being pre-acquisitions for
+        this one, to detect potential deadlocks due to a lock order twist */
+     fusion_list_foreach (s, dev->skirmish.list) {
+          int free = -1;
+
+          if (s->lock_pid != current->pid)
+               continue;
+
+          for (i=0; i<MAX_PRE_ACQUISITIONS; i++) {
+               if (skirmish->pre_acquis[i]) {
+                    if (skirmish->pre_acquis[i] == s->entry.id + 1) {
+                         break;
+                    }
+               }
+               else
+                    free = i;
+          }
+
+          /* not found? */
+          if (i == MAX_PRE_ACQUISITIONS) {
+               if (free != -1) {
+                    skirmish->pre_acquis[free] = s->entry.id + 1;
+               }
+               else {
+                    printk( KERN_DEBUG "FusionSkirmish: Too many pre-acquisitions to remember.\n" );
+
+                    printk( KERN_DEBUG " [ '%s' ] <- ", skirmish->entry.name );
+
+                    for (i=0; i<MAX_PRE_ACQUISITIONS; i++)
+                         printk( "0x%03x ", skirmish->pre_acquis[i] - 1 );
+
+                    printk( "\n" );
+               }
+          }
+     }
+#endif
+
+     up( &dev->skirmish.lock );
 
      while (skirmish->lock_pid) {
           ret = fusion_skirmish_wait( skirmish, NULL );
@@ -133,7 +230,7 @@ fusion_skirmish_swoop (FusionDev *dev, int id, int fusion_id)
      int             ret;
      FusionSkirmish *skirmish;
 
-     ret = fusion_skirmish_lock( &dev->skirmish, id, &skirmish );
+     ret = fusion_skirmish_lock( &dev->skirmish, id, false, &skirmish );
      if (ret)
           return ret;
 
@@ -169,7 +266,7 @@ fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
      int             ret;
      FusionSkirmish *skirmish;
 
-     ret = fusion_skirmish_lock( &dev->skirmish, id, &skirmish );
+     ret = fusion_skirmish_lock( &dev->skirmish, id, false, &skirmish );
      if (ret)
           return ret;
 
@@ -195,6 +292,27 @@ fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
 int
 fusion_skirmish_destroy (FusionDev *dev, int id)
 {
+#ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
+     int             i;
+     FusionSkirmish *s;
+
+     /* Lock entries. */
+     if (down_interruptible( &dev->skirmish.lock ))
+          return -EINTR;
+
+     /* remove from all pre-acquisition lists */
+     fusion_list_foreach (s, dev->skirmish.list) {
+          for (i=0; i<MAX_PRE_ACQUISITIONS; i++) {
+               if (s->pre_acquis[i] == id + 1)
+                    s->pre_acquis[i] = 0;
+          }
+     }
+
+     up( &dev->skirmish.lock );
+
+     /* FIXME: gap? */
+#endif
+
      return fusion_entry_destroy( &dev->skirmish, id );
 }
 

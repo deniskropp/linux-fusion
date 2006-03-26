@@ -214,7 +214,7 @@ fusion_shmpool_attach (FusionDev           *dev,
      SHMPoolNode   *node;
      FusionSHMPool *shmpool;
 
-     ret = fusion_shmpool_lock( &dev->shmpool, attach->pool_id, &shmpool );
+     ret = fusion_shmpool_lock( &dev->shmpool, attach->pool_id, false, &shmpool );
      if (ret)
           return ret;
 
@@ -251,7 +251,7 @@ fusion_shmpool_detach (FusionDev *dev, int id, int fusion_id)
      SHMPoolNode   *node;
      FusionSHMPool *shmpool;
 
-     ret = fusion_shmpool_lock( &dev->shmpool, id, &shmpool );
+     ret = fusion_shmpool_lock( &dev->shmpool, id, false, &shmpool );
      if (ret)
           return ret;
 
@@ -286,7 +286,7 @@ fusion_shmpool_dispatch( FusionDev             *dev,
      if (dispatch->size <= 0)
           return -EINVAL;
 
-     ret = fusion_shmpool_lock( &dev->shmpool, dispatch->pool_id, &shmpool );
+     ret = fusion_shmpool_lock( &dev->shmpool, dispatch->pool_id, false, &shmpool );
      if (ret)
           return ret;
 
