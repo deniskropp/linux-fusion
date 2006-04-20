@@ -252,6 +252,7 @@ remove_node (FusionReactor *reactor, int fusion_id)
      fusion_list_foreach (node, reactor->nodes) {
           if (node->fusion_id == fusion_id) {
                fusion_list_remove (&reactor->nodes, &node->link);
+               kfree (node);
                break;
           }
      }
