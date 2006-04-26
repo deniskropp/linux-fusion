@@ -1,7 +1,8 @@
 KERNEL_MODLIB     = /lib/modules/$(shell uname -r)
-KERNEL_SOURCE     = $(KERNEL_MODLIB)/build
+KERNEL_BUILD     = $(KERNEL_MODLIB)/build
+KERNEL_SOURCE    = $(KERNEL_MODLIB)/source
 KERNEL_PATCHLEVEL = $(shell uname -r | cut -d . -f 2)
-#KERNEL_PATCHLEVEL = $(shell grep 'PATCHLEVEL =' $(KERNEL_SOURCE)/Makefile | cut -d ' ' -f 3)
+#KERNEL_PATCHLEVEL = $(shell grep 'PATCHLEVEL =' $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 3)
 
 SUB = linux/drivers/char/fusion
 
@@ -18,7 +19,7 @@ endif
 all:
 	rm -f $(SUB)/Makefile
 	ln -s Makefile-2.$(KERNEL_PATCHLEVEL) $(SUB)/Makefile
-	$(MAKE) -C $(KERNEL_SOURCE) \
+	$(MAKE) -C $(KERNEL_BUILD) \
 		CPPFLAGS="$(CPPFLAGS) -D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_SOURCE)/include" \
 		SUBDIRS=`pwd`/$(SUB) modules
 
