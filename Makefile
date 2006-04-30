@@ -36,7 +36,12 @@ else
 	install -m 644 $(SUB)/fusion.ko $(DESTDIR)$(KERNEL_MODLIB)/drivers/char/fusion
 	rm -f $(DESTDIR)$(KERNEL_MODLIB)/fusion.ko
 endif
-	depmod -ae
+ifneq ($(strip $(DESTDIR)),)
+	/sbin/depmod -ae -b $(DESTDIR)
+else
+	/sbin/depmod -ae
+endif
+
 
 
 clean:
