@@ -261,6 +261,31 @@ fusion_skirmish_swoop (FusionDev *dev, int id, int fusion_id)
 }
 
 int
+fusion_skirmish_lock_count (FusionDev *dev, int id, int fusion_id, int *ret_lock_count)
+{
+     int             ret;
+     FusionSkirmish *skirmish;
+
+     ret = fusion_skirmish_lock( &dev->skirmish, id, false, &skirmish );
+     if (ret)
+          return ret;
+
+     if (skirmish->lock_fid == fusion_id &&
+         skirmish->lock_pid == current->pid)
+     {
+          *ret_lock_count = skirmish->lock_count;
+     }
+     else
+     {
+          *ret_lock_count = 0; 
+     }
+
+     fusion_skirmish_unlock( skirmish );
+
+     return 0;
+}
+
+int
 fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
 {
      int             ret;

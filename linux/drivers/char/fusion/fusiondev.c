@@ -677,6 +677,7 @@ skirmish_ioctl (FusionDev *dev, int fusion_id,
 {
      int id;
      int ret;
+     int lock_count;
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_SKIRMISH_NEW):
@@ -713,6 +714,16 @@ skirmish_ioctl (FusionDev *dev, int fusion_id,
                     return -EFAULT;
 
                return fusion_skirmish_destroy (dev, id);
+
+          case _IOC_NR(FUSION_SKIRMISH_LOCK_COUNT):
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
+
+               ret = fusion_skirmish_lock_count (dev, id, fusion_id, &lock_count);
+               if (put_user(lock_count, ((int*)arg)+1))
+                    return -EFAULT;
+
+               return ret;
      }
 
      return -ENOSYS;

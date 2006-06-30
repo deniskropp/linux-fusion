@@ -8,7 +8,7 @@
  * Fusion Kernel Device API Version
  */
 #define FUSION_API_MAJOR      3         /* Increased if backward compatibility is dropped. */
-#define FUSION_API_MINOR      0         /* Increased if new features are added. */
+#define FUSION_API_MINOR      1         /* Increased if new features are added. */
 
 /*
  * The Fusion ID is a unique identifier for one process consisting of threads.
@@ -245,6 +245,7 @@ typedef struct {
 #define FUSION_SKIRMISH_SWOOP      _IOW(FT_SKIRMISH,  0x02, int)
 #define FUSION_SKIRMISH_DISMISS    _IOW(FT_SKIRMISH,  0x03, int)
 #define FUSION_SKIRMISH_DESTROY    _IOW(FT_SKIRMISH,  0x04, int)
+#define FUSION_SKIRMISH_LOCK_COUNT _IOW(FT_SKIRMISH,  0x05, int)
 
 #define FUSION_PROPERTY_NEW        _IOW(FT_PROPERTY,  0x00, int)
 #define FUSION_PROPERTY_LEASE      _IOW(FT_PROPERTY,  0x01, int)

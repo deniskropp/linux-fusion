@@ -38,6 +38,11 @@ int fusion_skirmish_swoop   (FusionDev *dev,
                              int        id,
                              int        fusion_id);
 
+int fusion_skirmish_lock_count (FusionDev *dev,
+                                int     id,
+                                int     fusion_id,
+                                int    *ret_lock_count);
+
 int fusion_skirmish_dismiss (FusionDev *dev,
                              int        id,
                              int        fusion_id);
