@@ -46,7 +46,7 @@ int fusion_ref_zero_trylock (FusionDev      *dev,
                              int             id,
                              int             fusion_id);
 
-int fusion_ref_unlock       (FusionDev      *dev,
+int fusion_ref_zero_unlock  (FusionDev      *dev,
                              int             id,
                              int             fusion_id);
 

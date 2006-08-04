@@ -453,6 +453,9 @@ lounge_ioctl (FusionDev *dev, int fusion_id,
                     case FT_REACTOR:
                          return fusion_entry_set_info (&dev->reactor, &info);
 
+                    case FT_REF:
+                         return fusion_entry_set_info (&dev->ref, &info);
+
                     case FT_SHMPOOL:
                          return fusion_entry_set_info (&dev->shmpool, &info);
 
@@ -475,6 +478,10 @@ lounge_ioctl (FusionDev *dev, int fusion_id,
 
                     case FT_REACTOR:
                          ret = fusion_entry_get_info (&dev->reactor, &info);
+                         break;
+
+                    case FT_REF:
+                         ret = fusion_entry_get_info (&dev->ref, &info);
                          break;
 
                     case FT_SHMPOOL:
@@ -637,7 +644,7 @@ ref_ioctl (FusionDev *dev, int fusion_id,
                if (get_user (id, (int*) arg))
                     return -EFAULT;
 
-               return fusion_ref_unlock (dev, id, fusion_id);
+               return fusion_ref_zero_unlock (dev, id, fusion_id);
 
           case _IOC_NR(FUSION_REF_STAT):
                if (get_user (id, (int*) arg))

@@ -66,17 +66,9 @@ typedef struct {
      } fusionee;
 
      FusionEntries  properties;
-
      FusionEntries  reactor;
-
+     FusionEntries  ref;
      FusionEntries  shmpool;
-
-     struct {
-          int                ids;
-          FusionLink        *list;
-          struct semaphore   lock;
-     } ref;
-
      FusionEntries  skirmish;
 } FusionDev;
 
