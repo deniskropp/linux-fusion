@@ -30,7 +30,7 @@ typedef struct __Fusion_FusionRef FusionRef;
 
 typedef struct {
      FusionLink     link;
-     int            fusion_id;
+     FusionID       fusion_id;
      int            refs;
 } LocalRef;
 
@@ -59,8 +59,9 @@ struct __Fusion_FusionRef {
 
 /**********************************************************************************************************************/
 
-static int  add_local       ( FusionRef *ref, int fusion_id, int add );
-static void clear_local     ( FusionDev *dev, FusionRef *ref, int fusion_id );
+static int  add_local       ( FusionRef *ref, FusionID fusion_id, int add );
+static void clear_local     ( FusionDev *dev, FusionRef *ref, FusionID fusion_id );
+static int  fork_local      ( FusionDev *dev, FusionRef *ref, FusionID fusion_id, FusionID from_id );
 static void free_all_local  ( FusionRef *ref );
 
 static int  propagate_local ( FusionDev *dev, FusionRef *ref, int diff );
@@ -133,7 +134,7 @@ fusion_ref_new( FusionDev *dev, int *ret_id )
 }
 
 int
-fusion_ref_up (FusionDev *dev, int id, int fusion_id)
+fusion_ref_up (FusionDev *dev, int id, FusionID fusion_id)
 {
      int        ret;
      FusionRef *ref;
@@ -168,7 +169,7 @@ out:
 }
 
 int
-fusion_ref_down (FusionDev *dev, int id, int fusion_id)
+fusion_ref_down (FusionDev *dev, int id, FusionID fusion_id)
 {
      int        ret;
      FusionRef *ref;
@@ -216,7 +217,7 @@ out:
 }
 
 int
-fusion_ref_zero_lock (FusionDev *dev, int id, int fusion_id)
+fusion_ref_zero_lock (FusionDev *dev, int id, FusionID fusion_id)
 {
      int        ret;
      FusionRef *ref;
@@ -253,7 +254,7 @@ fusion_ref_zero_lock (FusionDev *dev, int id, int fusion_id)
 }
 
 int
-fusion_ref_zero_trylock (FusionDev *dev, int id, int fusion_id)
+fusion_ref_zero_trylock (FusionDev *dev, int id, FusionID fusion_id)
 {
      int        ret;
      FusionRef *ref;
@@ -278,7 +279,7 @@ fusion_ref_zero_trylock (FusionDev *dev, int id, int fusion_id)
 }
 
 int
-fusion_ref_zero_unlock (FusionDev *dev, int id, int fusion_id)
+fusion_ref_zero_unlock (FusionDev *dev, int id, FusionID fusion_id)
 {
      int        ret;
      FusionRef *ref;
@@ -413,7 +414,7 @@ fusion_ref_destroy (FusionDev *dev, int id)
 }
 
 void
-fusion_ref_clear_all_local( FusionDev *dev, int fusion_id )
+fusion_ref_clear_all_local( FusionDev *dev, FusionID fusion_id )
 {
      FusionRef *ref;
 
@@ -425,10 +426,29 @@ fusion_ref_clear_all_local( FusionDev *dev, int fusion_id )
      up( &dev->ref.lock );
 }
 
+int
+fusion_ref_fork_all_local( FusionDev *dev, FusionID fusion_id, FusionID from_id )
+{
+     FusionRef *ref;
+     int        ret = 0;
+
+     down( &dev->ref.lock );
+
+     fusion_list_foreach (ref, dev->ref.list) {
+          ret = fork_local( dev, ref, fusion_id, from_id );
+          if (ret)
+               break;
+     }
+
+     up( &dev->ref.lock );
+
+     return ret;
+}
+
 /**********************************************************************************************************************/
 
 static int
-add_local (FusionRef *ref, int fusion_id, int add)
+add_local (FusionRef *ref, FusionID fusion_id, int add)
 {
      FusionLink *l;
      LocalRef   *local;
@@ -447,6 +467,10 @@ add_local (FusionRef *ref, int fusion_id, int add)
           }
      }
 
+     /* Can only create local node if value is positive. */
+     if (add <= 0)
+          return -EIO;
+
      local = kmalloc (sizeof(LocalRef), GFP_KERNEL);
      if (!local)
           return -ENOMEM;
@@ -460,7 +484,7 @@ add_local (FusionRef *ref, int fusion_id, int add)
 }
 
 static void
-clear_local (FusionDev *dev, FusionRef *ref, int fusion_id)
+clear_local (FusionDev *dev, FusionRef *ref, FusionID fusion_id)
 {
      FusionLink *l;
 
@@ -486,6 +510,43 @@ clear_local (FusionDev *dev, FusionRef *ref, int fusion_id)
      }
 
      up (&ref->entry.lock);
+}
+
+static int
+fork_local (FusionDev *dev, FusionRef *ref, FusionID fusion_id, FusionID from_id)
+{
+     FusionLink *l;
+     int         ret = 0;
+
+     down (&ref->entry.lock);
+
+     fusion_list_foreach (l, ref->local_refs) {
+          LocalRef *local = (LocalRef *) l;
+
+          if (local->fusion_id == from_id) {
+               if (local->refs) {
+                    LocalRef *new_local;
+
+                    new_local = kmalloc (sizeof(LocalRef), GFP_KERNEL);
+                    if (!new_local) {
+                         ret = -ENOMEM;
+                         break;
+                    }
+
+                    new_local->fusion_id = fusion_id;
+                    new_local->refs      = local->refs;
+
+                    fusion_list_prepend( &ref->local_refs, &new_local->link );
+
+                    propagate_local( dev, ref, local->refs );
+               }
+               break;
+          }
+     }
+
+     up (&ref->entry.lock);
+
+     return ret;
 }
 
 static void

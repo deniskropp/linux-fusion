@@ -32,15 +32,15 @@ int fusion_shmpool_new      (FusionDev             *dev,
 
 int fusion_shmpool_attach   (FusionDev             *dev,
                              FusionSHMPoolAttach   *attach,
-                             int                    fusion_id);
+                             FusionID               fusion_id);
 
 int fusion_shmpool_detach   (FusionDev             *dev,
                              int                    id,
-                             int                    fusion_id);
+                             FusionID               fusion_id);
 
 int fusion_shmpool_dispatch (FusionDev             *dev,
                              FusionSHMPoolDispatch *dispatch,
-                             int                    fusion_id );
+                             FusionID               fusion_id );
 
 int fusion_shmpool_destroy  (FusionDev             *dev,
                              int                    id);
@@ -49,6 +49,11 @@ int fusion_shmpool_destroy  (FusionDev             *dev,
 /* internal functions */
 
 void fusion_shmpool_detach_all (FusionDev *dev,
-                                int        fusion_id);
+                                FusionID   fusion_id);
+
+int  fusion_shmpool_fork_all   (FusionDev *dev,
+                                FusionID   fusion_id,
+                                FusionID   from_id);
 
 #endif
+

@@ -40,7 +40,7 @@ typedef struct {
 typedef struct {
      FusionLink         link;
 
-     int                fusion_id;
+     FusionID           fusion_id;
 
      int                count;     /* number of attach calls */
 } SHMPoolNode;
@@ -63,10 +63,14 @@ typedef struct {
 /******************************************************************************/
 
 static SHMPoolNode *get_node      ( FusionSHMPool *shmpool,
-                                    int            fusion_id );
+                                    FusionID       fusion_id );
 
 static void         remove_node   ( FusionSHMPool *shmpool,
-                                    int            fusion_id );
+                                    FusionID       fusion_id );
+
+static int          fork_node     ( FusionSHMPool *shmpool,
+                                    FusionID       fusion_id,
+                                    FusionID       from_id );
 
 static void         free_all_nodes( FusionSHMPool *shmpool );
 
@@ -208,7 +212,7 @@ fusion_shmpool_new (FusionDev        *dev,
 int
 fusion_shmpool_attach (FusionDev           *dev,
                        FusionSHMPoolAttach *attach,
-                       int                  fusion_id)
+                       FusionID             fusion_id)
 {
      int            ret;
      SHMPoolNode   *node;
@@ -245,7 +249,7 @@ fusion_shmpool_attach (FusionDev           *dev,
 }
 
 int
-fusion_shmpool_detach (FusionDev *dev, int id, int fusion_id)
+fusion_shmpool_detach (FusionDev *dev, int id, FusionID fusion_id)
 {
      int            ret;
      SHMPoolNode   *node;
@@ -276,7 +280,7 @@ fusion_shmpool_detach (FusionDev *dev, int id, int fusion_id)
 int
 fusion_shmpool_dispatch( FusionDev             *dev,
                          FusionSHMPoolDispatch *dispatch,
-                         int                    fusion_id )
+                         FusionID               fusion_id )
 {
      int                   ret;
      FusionLink           *l;
@@ -319,7 +323,7 @@ fusion_shmpool_destroy (FusionDev *dev, int id)
 }
 
 void
-fusion_shmpool_detach_all (FusionDev *dev, int fusion_id)
+fusion_shmpool_detach_all (FusionDev *dev, FusionID fusion_id)
 {
      FusionLink *l;
 
@@ -334,11 +338,34 @@ fusion_shmpool_detach_all (FusionDev *dev, int fusion_id)
      up (&dev->shmpool.lock);
 }
 
+int
+fusion_shmpool_fork_all( FusionDev *dev,
+                         FusionID   fusion_id,
+                         FusionID   from_id )
+{
+     FusionLink *l;
+     int         ret = 0;
+
+     down (&dev->shmpool.lock);
+
+     fusion_list_foreach (l, dev->shmpool.list) {
+          FusionSHMPool *shmpool = (FusionSHMPool *) l;
+
+          ret = fork_node( shmpool, fusion_id, from_id );
+          if (ret)
+               break;
+     }
+
+     up (&dev->shmpool.lock);
+
+     return ret;
+}
+
 /******************************************************************************/
 
 static SHMPoolNode *
 get_node (FusionSHMPool *shmpool,
-          int            fusion_id)
+          FusionID       fusion_id)
 {
      SHMPoolNode *node;
 
@@ -351,7 +378,7 @@ get_node (FusionSHMPool *shmpool,
 }
 
 static void
-remove_node (FusionSHMPool *shmpool, int fusion_id)
+remove_node (FusionSHMPool *shmpool, FusionID fusion_id)
 {
      SHMPoolNode *node;
 
@@ -365,6 +392,38 @@ remove_node (FusionSHMPool *shmpool, int fusion_id)
      }
 
      up (&shmpool->entry.lock);
+}
+
+static int
+fork_node (FusionSHMPool *shmpool, FusionID fusion_id, FusionID from_id)
+{
+     int          ret = 0;
+     SHMPoolNode *node;
+
+     down (&shmpool->entry.lock);
+
+     fusion_list_foreach (node, shmpool->nodes) {
+          if (node->fusion_id == from_id) {
+               SHMPoolNode *new_node;
+
+               new_node = kmalloc (sizeof(SHMPoolNode), GFP_KERNEL);
+               if (!new_node) {
+                    ret = -ENOMEM;
+                    break;
+               }
+
+               new_node->fusion_id = fusion_id;
+               new_node->count     = node->count;
+
+               fusion_list_prepend (&shmpool->nodes, &new_node->link);
+
+               break;
+          }
+     }
+
+     up (&shmpool->entry.lock);
+
+     return ret;
 }
 
 static void

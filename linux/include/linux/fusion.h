@@ -8,7 +8,7 @@
  * Fusion Kernel Device API Version
  */
 #define FUSION_API_MAJOR      3         /* Increased if backward compatibility is dropped. */
-#define FUSION_API_MINOR      1         /* Increased if new features are added. */
+#define FUSION_API_MINOR      2         /* Increased if new features are added. */
 
 /*
  * The Fusion ID is a unique identifier for one process consisting of threads.
@@ -29,6 +29,12 @@ typedef struct {
      FusionID            fusion_id;     /* Returns the fusion id of the entering process. */
 } FusionEnter;
 
+/*
+ * Forking in world
+ */
+typedef struct {
+     FusionID            fusion_id;     /* Returns the fusion id of the new (forked) fusionee. */
+} FusionFork;
 
 /*
  * Sending a message
@@ -219,6 +225,8 @@ typedef struct {
 
 #define FUSION_ENTRY_SET_INFO      _IOW(FT_LOUNGE,    0x03, FusionEntryInfo)
 #define FUSION_ENTRY_GET_INFO      _IOW(FT_LOUNGE,    0x04, FusionEntryInfo)
+
+#define FUSION_FORK                _IOW(FT_LOUNGE,    0x05, FusionFork)
 
 #define FUSION_SEND_MESSAGE        _IOW(FT_MESSAGING, 0x00, FusionSendMessage)
 

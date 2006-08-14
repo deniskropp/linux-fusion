@@ -31,39 +31,43 @@ void fusionee_deinit (FusionDev *dev);
 /* internal functions */
 
 int fusionee_new           (FusionDev         *dev,
-                            int               *id);
+                            FusionID          *ret_id);
 
 int fusionee_enter         (FusionDev         *dev,
                             FusionEnter       *enter,
-                            int                id);
+                            FusionID           id);
+
+int fusionee_fork          (FusionDev         *dev,
+                            FusionFork        *fork,
+                            FusionID           id);
 
 int fusionee_send_message  (FusionDev         *dev,
-                            int                id,
-                            int                recipient,
+                            FusionID           id,
+                            FusionID           recipient,
                             FusionMessageType  msg_type,
                             int                msg_id,
                             int                msg_size,
                             const void        *msg_data);
 
 int fusionee_get_messages  (FusionDev         *dev,
-                            int                id,
+                            FusionID           id,
                             void              *buf,
                             int                buf_size,
                             bool               block);
 
 unsigned
 int fusionee_poll          (FusionDev         *dev,
-                            int                id,
+                            FusionID           id,
                             struct file       *file,
                             poll_table        *wait);
 
 int fusionee_kill          (FusionDev         *dev,
-                            int                id,
+                            FusionID           id,
                             int                target,
                             int                signal,
                             int                timeout_ms);
 
 int fusionee_destroy       (FusionDev         *dev,
-                            int                id);
+                            FusionID           id);
 
 #endif

@@ -32,15 +32,15 @@ int fusion_reactor_new      (FusionDev  *dev,
 
 int fusion_reactor_attach   (FusionDev  *dev,
                              int         id,
-                             int         fusion_id);
+                             FusionID    fusion_id);
 
 int fusion_reactor_detach   (FusionDev  *dev,
                              int         id,
-                             int         fusion_id);
+                             FusionID    fusion_id);
 
 int fusion_reactor_dispatch (FusionDev  *dev,
                              int         id,
-                             int         fusion_id,
+                             FusionID    fusion_id,
                              int         msg_size,
                              const void *msg_data);
 
@@ -51,6 +51,9 @@ int fusion_reactor_destroy  (FusionDev  *dev,
 /* internal functions */
 
 void fusion_reactor_detach_all (FusionDev *dev,
-                                int        fusion_id);
+                                FusionID   fusion_id);
 
+int  fusion_reactor_fork_all   (FusionDev *dev,
+                                FusionID   fusion_id,
+                                FusionID   from_id);
 #endif

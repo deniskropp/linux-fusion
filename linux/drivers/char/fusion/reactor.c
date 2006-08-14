@@ -45,10 +45,14 @@ typedef struct {
 /******************************************************************************/
 
 static ReactorNode *get_node      ( FusionReactor *reactor,
-                                    int            fusion_id );
+                                    FusionID       fusion_id );
 
 static void         remove_node   ( FusionReactor *reactor,
-                                    int            fusion_id );
+                                    FusionID       fusion_id );
+
+static int          fork_node     ( FusionReactor *reactor,
+                                    FusionID       fusion_id,
+                                    FusionID       from_id );
 
 static void         free_all_nodes( FusionReactor *reactor );
 
@@ -113,7 +117,7 @@ fusion_reactor_new (FusionDev *dev, int *ret_id)
 }
 
 int
-fusion_reactor_attach (FusionDev *dev, int id, int fusion_id)
+fusion_reactor_attach (FusionDev *dev, int id, FusionID fusion_id)
 {
      int            ret;
      ReactorNode   *node;
@@ -147,7 +151,7 @@ fusion_reactor_attach (FusionDev *dev, int id, int fusion_id)
 }
 
 int
-fusion_reactor_detach (FusionDev *dev, int id, int fusion_id)
+fusion_reactor_detach (FusionDev *dev, int id, FusionID fusion_id)
 {
      int            ret;
      ReactorNode   *node;
@@ -176,7 +180,7 @@ fusion_reactor_detach (FusionDev *dev, int id, int fusion_id)
 }
 
 int
-fusion_reactor_dispatch (FusionDev *dev, int id, int fusion_id,
+fusion_reactor_dispatch (FusionDev *dev, int id, FusionID fusion_id,
                          int msg_size, const void *msg_data)
 {
      int            ret;
@@ -211,7 +215,7 @@ fusion_reactor_destroy (FusionDev *dev, int id)
 }
 
 void
-fusion_reactor_detach_all (FusionDev *dev, int fusion_id)
+fusion_reactor_detach_all (FusionDev *dev, FusionID fusion_id)
 {
      FusionLink *l;
 
@@ -226,11 +230,32 @@ fusion_reactor_detach_all (FusionDev *dev, int fusion_id)
      up (&dev->reactor.lock);
 }
 
+int
+fusion_reactor_fork_all (FusionDev *dev, FusionID fusion_id, FusionID from_id)
+{
+     FusionLink *l;
+     int         ret = 0;
+
+     down (&dev->reactor.lock);
+
+     fusion_list_foreach (l, dev->reactor.list) {
+          FusionReactor *reactor = (FusionReactor *) l;
+
+          ret = fork_node (reactor, fusion_id, from_id);
+          if (ret)
+               break;
+     }
+
+     up (&dev->reactor.lock);
+
+     return ret;
+}
+
 /******************************************************************************/
 
 static ReactorNode *
 get_node (FusionReactor *reactor,
-          int            fusion_id)
+          FusionID       fusion_id)
 {
      ReactorNode *node;
 
@@ -243,7 +268,7 @@ get_node (FusionReactor *reactor,
 }
 
 static void
-remove_node (FusionReactor *reactor, int fusion_id)
+remove_node (FusionReactor *reactor, FusionID fusion_id)
 {
      ReactorNode *node;
 
@@ -258,6 +283,37 @@ remove_node (FusionReactor *reactor, int fusion_id)
      }
 
      up (&reactor->entry.lock);
+}
+
+static int
+fork_node (FusionReactor *reactor, FusionID fusion_id, FusionID from_id)
+{
+     ReactorNode *node;
+
+     down (&reactor->entry.lock);
+
+     fusion_list_foreach (node, reactor->nodes) {
+          if (node->fusion_id == from_id) {
+               ReactorNode *new_node;
+
+               new_node = kmalloc (sizeof(ReactorNode), GFP_KERNEL);
+               if (!new_node) {
+                    up (&reactor->entry.lock);
+                    return -ENOMEM;
+               }
+
+               new_node->fusion_id = fusion_id;
+               new_node->count     = node->count;
+
+               fusion_list_prepend (&reactor->nodes, &new_node->link);
+
+               break;
+          }
+     }
+
+     up (&reactor->entry.lock);
+
+     return 0;
 }
 
 static void

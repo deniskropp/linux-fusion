@@ -32,23 +32,23 @@ int fusion_ref_new          (FusionDev      *dev,
 
 int fusion_ref_up           (FusionDev      *dev,
                              int             id,
-                             int             fusion_id);
+                             FusionID        fusion_id);
 
 int fusion_ref_down         (FusionDev      *dev,
                              int             id,
-                             int             fusion_id);
+                             FusionID        fusion_id);
 
 int fusion_ref_zero_lock    (FusionDev      *dev,
                              int             id,
-                             int             fusion_id);
+                             FusionID        fusion_id);
 
 int fusion_ref_zero_trylock (FusionDev      *dev,
                              int             id,
-                             int             fusion_id);
+                             FusionID        fusion_id);
 
 int fusion_ref_zero_unlock  (FusionDev      *dev,
                              int             id,
-                             int             fusion_id);
+                             FusionID        fusion_id);
 
 int fusion_ref_stat         (FusionDev      *dev,
                              int             id,
@@ -70,6 +70,10 @@ int fusion_ref_destroy      (FusionDev      *dev,
 /* internal functions */
 
 void fusion_ref_clear_all_local (FusionDev *dev,
-                                 int        fusion_id);
+                                 FusionID   fusion_id);
+
+int  fusion_ref_fork_all_local  (FusionDev *dev,
+                                 FusionID   fusion_id,
+                                 FusionID   from_id);
 
 #endif

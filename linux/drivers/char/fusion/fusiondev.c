@@ -256,11 +256,11 @@ fusiondev_deinit (FusionDev *dev)
 static int
 fusion_open (struct inode *inode, struct file *file)
 {
-     int ret;
-     int fusion_id;
-     int minor = iminor(inode);
+     int      ret;
+     FusionID fusion_id;
+     int      minor = iminor(inode);
 
-     DEBUG( "fusion_open\n" );
+     DEBUG( "fusion_open( %p, %d )\n", file, atomic_read(&file->f_count) );
 
      if (down_interruptible (&devs_lock))
           return -EINTR;
@@ -332,7 +332,7 @@ fusion_release (struct inode *inode, struct file *file)
      int minor     = iminor(inode);
      int fusion_id = (int) file->private_data;
 
-     DEBUG( "fusion_release\n" );
+     DEBUG( "fusion_release( %p, %d )\n", file, atomic_read(&file->f_count) );
 
      ret = fusionee_destroy (fusion_devs[minor], fusion_id);
      if (ret)
@@ -363,7 +363,7 @@ fusion_flush (struct file *file)
 
      (void) fusion_id;
 
-     DEBUG( "fusion_flush (0x%08x %d)\n", fusion_id, current->pid );
+     DEBUG( "fusion_flush( %p, %d, 0x%08x %d )\n", file, atomic_read(&file->f_count), fusion_id, current->pid );
 
      if (current->flags & PF_EXITING)
           fusion_skirmish_dismiss_all_from_pid (dev, current->pid);
@@ -377,7 +377,7 @@ fusion_read (struct file *file, char *buf, size_t count, loff_t *ppos)
      int        fusion_id = (int) file->private_data;
      FusionDev *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
 
-     DEBUG( "fusion_read (%d)\n", count );
+     DEBUG( "fusion_read( %p, %d, %d )\n", file, atomic_read(&file->f_count), count );
 
      return fusionee_get_messages (dev, fusion_id, buf, count,
                                    !(file->f_flags & O_NONBLOCK));
@@ -389,19 +389,49 @@ fusion_poll (struct file *file, poll_table * wait)
      int        fusion_id = (int) file->private_data;
      FusionDev *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
 
-     DEBUG( "fusion_poll\n" );
+     DEBUG( "fusion_poll( %p, %d )\n", file, atomic_read(&file->f_count) );
 
      return fusionee_poll (dev, fusion_id, file, wait);
 }
-
+/*
 static int
-lounge_ioctl (FusionDev *dev, int fusion_id,
+fusion_fork (struct file *file, FusionDev *dev,
+             FusionID fusion_id, FusionID *ret_id)
+{
+     int      ret;
+     FusionID new_id;
+
+     DEBUG( "fusion_fork( %p, %d )\n", file, atomic_read(&file->f_count) );
+
+     if (down_interruptible( &devs_lock ))
+          return -EINTR;
+
+     ret = fusionee_new( dev, &new_id );
+     if (ret) {
+          up( &devs_lock );
+          return ret;
+     }
+
+     dev->refs++;
+
+     up( &devs_lock );
+
+     file->private_data = (void*) new_id;
+
+     *ret_id = new_id;
+
+     return 0;
+}
+*/
+static int
+lounge_ioctl (struct file *file, FusionDev *dev, FusionID fusion_id,
               unsigned int cmd, unsigned long arg)
 {
      int             ret;
      FusionEnter     enter;
      FusionKill      kill;
      FusionEntryInfo info;
+     FusionFork      fork = {0};
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_ENTER):
@@ -499,13 +529,26 @@ lounge_ioctl (FusionDev *dev, int fusion_id,
                     return -EFAULT;
 
                return 0;
+
+          case _IOC_NR(FUSION_FORK):
+               if (copy_from_user( &fork, (FusionFork*) arg, sizeof(fork) ))
+                    return -EFAULT;
+
+               ret = fusionee_fork( dev, &fork, fusion_id );
+               if (ret)
+                    return ret;
+               
+               if (copy_to_user( (FusionFork*) arg, &fork, sizeof(fork) ))
+                    return -EFAULT;
+
+               return 0;
      }
 
      return -ENOSYS;
 }
 
 static int
-messaging_ioctl (FusionDev *dev, int fusion_id,
+messaging_ioctl (FusionDev *dev, FusionID fusion_id,
                  unsigned int cmd, unsigned long arg)
 {
      FusionSendMessage send;
@@ -530,7 +573,7 @@ messaging_ioctl (FusionDev *dev, int fusion_id,
 }
 
 static int
-call_ioctl (FusionDev *dev, int fusion_id,
+call_ioctl (FusionDev *dev, FusionID fusion_id,
             unsigned int cmd, unsigned long arg)
 {
      int               id;
@@ -583,7 +626,7 @@ call_ioctl (FusionDev *dev, int fusion_id,
 }
 
 static int
-ref_ioctl (FusionDev *dev, int fusion_id,
+ref_ioctl (FusionDev *dev, FusionID fusion_id,
            unsigned int cmd, unsigned long arg)
 {
      int              id;
@@ -679,7 +722,7 @@ ref_ioctl (FusionDev *dev, int fusion_id,
 }
 
 static int
-skirmish_ioctl (FusionDev *dev, int fusion_id,
+skirmish_ioctl (FusionDev *dev, FusionID fusion_id,
                 unsigned int cmd, unsigned long arg)
 {
      int id;
@@ -737,7 +780,7 @@ skirmish_ioctl (FusionDev *dev, int fusion_id,
 }
 
 static int
-property_ioctl (FusionDev *dev, int fusion_id,
+property_ioctl (FusionDev *dev, FusionID fusion_id,
                 unsigned int cmd, unsigned long arg)
 {
      int id;
@@ -790,7 +833,7 @@ property_ioctl (FusionDev *dev, int fusion_id,
 }
 
 static int
-reactor_ioctl (FusionDev *dev, int fusion_id,
+reactor_ioctl (FusionDev *dev, FusionID fusion_id,
                unsigned int cmd, unsigned long arg)
 {
      int                   id;
@@ -848,7 +891,7 @@ reactor_ioctl (FusionDev *dev, int fusion_id,
 }
 
 static int
-shmpool_ioctl (FusionDev *dev, int fusion_id,
+shmpool_ioctl (FusionDev *dev, FusionID fusion_id,
                unsigned int cmd, unsigned long arg)
 {
      int                   id;
@@ -923,7 +966,7 @@ fusion_ioctl (struct inode *inode, struct file *file,
 
      switch (_IOC_TYPE(cmd)) {
           case FT_LOUNGE:
-               return lounge_ioctl( dev, id, cmd, arg );
+               return lounge_ioctl( file, dev, id, cmd, arg );
 
           case FT_MESSAGING:
                return messaging_ioctl( dev, id, cmd, arg );
