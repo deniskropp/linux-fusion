@@ -19,7 +19,9 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)
 #include <linux/devfs_fs_kernel.h>
+#endif
 #include <linux/proc_fs.h>
 #include <linux/poll.h>
 #include <linux/init.h>
@@ -356,7 +358,11 @@ fusion_release (struct inode *inode, struct file *file)
 }
 
 static int
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 18)
+fusion_flush (struct file *file, fl_owner_t id)
+#else
 fusion_flush (struct file *file)
+#endif
 {
      int        fusion_id = (int) file->private_data;
      FusionDev *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
@@ -1066,7 +1072,9 @@ register_devices(void)
      }
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)
      devfs_mk_dir("fusion");
+#endif
 
      for (i=0; i<NUM_MINORS; i++) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 15)
@@ -1084,9 +1092,11 @@ register_devices(void)
                                    NULL, "fusion%d", i);
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)
           devfs_mk_cdev (MKDEV(FUSION_MAJOR, i),
                          S_IFCHR | S_IRUSR | S_IWUSR,
                          "fusion/%d", i);
+#endif
      }
 
      return 0;
@@ -1149,7 +1159,9 @@ deregister_devices(void)
 #endif
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)
           devfs_remove ("fusion/%d", i);
+#endif
      }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
@@ -1160,7 +1172,9 @@ deregister_devices(void)
 #endif
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)
      devfs_remove ("fusion");
+#endif
 }
 #else
 static void __exit

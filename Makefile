@@ -20,7 +20,7 @@ all:
 	rm -f $(SUB)/Makefile
 	ln -s Makefile-2.$(KERNEL_PATCHLEVEL) $(SUB)/Makefile
 	$(MAKE) -C $(KERNEL_BUILD) \
-		CPPFLAGS="$(CPPFLAGS) -D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_SOURCE)/include" \
+		CPPFLAGS="$(CPPFLAGS) -D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_SOURCE)/include -include include/linux/autoconf.h" \
 		SUBDIRS=`pwd`/$(SUB) modules
 
 install: all
