@@ -78,13 +78,15 @@ int  fusion_entries_read_proc( char *buf, char **start, off_t offset,
 
 /* Create & Destroy */
 
-int  fusion_entry_create  ( FusionEntries    *entries,
-                            int              *ret_id,
-                            void             *create_ctx );
+int  fusion_entry_create        ( FusionEntries  *entries,
+                                  int            *ret_id,
+                                  void           *create_ctx );
 
-int  fusion_entry_destroy ( FusionEntries    *entries,
-                            int               id );
+int  fusion_entry_destroy       ( FusionEntries  *entries,
+                                  int             id );
 
+void fusion_entry_destroy_locked( FusionEntries  *entries,
+                                  FusionEntry    *entry );
 
 /* Information */
 

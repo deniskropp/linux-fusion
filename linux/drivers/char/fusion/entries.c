@@ -230,15 +230,31 @@ fusion_entry_destroy( FusionEntries  *entries,
           return -EINTR;
      }
 
+     /* Destroy it now. */
+     fusion_entry_destroy_locked( entries, entry );
+
+     /* Unlock entries. */
+     up( &entries->lock );
+
+     return 0;
+}
+
+void
+fusion_entry_destroy_locked( FusionEntries  *entries,
+                             FusionEntry    *entry )
+{
+     FusionEntryClass *class;
+
+     FUSION_ASSERT( entries != NULL );
+     FUSION_ASSERT( entries->class != NULL );
+
+     class = entries->class;
+
      /* Remove the entry from the list. */
      fusion_list_remove( &entries->list, &entry->link );
 
      /* Wake up any waiting process. */
      wake_up_interruptible_all( &entry->wait );
-
-     /* Unlock entries. */
-     up( &entries->lock );
-
 
      /* Call the destroy function. */
      if (class->Destroy)
@@ -246,8 +262,6 @@ fusion_entry_destroy( FusionEntries  *entries,
 
      /* Deallocate the entry. */
      kfree( entry );
-
-     return 0;
 }
 
 int
