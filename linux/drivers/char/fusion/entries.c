@@ -260,6 +260,9 @@ fusion_entry_destroy_locked( FusionEntries  *entries,
      if (class->Destroy)
           class->Destroy( entry, entries->ctx );
 
+     /* Unlock the entry. */
+     up( &entry->lock );
+
      /* Deallocate the entry. */
      kfree( entry );
 }
