@@ -13,6 +13,9 @@ ifeq ($(DEBUG),yes)
   CPPFLAGS += -DFUSION_DEBUG_SKIRMISH_DEADLOCK
 endif
 
+ifeq ($(KERNEL_PATCHLEVEL),6)
+  AUTOCONF_H = -include include/linux/autoconf.h
+endif
 
 .PHONY: all install clean
 
@@ -20,7 +23,7 @@ all:
 	rm -f $(SUB)/Makefile
 	ln -s Makefile-2.$(KERNEL_PATCHLEVEL) $(SUB)/Makefile
 	$(MAKE) -C $(KERNEL_BUILD) \
-		CPPFLAGS="$(CPPFLAGS) -D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_SOURCE)/include -include include/linux/autoconf.h" \
+		CPPFLAGS="$(CPPFLAGS) -D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_SOURCE)/include $(AUTOCONF_H)" \
 		SUBDIRS=`pwd`/$(SUB) modules
 
 install: all
