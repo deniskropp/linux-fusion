@@ -13,7 +13,7 @@ ifeq ($(DEBUG),yes)
   CPPFLAGS += -DFUSION_DEBUG_SKIRMISH_DEADLOCK
 endif
 
-ifeq ($(KERNEL_PATCHLEVEL),6)
+ifeq ($(shell test -e $(KERNEL_BUILD)/include/linux/autoconf.h && echo yes),yes)
   AUTOCONF_H = -include include/linux/autoconf.h
 endif
 
