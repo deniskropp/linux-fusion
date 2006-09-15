@@ -14,7 +14,7 @@ ifeq ($(DEBUG),yes)
 endif
 
 ifeq ($(shell test -e $(KERNEL_BUILD)/include/linux/autoconf.h && echo yes),yes)
-  AUTOCONF_H = -include include/linux/autoconf.h
+  AUTOCONF_H = -include $(KERNEL_BUILD)/include/linux/autoconf.h
 endif
 
 .PHONY: all install clean
