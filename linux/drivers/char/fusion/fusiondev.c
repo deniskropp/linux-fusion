@@ -331,8 +331,8 @@ static int
 fusion_release (struct inode *inode, struct file *file)
 {
      int ret;
-     int minor     = iminor(inode);
-     int fusion_id = (int) file->private_data;
+     int minor        = iminor(inode);
+     size_t fusion_id = (size_t) file->private_data;
 
      DEBUG( "fusion_release( %p, %d )\n", file, atomic_read(&file->f_count) );
 
@@ -364,7 +364,7 @@ fusion_flush (struct file *file, fl_owner_t id)
 fusion_flush (struct file *file)
 #endif
 {
-     int        fusion_id = (int) file->private_data;
+     size_t     fusion_id = (size_t) file->private_data;
      FusionDev *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
 
      (void) fusion_id;
@@ -380,7 +380,7 @@ fusion_flush (struct file *file)
 static ssize_t
 fusion_read (struct file *file, char *buf, size_t count, loff_t *ppos)
 {
-     int        fusion_id = (int) file->private_data;
+     size_t     fusion_id = (size_t) file->private_data;
      FusionDev *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
 
      DEBUG( "fusion_read( %p, %d, %d )\n", file, atomic_read(&file->f_count), count );
@@ -392,7 +392,7 @@ fusion_read (struct file *file, char *buf, size_t count, loff_t *ppos)
 static unsigned int
 fusion_poll (struct file *file, poll_table * wait)
 {
-     int        fusion_id = (int) file->private_data;
+     size_t     fusion_id = (size_t) file->private_data;
      FusionDev *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
 
      DEBUG( "fusion_poll( %p, %d )\n", file, atomic_read(&file->f_count) );
@@ -543,7 +543,7 @@ lounge_ioctl (struct file *file, FusionDev *dev, FusionID fusion_id,
                ret = fusionee_fork( dev, &fork, fusion_id );
                if (ret)
                     return ret;
-               
+
                if (copy_to_user( (FusionFork*) arg, &fork, sizeof(fork) ))
                     return -EFAULT;
 
@@ -965,7 +965,7 @@ static int
 fusion_ioctl (struct inode *inode, struct file *file,
               unsigned int cmd, unsigned long arg)
 {
-     int        id  = (int) file->private_data;
+     size_t     id  = (size_t) file->private_data;
      FusionDev *dev = fusion_devs[iminor(inode)];
 
      DEBUG( "fusion_ioctl (0x%08x)\n", cmd );
@@ -1003,7 +1003,7 @@ static int
 fusion_mmap( struct file           *file,
              struct vm_area_struct *vma )
 {
-     int           fusion_id = (int) file->private_data;
+     size_t        fusion_id = (size_t) file->private_data;
      FusionDev    *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
      unsigned int  size;
 
