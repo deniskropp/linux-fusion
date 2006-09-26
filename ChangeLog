@@ -1,83 +1,713 @@
-2004-01-07   dok	11:41	Denis Oliver Kropp <dok@directfb.org>
+2006-09-26   dok	07:10:44	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	Makefile (1.5) (+1 -2)
+	Files:	__________PLEASE_NOTE__THE_MAJOR_ID_CHANGED_TO_252__SEE_README_________ (1.2) (+0 -0;)
+	
+	Guess we can really remove it now.
+	
+2006-09-25   mws	20:55:27	
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.50) (+8 -8;)
+	
+	fix 64-bit compile warnings "casting from pointer to integer of different size"
+	
+2006-09-15   dok	08:25:11	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.19) (+1 -1;)
+	
+	Specify full path to include.
+	
+2006-09-14   dok	20:48:01	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.18) (+1 -1;)
+	
+	Just add include/linux/autoconf.h if it exists, no version checking or other magic :)
+	
+2006-09-14   dok	19:20:31	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.17) (+4 -1;)
+	
+	Only add the include of autoconf.h if building for 2.6.
+	
+2006-09-13   dok	13:02:23	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/entries.c (1.11) (+3 -0;)
+	
+	Unlock entry before freeing it, thanks to Maxim Syrchin <syrchin@dev.rtsoft.ru>!
+	
+2006-09-03   syrjala	13:40:34	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	Makefile (1.16) (+1 -1;)
+		linux/drivers/char/fusion/fusiondev.c (1.49) (+14 -0;)
+	
+	Fix compilation with linux-2.6.18.
+	
+2006-09-03   dok	11:50:55	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/entries.c (1.10) (+20 -6;)
+		linux/drivers/char/fusion/reactor.c (1.16) (+80 -47;)
+		linux/drivers/char/fusion/entries.h (1.7) (+7 -5;)
+	
+	Only mark reactors as being destroyed, but actually destroy/remove them
+	when the last node detached. No more attach or dispatch is allowed though.
+	
+2006-08-14   dok	09:16:54	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.48) (+60 -17;)
+		linux/include/linux/fusion.h (1.16) (+9 -1;)
+		linux/drivers/char/fusion/shmpool.h (1.2) (+9 -4;)
+		linux/drivers/char/fusion/shmpool.c (1.3) (+68 -9;)
+		linux/drivers/char/fusion/ref.h (1.11) (+10 -6;)
+		linux/drivers/char/fusion/ref.c (1.22) (+72 -11;)
+		linux/drivers/char/fusion/reactor.h (1.5) (+7 -4;)
+		linux/drivers/char/fusion/reactor.c (1.15) (+64 -8;)
+		linux/drivers/char/fusion/fusionee.h (1.12) (+12 -8;)
+		linux/drivers/char/fusion/fusionee.c (1.29) (+41 -15;)
+	
+	Added new ioctl FUSION_FORK to be used whenever a Fusionee has fork()ed and
+	wants to stay in the world, i.e. without doing exec or similar...
+	
+	It doubles all local references, reactor and shmpool attach's and gives
+	the forked Fusionee its own Fusion ID.
+	
+2006-08-04   dok	16:28:01	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.47) (+8 -1;)
+		linux/drivers/char/fusion/ref.h (1.10) (+1 -1;)
+		linux/drivers/char/fusion/ref.c (1.21) (+122 -282;)
+		linux/drivers/char/fusion/fusiondev.h (1.14) (+1 -9;)
+	
+	FusionRef is also based on FusionEntry as most of the others are already.
+	
+2006-06-30   dok	08:54:55	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.46) (+11 -0;)
+		linux/include/linux/fusion.h (1.15) (+2 -1;)
+		linux/drivers/char/fusion/skirmish.h (1.6) (+5 -0;)
+		linux/drivers/char/fusion/skirmish.c (1.23) (+25 -0;)
+	
+	New ioctl FUSION_SKIRMISH_LOCK_COUNT to query the lock counter of the
+	calling thread. If it's locked by a different thread, it simply returns
+	a zero count.
+	
+2006-04-30   syrjala	11:33:39	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	Makefile (1.15) (+6 -1;)
+	
+	Made depmod respect $(DESTDIR).
+	Thanks to Mark Pustjens <pustjens@dds.nl> for the idea.
+	
+2006-04-26   dok	11:48:24	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.14) (+4 -3;)
+	
+	Some fixes to the Makefile.
+	
+	Thanks to Alex Lau <alex@avengergear.com>!
+	
+2006-04-20   dok	09:42:56	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/reactor.c (1.14) (+1 -0;)
+	
+	Fix memory leak in remove_node().
+	
+	Thanks to caizhihua@radio-tel.com!
+	
+2006-03-26   dok	18:44:19	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.13) (+8 -2;)
+		linux/drivers/char/fusion/skirmish.c (1.22) (+135 -17;)
+		linux/drivers/char/fusion/shmpool.c (1.2) (+3 -3;)
+		linux/drivers/char/fusion/reactor.c (1.13) (+3 -3;)
+		linux/drivers/char/fusion/property.c (1.23) (+4 -4;)
+		linux/drivers/char/fusion/fusiondev.h (1.13) (+1 -0;)
+		linux/drivers/char/fusion/fusiondev.c (1.45) (+1 -0;)
+		linux/drivers/char/fusion/entries.h (1.6) (+3 -1;)
+		linux/drivers/char/fusion/entries.c (1.9) (+6 -4;)
+	
+	Implemented detection of *potential* dead locks by remembering which locks
+	are already acquired when another one is being acquired. As soon as a twist
+	is detected, a warning will be printed.
+	
+	The procfs entry for each skirmish shows a list of skirmishs that had ever
+	been acquired while itself was being acquired (the pre-acquisition list).
+	
+	Needs to be enabled by setting DEBUG=yes, e.g. "DEBUG=yes sudo make install".
+	
+	This does not detect dead locks right before they occur. It finds any
+	theoretically possible future dead lock situation due to lock order switches!
+	
+2006-03-01   dok	04:16:37	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/call.c (1.11) (+1 -1;)
+		linux/include/linux/fusion.h (1.14) (+9 -1;)
+	
+	Added FusionCallExecFlags featuring FCEF_ONEWAY which makes the caller
+	return immediately after queueing the messages, not waiting for any response,
+	making the call asynchronous, like a dispatch via a reactor.
+	
+2006-03-01   dok	00:47:21	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/call.c (1.10) (+10 -2;)
+		linux/drivers/char/fusion/skirmish.c (1.21) (+9 -3;)
+	
+	Show callers and number of waiters in proc.
+	
+2006-02-01   dok	12:03:54	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.12) (+8 -6;)
+		README (1.12) (+4 -7;)
+	
+	Applied patch from Tilman Sauerbeck <tilman@code-monkey.de>
+	that adds DESTDIR support and updates the README, thanks!
+	
+2005-12-29   dok	22:57:58	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.11) (+2 -4;)
+	
+	Made compilation happen before installation again :)
+	
+2005-12-29   dok	22:57:08	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.44) (+7 -4;)
+	
+	Builds with 2.6.15 now.
+	
+2005-12-27   dok	07:21:13	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusionee.c (1.28) (+30 -4;)
+	
+	Fixed deadlock in fusionee_send_message() by replacing the
+	"listlock-item1lock-listunlock-listlock-item2lock-listunlock" sequence by
+	"listlock-item1lock-item2lock-listunlock".
+	
+	Deadlock occured with concurrent fusionee_get_message() or fusionee_poll()
+	doing a "listlock-item1lock-listunlock".
+	
+	Thanks to Hyperthreading for digging this one up :)
+	
+2005-12-09   syrjala	14:26:37	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	README (1.11) (+1 -1;)
+	
+	Fixed a typo.
+	
+2005-11-09   syrjala	14:17:20	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	Makefile (1.10) (+2 -0;)
+	
+	Made all targets phony.
+	
+2005-11-09   syrjala	14:14:06	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	Makefile (1.9) (+2 -0;)
+	
+	Remove fusion.[k]o from the old install location.
+	
+2005-11-08   syrjala	15:34:41	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	Makefile (1.8) (+13 -4;)
+	
+	Install fusion.h. Changed module install path.
+	
+2005-11-02   syrjala	11:30:56	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	README (1.10) (+3 -5;)
+	
+	Updated udev instructions.
+	
+2005-11-02   syrjala	11:23:28	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	linux/drivers/char/fusion/entries.c (1.8) (+1 -0;)
+	
+	Made fusion_entry_wait() clear entry->lock_pid before calling
+	fusion_sleep_on() thus making FUSION_ASSUME() happy.
+	
+2005-11-02   syrjala	10:31:42	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.43) (+3 -1;)
+	
+	Clear the reserved bit from shared_area before freeing it. Otherwise the
+	kernel will complain and become tainted.
+	
+2005-10-29   dok	05:11:10	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/.cvsignore (1.3) (+1 -0;)
+	
+	Added .tmp_versions.
+	
+2005-10-29   dok	05:10:43	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.42) (+6 -0;)
+	
+	Make it build on 2.4, let's see if it works, too :)
+	
+2005-10-29   dok	00:40:35	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/include/linux/fusion.h (1.13) (+122 -63;)
+	
+	Fusion Kernel API 2.0
+	
+	
+	Added management of shared memory pools
+	- register pools with a specified maximum possible size
+	- manage virtual address space so that all pools system wide can be mapped in parallel
+	- dispatch messages when the shared memory heap has been resized (for remapping)
+	- new ioctls are FUSION_SHMPOOL_NEW, ATTACH, DETACH, DISPATCH and DESTROY
+	
+	Added support for mmap() on the Fusion device itself, providing one page of shared
+	memory serving as the root structure for all other shared information/memory in a world.
+	
+	Block all slaves at FUSION_ENTER until the master issues the new FUSION_UNBLOCK ioctl.
+	
+2005-10-29   dok	00:38:05	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/Makefile-2.4 (1.4) (+1 -1;)
+		linux/drivers/char/fusion/skirmish.c (1.20) (+1 -1;)
+		linux/drivers/char/fusion/shmpool.h (1.1) ( )
+		linux/drivers/char/fusion/shmpool.c (1.1) ( )
+		linux/drivers/char/fusion/reactor.c (1.12) (+1 -1;)
+		linux/drivers/char/fusion/property.c (1.22) (+1 -1;)
+		linux/drivers/char/fusion/fusionee.h (1.11) (+4 -0;)
+		linux/drivers/char/fusion/fusionee.c (1.27) (+38 -1;)
+		linux/drivers/char/fusion/fusiondev.h (1.12) (+12 -1;)
+		linux/drivers/char/fusion/fusiondev.c (1.41) (+144 -7;)
+		linux/drivers/char/fusion/entries.h (1.5) (+3 -2;)
+		linux/drivers/char/fusion/entries.c (1.7) (+4 -2;)
+		linux/drivers/char/fusion/Makefile-2.6 (1.4) (+1 -1;)
+	
+	Fusion Kernel API 2.0
+	
+	
+	Added management of shared memory pools
+	- register pools with a specified maximum possible size
+	- manage virtual address space so that all pools system wide can be mapped in parallel
+	- dispatch messages when the shared memory heap has been resized (for remapping)
+	- new ioctls are FUSION_SHMPOOL_NEW, ATTACH, DETACH, DISPATCH and DESTROY
+	
+	Added support for mmap() on the Fusion device itself, providing one page of shared
+	memory serving as the root structure for all other shared information/memory in a world.
+	
+	Block all slaves at FUSION_ENTER until the master issues the new FUSION_UNBLOCK ioctl.
+	
+2005-10-18   dok	23:34:56	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	fusion-full-linux-2.4.22.patch (1.7) (+0 -0;)
+		fusion-full-linux-2.6.9.patch (1.4) (+0 -0;)
+		fusion-full-linux-2.4.28.patch (1.2) (+0 -0;)
+	
+	No more patches.
+	
+2005-10-18   dok	23:34:55	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	README (1.9) (+3 -19;)
+	
+	No more patches.
+	
+2005-10-18   dok	09:06:47	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.7) (+0 -4;)
+	
+	Removed some commented out stuff.
+	
+2005-09-13   dok	14:32:25	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.40) (+22 -0;)
+	
+	Thanks to "Rob Shortt <rob@tvcentric.com>" for this patch fixing build with
+	Linux 2.6.13 that introduced some changes to the device class API.
+	
+2005-06-19   dok	12:45:43	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.6) (+7 -0;)
+		linux/drivers/char/fusion/Makefile-2.6 (1.3) (+1 -1;)
+		linux/drivers/char/fusion/Makefile-2.4 (1.3) (+1 -1;)
+	
+	Fixed Makefiles for built-in mode.
+	
+2005-03-29   dok	13:51:27	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	tests/calls.c (1.4) (+6 -5;)
+		tests/throughput.c (1.6) (+7 -6;)
+		tests/latency.c (1.3) (+5 -5;)
+	
+	Ported from FUSION_GET_ID to FUSION_ENTER.
+	
+2004-12-20   dok	07:57:35	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	fusion-full-linux-2.4.27.patch (1.3) (+0 -0;)
+		fusion-full-linux-2.6.9.patch (1.3) (+129 -234;)
+		fusion-full-linux-2.4.28.patch (1.1) ( )
+	
+	updated
+	
+2004-12-12   dok	13:09:39	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/entries.c (1.6) (+9 -1;)
+		linux/drivers/char/fusion/entries.h (1.4) (+1 -0;)
+	
+	Increase performance by ~10% by not calling wake_up*() if nobody is waiting.
+	
+2004-11-26   syrjala	10:23:15	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	linux/drivers/char/fusion/entries.c (1.5) (+5 -0;)
+	
+	xtime is struct timespec on some kernels.
+	
+2004-11-26   syrjala	10:16:28	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.39) (+1 -1;)
+	
+	MINOR() -> iminor().
+	
+2004-11-16   dok	19:22:37	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.38) (+7 -0;)
+		linux/drivers/char/fusion/skirmish.c (1.19) (+14 -3;)
+		linux/drivers/char/fusion/reactor.c (1.11) (+61 -194;)
+		linux/drivers/char/fusion/fusiondev.h (1.11) (+1 -5;)
+	
+	Changed FusionReactor to use the generic FusionEntry code. It shows each
+	reactor's name, number of total dispatch and current nodes in /proc/fusion.
+	
+	Show total number of locks for each Skirmish in /proc/fusion.
+	
+2004-11-14   dok	09:13:58	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	fusion-full-linux-2.4.27.patch (1.2) (+211 -93;)
+		fusion-full-linux-2.6.9.patch (1.2) (+211 -93;)
+	
+	Updated patches.
+	
+2004-11-14   dok	09:13:57	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	fusion-full-linux-2.4.22.patch (1.6) (+211 -93;)
+	
+	Updated patches.
+	
+2004-11-14   dok	06:10:38	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/entries.c (1.4) (+77 -0;)
+		linux/include/linux/fusion.h (1.12) (+29 -11;)
+		linux/drivers/char/fusion/skirmish.c (1.18) (+3 -4;)
+		linux/drivers/char/fusion/property.c (1.21) (+14 -45;)
+		linux/drivers/char/fusion/fusiondev.c (1.37) (+44 -2;)
+		linux/drivers/char/fusion/entries.h (1.3) (+13 -0;)
+	
+	API version is 1.1 now.
+	Older binaries compiled with the 1.0 API should work with a new 1.1 module.
+	
+	The generic fusion_entries_read_proc() prints the generic entry information,
+	while the specific implementation can add further information like lock status.
+	
+	Take a timestamp whenever an entry is locked (each access) and show the
+	difference between that and now in the proc view.
+	his doesn't use the still too expensive do_gettimeofday() which produces
+	10% overhead here. Instead, just copy the global "struct timeval xtime".
+	
+	Added FUSION_ENTRY_SET_INFO and FUSION_ENTRY_GET_INFO to store/retrieve
+	meta information about an entry. Right now there's just a name to set.
+	
+	This is the full output while running XDirectFB (and some clients)
+	along with 2x DFBTerm, df_cpuload, df_netload and df_dioload:
+	
+	:  dok@skunk[~] cat /proc/fusion/0/skirmishs
+	:    3  ms  ( 5544) 0x00000014  Layer Context
+	:   13  ms  ( 5544) 0x0000000b  Surface Manager
+	:   13  ms  ( 5544) 0x00000002  Fusion Reactor Globals
+	:   24  ms  ( 5544) 0x00000015  Layer Region
+	:  321.2 s  ( 5544) 0x00000009  Clipboard Core
+	:  326.3 s  ( 5544) 0x00000000  Shared Memory Pool
+	:  681.0 s  ( 5544) 0x00000007  Surface Pool
+	:  681.5 s  ( 5544) 0x00000013  UniQuE Window Pool
+	:  681.5 s  ( 5544) 0x00000008  Window Pool
+	:    0.2 h  ( 5544) 0x0000000e  Display Layer 0
+	:    0.2 h  ( 5544) 0x00000003  Arena 'DirectFB/Core'
+	:    0.2 h  ( 5544) 0x00000001  Fusion Arenas
+	:    0.3 h  ( 5544) 0x00000012  UniQuE Context Pool
+	:    0.3 h  ( 5544) 0x00000005  Layer Region Pool
+	:    0.3 h  ( 5544) 0x00000004  Layer Context Pool
+	:    0.3 h  ( 5544) 0x00000011  Display Layer 3
+	:    0.3 h  ( 5544) 0x00000010  Display Layer 2
+	:    0.3 h  ( 5544) 0x0000000f  Display Layer 1
+	:    0.3 h  ( 5544) 0x0000000d  Screen 1
+	:    0.3 h  ( 5544) 0x0000000c  Screen 0
+	:    0.3 h  ( 5544) 0x0000000a  Colorhash Core
+	:    0.3 h  ( 5544) 0x00000006  Palette Pool
+	
+	Added ":" to avoid white space stripping at the front of each line by logmail.
+	
+2004-11-12   dok	17:39:24	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	fusion-full-linux-2.4.27.patch (1.1) ( )
+		fusion-full-linux-2.6.9.patch (1.1) ( )
+		fusion-full-linux-2.6.3-rc3.patch (1.2) (+0 -0;)
+	
+	New patches.
+	
+2004-11-12   dok	17:39:23	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	fusion-full-linux-2.4.24.patch (1.2) (+0 -0;)
+	
+	New patches.
+	
+2004-11-11   dok	00:15:57	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	fusion-full-linux-2.4.22.patch (1.5) (+1618 -863;)
+	
+	Updated.
+	
+2004-11-07   dok	12:20:53	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/ref.c (1.20) (+5 -2;)
+	
+	Fixed duplicate watch notification sent during cleanup.
+	
+2004-11-07   dok	09:15:11	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	TODO (1.4) (+5 -0;)
+		linux/include/linux/fusion.h (1.11) (+72 -42;)
+		linux/drivers/char/fusion/ref.h (1.9) (+5 -1;)
+		linux/drivers/char/fusion/ref.c (1.19) (+229 -52;)
+		linux/drivers/char/fusion/fusiondev.c (1.36) (+134 -27;)
+	
+	Added version numbering to the Fusion Kernel API.
+	The major number is increased if binary compatibility breaks,
+	while the minor number is increased for new features.
+	
+	Added new ioctl FUSION_REF_INHERIT to have a reference inherit
+	the local reference count from another reference, i.e. adding
+	the other's local count to its own. If the inherited reference
+	is changed, the inheritor is also updated.
+	
+	There's just one reference that can be inherited from by each
+	reference, but a reference can have multiple inheritors.
+	
+	Replaced FUSION_GET_ID by FUSION_ENTER. The new ioctl gets a
+	struct containing the API version the applicaiton was compiled
+	with. If the versions are incompatible, an error is returned,
+	otherwise the fusion id passed back to the application via the
+	struct.
+	
+	Use the 'type' field of the ioctl code to encode one of the
+	following command group identifiers: FT_LOUNGE, FT_MESSAGING,
+	FT_CALL, FT_REF, FT_SKIRMISH, FT_PROPERTY and FT_REACTOR.
+	
+	Now, the 'nr' field value is starting at zero within each group.
+	
+	The huge switch in fusion_ioctl() for all commands is replaced
+	by a switch for just the different types (see above). Each type
+	has its own function with a switch for the command numbers.
+	It's not faster on my machine, but at least it looks much better.
+	
+	Fixed a memory leak when clearing local references upon process exit.
+	
+	Added some TODOs.
+	
+2004-08-23   dok	12:54:32	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/entries.c (1.3) (+45 -0;)
+		linux/drivers/char/fusion/skirmish.c (1.17) (+15 -43;)
+		linux/drivers/char/fusion/property.c (1.20) (+1 -1;)
+		linux/drivers/char/fusion/entries.h (1.2) (+44 -36;)
+	
+	Added Print() method to FusionEntryClass.
+	
+	Added generic fusion_entries_read_proc() which uses Print() to
+	write each entry into the buffer.
+	
+2004-08-18   dok	14:09:42	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/entries.c (1.2) (+4 -4;)
+		linux/drivers/char/fusion/fusiondev.h (1.10) (+1 -0;)
+	
+	Added FUSION_ASSUME(exp) to use instead of FUSION_ASSERT(exp) at some places.
+	
+2004-08-18   dok	14:00:31	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.h (1.9) (+1 -5;)
+		linux/drivers/char/fusion/skirmish.c (1.16) (+37 -172;)
+	
+	Use new code for skirmish.
+	
+2004-08-17   dok	20:00:32	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/property.c (1.19) (+37 -34;)
+	
+	Simplified timeout code.
+	
+	Added recursive purchase and some more error checking.
+	
+2004-08-17   dok	17:24:36	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/Makefile-2.4 (1.2) (+1 -1;)
+		linux/drivers/char/fusion/skirmish.c (1.15) (+1 -1;)
+		linux/drivers/char/fusion/ref.c (1.18) (+1 -1;)
+		linux/drivers/char/fusion/property.h (1.6) (+2 -2;)
+		linux/drivers/char/fusion/property.c (1.18) (+85 -207;)
+		linux/drivers/char/fusion/list.h (1.6) (+10 -1;)
+		linux/drivers/char/fusion/fusionee.c (1.26) (+2 -2;)
+		linux/drivers/char/fusion/fusiondev.h (1.8) (+4 -5;)
+		linux/drivers/char/fusion/entries.h (1.1) ( )
+		linux/drivers/char/fusion/entries.c (1.1) ( )
+		linux/drivers/char/fusion/call.c (1.9) (+1 -1;)
+		linux/drivers/char/fusion/Makefile-2.6 (1.2) (+1 -1;)
+	
+	Added base code for all primitives.
+	
+	Property already uses the new clean code.
+	
+2004-07-30   dok	15:01:43	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/property.c (1.17) (+20 -1;)
+	
+	Implemented recursive leasing, fixes dead lock during emergency shutdown.
+	
+2004-07-13   syrjala	15:42:30	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	README (1.8) (+11 -1;)
+		linux/drivers/char/fusion/fusiondev.c (1.35) (+36 -9;)
+	
+	Added sysfs/udev support.
+	
+2004-02-23   dok	23:13:42	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	__________PLEASE_NOTE__THE_MAJOR_ID_CHANGED_TO_252__SEE_README_________ (1.1) ( )
+	
+	;->
+	
+2004-02-16   dok	16:41:21	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	README (1.7) (+1 -1;)
+		fusion-full-linux-2.6.3-rc3.patch (1.1) ( )
+	
+	Added patch for 2.6.3-rc3.
+	
+2004-02-16   dok	16:33:31	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	fusion-full-linux-2.4.21.patch (1.8) (+0 -0;)
+		fusion-part-linux-2.4.22.patch (1.2) (+0 -0;)
+		fusion-part-linux-2.4.21.patch (1.3) (+0 -0;)
+		fusion-full-linux-2.4.24.patch (1.1) ( )
+	
+	Removed obsolete patches.
+	
+	Added patch for 2.4.24.
+	
+2004-02-16   dok	12:27:37	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	README (1.6) (+3 -3;)
+		linux/drivers/char/fusion/fusiondev.c (1.34) (+1 -1;)
+	
+	Use major 252.
+	
+2004-02-06   dok	12:43:58	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	fusion-full-linux-2.6.0-test7.patch (1.3) (+0 -0;)
+		fusion-part-linux-2.6.0-test7.patch (1.2) (+0 -0;)
+	
+	Remove non-working patches.
+	
+2004-02-03   dok	04:35:23	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	fusion-full-linux-2.4.22.patch (1.4) (+427 -612;)
+	
+	Special version without semaphores for testing.
+	
+2004-01-30   dok	15:13:14	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	ChangeLog (1.3) (+175 -0;)
+		fusion-full-linux-2.4.22.patch (1.3) (+705 -459;)
+	
+	Updated patch and changelog.
+	
+2004-01-07   dok	11:41:02	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.5) (+1 -2;)
 	
 	Fixed version check for "make install".
 	
-2003-12-16   dok	06:05	Denis Oliver Kropp <dok@directfb.org>
+2003-12-16   dok	06:05:41	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.33) (+18 -0)
-		linux/drivers/char/fusion/skirmish.h (1.5) (+4 -1)
-		linux/drivers/char/fusion/skirmish.c (1.14) (+26 -0)
+	Files:	linux/drivers/char/fusion/skirmish.c (1.14) (+26 -0;)
+		linux/drivers/char/fusion/skirmish.h (1.5) (+4 -1;)
 	
 	Automatically dismiss skirmishs upon death of a single thread.
 	Previously only the death of all threads (of one fusionee) did that.
 	
 	This means that killing or canceling a thread releases its held locks now.
 	
-2003-12-15   dok	17:11	Denis Oliver Kropp <dok@directfb.org>
+2003-12-16   dok	06:05:40	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	Makefile (1.4) (+19 -4)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.33) (+18 -0;)
+	
+	Automatically dismiss skirmishs upon death of a single thread.
+	Previously only the death of all threads (of one fusionee) did that.
+	
+	This means that killing or canceling a thread releases its held locks now.
+	
+2003-12-15   dok	17:11:48	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.4) (+19 -4;)
 		linux/drivers/char/fusion/Makefile-2.6 (1.1) ( )
-		linux/drivers/char/fusion/Makefile-2.5 (1.2) (+0 -0)
+		linux/drivers/char/fusion/Makefile-2.5 (1.2) (+0 -0;)
 		linux/drivers/char/fusion/Makefile-2.4 (1.1) ( )
-		linux/drivers/char/fusion/Makefile (1.6) (+0 -0)
-		linux/drivers/char/fusion/.cvsignore (1.2) (+3 -0)
-		README (1.5) (+5 -19)
+		linux/drivers/char/fusion/Makefile (1.6) (+0 -0;)
+		linux/drivers/char/fusion/.cvsignore (1.2) (+3 -0;)
+		README (1.5) (+5 -19;)
 	
 	'make' and 'make install' works with 2.4 and 2.6 now.
 	
-2003-12-12   dok	18:46	Denis Oliver Kropp <dok@directfb.org>
+2003-12-12   dok	18:46:10	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/call.c (1.8) (+77 -53)
-		linux/drivers/char/fusion/skirmish.c (1.13) (+80 -51)
-		linux/drivers/char/fusion/ref.c (1.17) (+107 -72)
-		linux/drivers/char/fusion/reactor.c (1.10) (+89 -60)
-		linux/drivers/char/fusion/property.c (1.16) (+87 -55)
-		linux/drivers/char/fusion/fusionee.c (1.25) (+93 -61)
-		linux/drivers/char/fusion/fusiondev.h (1.7) (+34 -34)
-		linux/drivers/char/fusion/fusiondev.c (1.32) (+18 -14)
+	Files:	linux/drivers/char/fusion/call.c (1.8) (+77 -53;)
+		linux/drivers/char/fusion/skirmish.c (1.13) (+80 -51;)
+		linux/drivers/char/fusion/ref.c (1.17) (+107 -72;)
+		linux/drivers/char/fusion/reactor.c (1.10) (+89 -60;)
+		linux/drivers/char/fusion/property.c (1.16) (+87 -55;)
+		linux/drivers/char/fusion/fusionee.c (1.25) (+93 -61;)
+		linux/drivers/char/fusion/fusiondev.h (1.7) (+34 -34;)
+		linux/drivers/char/fusion/fusiondev.c (1.32) (+18 -14;)
 	
 	Use semaphores instead of spinlocks.
 	
-2003-12-04   dok	12:55	Denis Oliver Kropp <dok@directfb.org>
+2003-12-04   dok	12:55:49	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/property.c (1.15) (+17 -6)
+	Files:	linux/drivers/char/fusion/property.c (1.15) (+17 -6;)
 	
 	Show the owner of a property in /proc.
 	
-2003-10-29   dok	12:11	Denis Oliver Kropp <dok@directfb.org>
+2003-10-29   dok	12:11:05	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.31) (+30 -27)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.31) (+30 -27;)
 	
 	Corrected locks for 2.6.0-test9. Also use non-irq versions now in both version.
 	
 	iminor() fix by Johannes Stezenbach <js@convergence.de>.
 	
-2003-10-24   dok	09:50	Denis Oliver Kropp <dok@directfb.org>
+2003-10-24   dok	09:50:48	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusionee.c (1.24) (+1 -1)
+	Files:	linux/drivers/char/fusion/fusionee.c (1.24) (+1 -1;)
 	
 	More padding in /proc/fusion/*/fusionees.
 	
-2003-10-22   dok	17:21	Denis Oliver Kropp <dok@directfb.org>
+2003-10-22   dok	17:21:12	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	Makefile (1.3) (+1 -1)
+	Files:	Makefile (1.3) (+1 -1;)
 	
 	Prepend local include directory.
 	
-2003-10-17   dok	05:34	Denis Oliver Kropp <dok@directfb.org>
+2003-10-17   dok	05:34:21	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.21.patch (1.7) (+104 -108)
-		fusion-full-linux-2.6.0-test7.patch (1.2) (+104 -108)
-		fusion-full-linux-2.4.22.patch (1.2) (+104 -108)
+	Files:	fusion-full-linux-2.4.21.patch (1.7) (+104 -108;)
+		fusion-full-linux-2.6.0-test7.patch (1.2) (+104 -108;)
+		fusion-full-linux-2.4.22.patch (1.2) (+104 -108;)
 	
 	Updated patches.
 	
-2003-10-17   dok	05:14	Denis Oliver Kropp <dok@directfb.org>
+2003-10-17   dok	05:14:33	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.30) (+44 -48)
-		linux/include/linux/fusion.h (1.10) (+39 -39)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.30) (+44 -48;)
+		linux/include/linux/fusion.h (1.10) (+39 -39;)
 	
 	Removed "sizeof" from ioctl definitions.
 	Use "MINOR" instead of "minor".
@@ -85,35 +715,34 @@
 	Made ioctl numbers sequential.
 	Use "switch(_IOC_NR(cmd))" to help gcc optimizing.
 	
-2003-10-14   dok	07:52	Denis Oliver Kropp <dok@directfb.org>
+2003-10-14   dok	07:52:01	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.6.0-test1.patch (1.3) (+0 -0)
+	Files:	fusion-full-linux-2.6.0-test1.patch (1.3) (+0 -0;)
 		fusion-part-linux-2.6.0-test7.patch (1.1) ( )
-		fusion-part-linux-2.6.0-test1.patch (1.2) (+0 -0)
+		fusion-part-linux-2.6.0-test1.patch (1.2) (+0 -0;)
 		fusion-full-linux-2.6.0-test7.patch (1.1) ( )
 	
 	Updated patches for 2.6, too.
 	
-2003-10-14   dok	07:41	Denis Oliver Kropp <dok@directfb.org>
+2003-10-14   dok	07:41:51	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	README (1.4) (+11 -10)
+	Files:	README (1.4) (+11 -10;)
 		fusion-part-linux-2.4.22.patch (1.1) ( )
-		fusion-part-linux-2.4.21.patch (1.2) (+2 -2)
-		fusion-part-linux-2.4.20.patch (1.3) (+0 -0)
+		fusion-part-linux-2.4.21.patch (1.2) (+2 -2;)
+		fusion-part-linux-2.4.20.patch (1.3) (+0 -0;)
 		fusion-full-linux-2.4.22.patch (1.1) ( )
-		fusion-full-linux-2.4.21.patch (1.6) (+196 -40)
-		fusion-full-linux-2.4.20.patch (1.15) (+0 -0)
+		fusion-full-linux-2.4.21.patch (1.6) (+196 -40;)
+		fusion-full-linux-2.4.20.patch (1.15) (+0 -0;)
 	
 	Updated patches, 2.6 will follow.
 	
-2003-10-14   dok	07:15	Denis Oliver Kropp <dok@directfb.org>
+2003-10-14   dok	07:15:04	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.29) (+50 -0)
-		linux/drivers/char/fusion/skirmish.c (1.12) (+6 -0)
-		linux/drivers/char/fusion/ref.c (1.16) (+4 -0)
-		linux/drivers/char/fusion/reactor.c (1.9) (+4 -0)
-		linux/drivers/char/fusion/property.c (1.14) (+8 -2)
-		linux/drivers/char/fusion/fusiondev.h (1.6) (+14 -0)
+	Files:	linux/drivers/char/fusion/fusiondev.h (1.6) (+14 -0;)
+		linux/drivers/char/fusion/skirmish.c (1.12) (+6 -0;)
+		linux/drivers/char/fusion/ref.c (1.16) (+4 -0;)
+		linux/drivers/char/fusion/reactor.c (1.9) (+4 -0;)
+		linux/drivers/char/fusion/property.c (1.14) (+8 -2;)
 	
 	Added "/proc/fusion/*/stat":
 	
@@ -122,79 +751,90 @@
 	
 	These are total number of calls.
 	
-2003-10-04   dok	15:39	Denis Oliver Kropp <dok@directfb.org>
+2003-10-14   dok	07:15:03	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.28) (+14 -0)
-		linux/drivers/char/fusion/fusionee.c (1.23) (+21 -7)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.29) (+50 -0;)
+	
+	Added "/proc/fusion/*/stat":
+	
+	'lease/purchase   cede      attach     detach      ref up   ref down  prevail/swoop dismiss'
+	'    139068     139068         969        841        1315       1161      186576     186296'
+	
+	These are total number of calls.
+	
+2003-10-04   dok	15:39:42	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.28) (+14 -0;)
+		linux/drivers/char/fusion/fusionee.c (1.23) (+21 -7;)
 	
 	Fixed dead lock for SMP enabled kernels. I thought spinlocks were recursive.
 	
-2003-07-25   dok	12:46	Denis Oliver Kropp <dok@directfb.org>
+2003-07-25   dok	12:46:10	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.5.71.patch (1.6) (+0 -0)
-		fusion-part-linux-2.5.71.patch (1.2) (+0 -0)
+	Files:	fusion-full-linux-2.5.71.patch (1.6) (+0 -0;)
+		fusion-part-linux-2.5.71.patch (1.2) (+0 -0;)
 	
 	Remove old and broken patches.
 	
-2003-07-24   andi	11:42	Andreas Hundt <andi@fischlustig.de>
+2003-07-24   andi	11:42:43	Andreas Hundt <andi@fischlustig.de>
 
-	Files:	fusion-full-linux-2.6.0-test1.patch (1.2) (+4 -4)
+	Files:	fusion-full-linux-2.6.0-test1.patch (1.2) (+4 -4;)
 	
 	updated patch
 	
-2003-07-24   andi	11:38	Andreas Hundt <andi@fischlustig.de>
+2003-07-24   andi	11:38:44	Andreas Hundt <andi@fischlustig.de>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.27) (+4 -4)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.27) (+4 -4;)
 	
 	fix oops during initialization on 2.6.0-test1
 	
-2003-07-24   andi	01:12	Andreas Hundt <andi@fischlustig.de>
+2003-07-24   andi	01:12:58	Andreas Hundt <andi@fischlustig.de>
 
 	Files:	fusion-full-linux-2.6.0-test1.patch (1.1) ( )
 		fusion-part-linux-2.6.0-test1.patch (1.1) ( )
 	
 	build patches for 2.6.0-test1
 	
-2003-07-24   andi	00:13	Andreas Hundt <andi@fischlustig.de>
+2003-07-24   andi	00:13:33	Andreas Hundt <andi@fischlustig.de>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.26) (+1 -1)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.26) (+1 -1;)
 	
 	fix typo ;-)
 	
-2003-07-24   andi	00:10	Andreas Hundt <andi@fischlustig.de>
+2003-07-24   andi	00:10:17	Andreas Hundt <andi@fischlustig.de>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.25) (+44 -0)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.25) (+44 -0;)
 	
 	support for linux-2.6-test1 (new internal devfs api) should now work with 2.4, 2.5 and 2.6
 	
-2003-07-21   dok	13:05	Denis Oliver Kropp <dok@directfb.org>
+2003-07-21   dok	13:05:31	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	ChangeLog (1.2) (+456 -36)
+	Files:	ChangeLog (1.2) (+456 -36;)
 	
 	New ChangeLog.
 	
-2003-07-10   dok	06:57	Denis Oliver Kropp <dok@directfb.org>
+2003-07-10   dok	06:57:38	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	doc/fusion.dvi (1.3) (+24 -20)
-		doc/fusion.texi (1.3) (+47 -6)
-		doc/fusion.ps (1.3) (+593 -452)
+	Files:	doc/fusion.dvi (1.3) (+24 -20;)
+		doc/fusion.texi (1.3) (+47 -6;)
+		doc/fusion.ps (1.3) (+593 -452;)
 		doc/fusion.pdf (1.1) ( )
 	
 	Improved documentation, wrote about shared memory and arenas.
 	
-2003-07-09   dok	23:31	Denis Oliver Kropp <dok@directfb.org>
+2003-07-09   dok	23:31:28	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.20.patch (1.14) (+268 -136)
-		tests/calls.c (1.3) (+10 -4)
-		linux/include/linux/fusion.h (1.9) (+57 -36)
-		linux/drivers/char/fusion/ref.h (1.8) (+32 -27)
-		linux/drivers/char/fusion/ref.c (1.15) (+71 -6)
-		linux/drivers/char/fusion/fusionee.c (1.22) (+15 -9)
-		linux/drivers/char/fusion/fusiondev.c (1.24) (+8 -0)
-		linux/drivers/char/fusion/call.h (1.3) (+2 -1)
-		linux/drivers/char/fusion/call.c (1.7) (+47 -27)
-		fusion-full-linux-2.5.71.patch (1.5) (+268 -136)
-		fusion-full-linux-2.4.21.patch (1.5) (+268 -136)
+	Files:	fusion-full-linux-2.4.20.patch (1.14) (+268 -136;)
+		tests/calls.c (1.3) (+10 -4;)
+		linux/include/linux/fusion.h (1.9) (+57 -36;)
+		linux/drivers/char/fusion/ref.h (1.8) (+32 -27;)
+		linux/drivers/char/fusion/ref.c (1.15) (+71 -6;)
+		linux/drivers/char/fusion/fusionee.c (1.22) (+15 -9;)
+		linux/drivers/char/fusion/fusiondev.c (1.24) (+8 -0;)
+		linux/drivers/char/fusion/call.h (1.3) (+2 -1;)
+		linux/drivers/char/fusion/call.c (1.7) (+47 -27;)
+		fusion-full-linux-2.5.71.patch (1.5) (+268 -136;)
+		fusion-full-linux-2.4.21.patch (1.5) (+268 -136;)
 	
 	Added FUSION_REF_WATCH which can be used to install a reference watcher with
 	an optional argument that will be passed to it.
@@ -205,99 +845,99 @@
 	
 	This is a much better way than polling all references regularly.
 	
-2003-07-08   dok	13:47	Denis Oliver Kropp <dok@directfb.org>
+2003-07-08   dok	13:47:48	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.20.patch (1.13) (+6 -12)
-		fusion-full-linux-2.5.71.patch (1.4) (+1 -1)
-		fusion-full-linux-2.4.21.patch (1.4) (+1 -1)
+	Files:	fusion-full-linux-2.4.20.patch (1.13) (+6 -12;)
+		fusion-full-linux-2.5.71.patch (1.4) (+1 -1;)
+		fusion-full-linux-2.4.21.patch (1.4) (+1 -1;)
 	
 	This time right.
 	
-2003-07-08   dok	13:42	Denis Oliver Kropp <dok@directfb.org>
+2003-07-08   dok	13:42:16	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/call.c (1.6) (+1 -1)
+	Files:	linux/drivers/char/fusion/call.c (1.6) (+1 -1;)
 	
 	Forgot to convert a FusionCallHandler to void*.
 	
-2003-07-08   mm	11:48	Martin Mueller <mm@convergence.de>
+2003-07-08   mm	11:48:25	Martin Mueller <mm@convergence.de>
 
-	Files:	fusion-full-linux-2.4.20.patch (1.12) (+11 -5)
+	Files:	fusion-full-linux-2.4.20.patch (1.12) (+11 -5;)
 	
 	- revert dok's 1.10 -> 1.11 patch to make the build-sys work again
 	
-2003-07-07   dok	18:03	Denis Oliver Kropp <dok@directfb.org>
+2003-07-07   dok	18:03:31	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.20.patch (1.11) (+5 -11)
-		linux/include/linux/fusion.h (1.8) (+2 -8)
-		fusion-full-linux-2.5.71.patch (1.3) (+5 -11)
-		fusion-full-linux-2.4.21.patch (1.3) (+5 -11)
+	Files:	fusion-full-linux-2.4.20.patch (1.11) (+5 -11;)
+		linux/include/linux/fusion.h (1.8) (+2 -8;)
+		fusion-full-linux-2.5.71.patch (1.3) (+5 -11;)
+		fusion-full-linux-2.4.21.patch (1.3) (+5 -11;)
 	
 	Removed call handler type definition.
 	
-2003-06-30   dok	16:46	Denis Oliver Kropp <dok@directfb.org>
+2003-06-30   dok	16:46:00	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.20.patch (1.10) (+3 -3)
-		fusion-full-linux-2.5.71.patch (1.2) (+3 -3)
-		fusion-full-linux-2.4.21.patch (1.2) (+3 -3)
+	Files:	fusion-full-linux-2.4.20.patch (1.10) (+3 -3;)
+		fusion-full-linux-2.5.71.patch (1.2) (+3 -3;)
+		fusion-full-linux-2.4.21.patch (1.2) (+3 -3;)
 	
 	Fixed patches, didn't compile with SMP or preemption.
 	
-2003-06-30   dok	16:41	Denis Oliver Kropp <dok@directfb.org>
+2003-06-30   dok	16:41:12	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusionee.c (1.21) (+3 -3)
+	Files:	linux/drivers/char/fusion/fusionee.c (1.21) (+3 -3;)
 	
 	Fixed undeclared fusionees_lock, which didn't cause an error if spinlocks
 	are not used.
 	
-2003-06-24   dok	16:03	Denis Oliver Kropp <dok@directfb.org>
+2003-06-24   dok	16:03:43	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/skirmish.c (1.11) (+9 -3)
+	Files:	linux/drivers/char/fusion/skirmish.c (1.11) (+9 -3;)
 	
 	Show lock-holder (pid and fid) in /proc/fusion.
 	
-2003-06-17   dok	12:38	Denis Oliver Kropp <dok@directfb.org>
+2003-06-17   dok	12:38:40	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	tests/.cvsignore (1.4) (+1 -0)
+	Files:	tests/.cvsignore (1.4) (+1 -0;)
 		tests/throughput_pipe.c (1.1) ( )
-		tests/Makefile (1.2) (+2 -2)
+		tests/Makefile (1.2) (+2 -2;)
 	
 	Added version of throughput that uses a pipe.
 	
-2003-06-16   dok	17:47	Denis Oliver Kropp <dok@directfb.org>
+2003-06-16   dok	17:47:03	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	README (1.3) (+31 -9)
-		tests/throughput.c (1.5) (+1 -1)
-		tests/latency.c (1.2) (+1 -1)
-		tests/calls.c (1.2) (+1 -1)
-		linux/drivers/char/fusion/skirmish.h (1.4) (+23 -10)
-		linux/drivers/char/fusion/skirmish.c (1.10) (+185 -212)
-		linux/drivers/char/fusion/ref.h (1.7) (+35 -13)
-		linux/drivers/char/fusion/ref.c (1.14) (+272 -308)
-		linux/drivers/char/fusion/reactor.h (1.4) (+25 -11)
-		linux/drivers/char/fusion/reactor.c (1.8) (+193 -221)
-		linux/drivers/char/fusion/property.h (1.5) (+27 -11)
-		linux/drivers/char/fusion/property.c (1.13) (+244 -275)
-		linux/drivers/char/fusion/list.h (1.5) (+3 -6)
-		linux/drivers/char/fusion/list.c (1.4) (+10 -10)
-		linux/drivers/char/fusion/fusionee.h (1.10) (+33 -14)
-		linux/drivers/char/fusion/fusionee.c (1.20) (+292 -331)
-		linux/drivers/char/fusion/fusiondev.h (1.5) (+48 -5)
-		linux/drivers/char/fusion/fusiondev.c (1.23) (+425 -342)
-		linux/drivers/char/fusion/fifo.h (1.3) (+4 -6)
-		linux/drivers/char/fusion/fifo.c (1.3) (+19 -19)
-		linux/drivers/char/fusion/call.h (1.2) (+21 -9)
-		linux/drivers/char/fusion/call.c (1.5) (+234 -259)
+	Files:	README (1.3) (+31 -9;)
+		tests/throughput.c (1.5) (+1 -1;)
+		tests/latency.c (1.2) (+1 -1;)
+		tests/calls.c (1.2) (+1 -1;)
+		linux/drivers/char/fusion/skirmish.h (1.4) (+23 -10;)
+		linux/drivers/char/fusion/skirmish.c (1.10) (+185 -212;)
+		linux/drivers/char/fusion/ref.h (1.7) (+35 -13;)
+		linux/drivers/char/fusion/ref.c (1.14) (+272 -308;)
+		linux/drivers/char/fusion/reactor.h (1.4) (+25 -11;)
+		linux/drivers/char/fusion/reactor.c (1.8) (+193 -221;)
+		linux/drivers/char/fusion/property.h (1.5) (+27 -11;)
+		linux/drivers/char/fusion/property.c (1.13) (+244 -275;)
+		linux/drivers/char/fusion/list.h (1.5) (+3 -6;)
+		linux/drivers/char/fusion/list.c (1.4) (+10 -10;)
+		linux/drivers/char/fusion/fusionee.h (1.10) (+33 -14;)
+		linux/drivers/char/fusion/fusionee.c (1.20) (+292 -331;)
+		linux/drivers/char/fusion/fusiondev.h (1.5) (+48 -5;)
+		linux/drivers/char/fusion/fusiondev.c (1.23) (+425 -342;)
+		linux/drivers/char/fusion/fifo.h (1.3) (+4 -6;)
+		linux/drivers/char/fusion/fifo.c (1.3) (+19 -19;)
+		linux/drivers/char/fusion/call.h (1.2) (+21 -9;)
+		linux/drivers/char/fusion/call.c (1.5) (+234 -259;)
 		fusion-part-linux-2.5.71.patch (1.1) ( )
-		fusion-part-linux-2.5.66.patch (1.2) (+0 -0)
+		fusion-part-linux-2.5.66.patch (1.2) (+0 -0;)
 		fusion-part-linux-2.4.21.patch (1.1) ( )
-		fusion-part-linux-2.4.21-pre7.patch (1.2) (+0 -0)
-		fusion-part-linux-2.4.20.patch (1.2) (+0 -11)
+		fusion-part-linux-2.4.21-pre7.patch (1.2) (+0 -0;)
+		fusion-part-linux-2.4.20.patch (1.2) (+0 -11;)
 		fusion-full-linux-2.5.71.patch (1.1) ( )
-		fusion-full-linux-2.5.66.patch (1.4) (+0 -0)
+		fusion-full-linux-2.5.66.patch (1.4) (+0 -0;)
 		fusion-full-linux-2.4.21.patch (1.1) ( )
-		fusion-full-linux-2.4.21-pre7.patch (1.4) (+0 -0)
-		fusion-full-linux-2.4.20.patch (1.9) (+2103 -1986)
-		fusion-full-linux-2.4.16.patch (1.15) (+0 -0)
+		fusion-full-linux-2.4.21-pre7.patch (1.4) (+0 -0;)
+		fusion-full-linux-2.4.20.patch (1.9) (+2103 -1986;)
+		fusion-full-linux-2.4.16.patch (1.15) (+0 -0;)
 	
 	Added support for multiple Fusion "worlds" via device minor.
 	
@@ -311,20 +951,19 @@
 	
 	Updated all patches.
 	
-2003-06-07   dok	01:30	Denis Oliver Kropp <dok@directfb.org>
+2003-06-07   dok	01:30:49	Denis Oliver Kropp <dok@directfb.org>
 
 	Files:	linux/drivers/char/fusion/Makefile-2.5 (1.1) ( )
 	
 	Added Makefile for 2.5 kernels to the repository.
 	
-2003-06-05   dok	14:32	Denis Oliver Kropp <dok@directfb.org>
+2003-06-05   dok	14:32:09	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/call.c (1.4) (+7 -6)
-		linux/drivers/char/fusion/skirmish.c (1.9) (+3 -1)
-		linux/drivers/char/fusion/ref.c (1.13) (+4 -2)
-		linux/drivers/char/fusion/reactor.c (1.7) (+4 -2)
-		linux/drivers/char/fusion/property.c (1.12) (+3 -1)
-		linux/drivers/char/fusion/fusionee.c (1.19) (+4 -2)
+	Files:	linux/drivers/char/fusion/fusionee.c (1.19) (+4 -2;)
+		linux/drivers/char/fusion/skirmish.c (1.9) (+3 -1;)
+		linux/drivers/char/fusion/ref.c (1.13) (+4 -2;)
+		linux/drivers/char/fusion/reactor.c (1.7) (+4 -2;)
+		linux/drivers/char/fusion/property.c (1.12) (+3 -1;)
 	
 	Fixed Fusion for 2.5 kernels! No more tons of kernel debug messages,
 	not even a single note about a process exitting with an active preempt counter.
@@ -340,35 +979,58 @@
 	Unfortunately these are always required for preemptible kernels because
 	spin_lock/unlock() increase/decrease the preempt counter.
 	
-2003-06-04   dok	18:58	Denis Oliver Kropp <dok@directfb.org>
+2003-06-05   dok	14:32:08	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.22) (+10 -0)
-		linux/include/linux/fusion.h (1.7) (+12 -2)
-		linux/drivers/char/fusion/property.c (1.11) (+1 -1)
-		linux/drivers/char/fusion/fusionee.h (1.9) (+1 -1)
-		linux/drivers/char/fusion/fusionee.c (1.18) (+61 -10)
+	Files:	linux/drivers/char/fusion/call.c (1.4) (+7 -6;)
+	
+	Fixed Fusion for 2.5 kernels! No more tons of kernel debug messages,
+	not even a single note about a process exitting with an active preempt counter.
+	
+	1)
+	Call kmalloc() with GFP_ATOMIC instead of GFP_KERNEL which isn't allowed while a
+	spinlock is held. I'm not sure if we should use GFP_ATOMIC including __GFP_HIGH,
+	but it's the only GFP_* which doesn't include the offending __GFP_WAIT.
+	
+	2)
+	Added missing spin_unlock() calls. I didn't forget them but dropped the
+	unlock in case the spinlock is thrown away and never locked again anyways.
+	Unfortunately these are always required for preemptible kernels because
+	spin_lock/unlock() increase/decrease the preempt counter.
+	
+2003-06-04   dok	18:58:10	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.22) (+10 -0;)
+		linux/include/linux/fusion.h (1.7) (+12 -2;)
+		linux/drivers/char/fusion/property.c (1.11) (+1 -1;)
+		linux/drivers/char/fusion/fusionee.h (1.9) (+1 -1;)
+		linux/drivers/char/fusion/fusionee.c (1.18) (+61 -10;)
 	
 	Added new ioctl FUSION_KILL which sends a signal to one or more fusionees
 	with an optional timeout for waiting for their termination.
 	
-2003-06-02   dok	17:11	Denis Oliver Kropp <dok@directfb.org>
+2003-06-02   dok	17:11:33	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.14) (+150 -58)
-		fusion-full-linux-2.5.66.patch (1.3) (+136 -59)
-		fusion-full-linux-2.4.21-pre7.patch (1.3) (+150 -58)
-		fusion-full-linux-2.4.20.patch (1.8) (+150 -58)
+	Files:	fusion-full-linux-2.4.20.patch (1.8) (+150 -58;)
+		fusion-full-linux-2.5.66.patch (1.3) (+136 -59;)
+		fusion-full-linux-2.4.21-pre7.patch (1.3) (+150 -58;)
 	
 	Updated patches, include recent improvements and fixes.
 	
-2003-06-01   dok	21:02	Denis Oliver Kropp <dok@directfb.org>
+2003-06-02   dok	17:11:32	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	doc/fusion.dvi (1.2) (+22 -5)
-		doc/fusion.texi (1.2) (+26 -1)
-		doc/fusion.ps (1.2) (+760 -660)
+	Files:	fusion-full-linux-2.4.16.patch (1.14) (+150 -58;)
+	
+	Updated patches, include recent improvements and fixes.
+	
+2003-06-01   dok	21:02:08	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	doc/fusion.dvi (1.2) (+22 -5;)
+		doc/fusion.texi (1.2) (+26 -1;)
+		doc/fusion.ps (1.2) (+760 -660;)
 	
 	Extended TOC.
 	
-2003-06-01   dok	19:51	Denis Oliver Kropp <dok@directfb.org>
+2003-06-01   dok	19:51:31	Denis Oliver Kropp <dok@directfb.org>
 
 	Files:	doc/.cvsignore (1.1) ( )
 		doc/fusion.texi (1.1) ( )
@@ -378,29 +1040,29 @@
 	
 	Initial version of conceptual documentation.
 	
-2003-05-13   dok	13:17	Denis Oliver Kropp <dok@directfb.org>
+2003-05-13   dok	13:17:16	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/property.c (1.10) (+6 -0)
+	Files:	linux/drivers/char/fusion/property.c (1.10) (+6 -0;)
 	
 	Do yield() in fusion_property_cede() if property was purchased.
 	
-2003-05-12   dok	17:13	Denis Oliver Kropp <dok@directfb.org>
+2003-05-12   dok	17:13:36	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.21) (+3 -3)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.21) (+3 -3;)
 	
 	Fixed missing arguments.
 	
-2003-05-12   dok	17:08	Denis Oliver Kropp <dok@directfb.org>
+2003-05-12   dok	17:08:54	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/ref.c (1.12) (+26 -12)
-		linux/drivers/char/fusion/ref.h (1.6) (+3 -3)
+	Files:	linux/drivers/char/fusion/ref.c (1.12) (+26 -12;)
+		linux/drivers/char/fusion/ref.h (1.6) (+3 -3;)
 	
 	Unlock all refs locked by a process during its death.
 	Added error checking (lock owner verification) to ref locking.
 	
-2003-05-12   dok	16:48	Denis Oliver Kropp <dok@directfb.org>
+2003-05-12   dok	16:48:18	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/property.c (1.9) (+2 -2)
+	Files:	linux/drivers/char/fusion/property.c (1.9) (+2 -2;)
 	
 	Increased the purchase timeout to one second. Don't wait if property is
 	purchased for more than one second.
@@ -408,24 +1070,24 @@
 	Timeout of leasing stays at 0.1 sec, not waiting at all if property is
 	purchased for more than 0.1 sec.
 	
-2003-05-08   dok	18:52	Denis Oliver Kropp <dok@directfb.org>
+2003-05-08   dok	18:52:35	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.20) (+5 -5)
-		linux/drivers/char/fusion/property.c (1.8) (+45 -21)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.20) (+5 -5;)
+		linux/drivers/char/fusion/property.c (1.8) (+45 -21;)
 	
 	Don't do a lease/purchase with timeout if property has been purchased more
 	than 100 ms ago. Otherwise timeout after another 100 ms. Better suitable
 	for long time purchasing which fullscreen apps do.
 	
-2003-05-08   dok	17:58	Denis Oliver Kropp <dok@directfb.org>
+2003-05-08   dok	17:58:47	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/call.c (1.3) (+2 -1)
-		linux/drivers/char/fusion/skirmish.c (1.8) (+1 -1)
-		linux/drivers/char/fusion/ref.c (1.11) (+1 -1)
-		linux/drivers/char/fusion/property.c (1.7) (+30 -6)
-		linux/drivers/char/fusion/fusionee.c (1.17) (+1 -1)
-		linux/drivers/char/fusion/fusiondev.h (1.4) (+3 -1)
-		linux/drivers/char/fusion/fusiondev.c (1.19) (+9 -3)
+	Files:	linux/drivers/char/fusion/call.c (1.3) (+2 -1;)
+		linux/drivers/char/fusion/skirmish.c (1.8) (+1 -1;)
+		linux/drivers/char/fusion/ref.c (1.11) (+1 -1;)
+		linux/drivers/char/fusion/property.c (1.7) (+30 -6;)
+		linux/drivers/char/fusion/fusionee.c (1.17) (+1 -1;)
+		linux/drivers/char/fusion/fusiondev.h (1.4) (+3 -1;)
+		linux/drivers/char/fusion/fusiondev.c (1.19) (+9 -3;)
 	
 	Added timeout option to fusion_sleep_on() that is used by properties.
 	Leasing/purchasing doesn't fail immediately now if a property is purchased.
@@ -440,61 +1102,61 @@
 	Running OpenGL with ~150 fps while scrolling in an IDE which is half transp.
 	above runs quite smooth.
 	
-2003-04-15   dok	11:22	Denis Oliver Kropp <dok@directfb.org>
+2003-04-15   dok	11:22:15	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	tests/throughput.c (1.4) (+4 -4)
+	Files:	tests/throughput.c (1.4) (+4 -4;)
 	
 	Fixed typo.
 	
-2003-04-15   dok	09:10	Denis Oliver Kropp <dok@directfb.org>
+2003-04-15   dok	09:10:03	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	TODO (1.3) (+6 -1)
+	Files:	TODO (1.3) (+6 -1;)
 	
 	Some more items.
 	
-2003-04-11   dok	11:18	Denis Oliver Kropp <dok@directfb.org>
+2003-04-11   dok	11:18:43	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.5.66.patch (1.2) (+121 -82)
+	Files:	fusion-full-linux-2.5.66.patch (1.2) (+121 -82;)
 	
 	Updated patch.
 	
-2003-04-08   andi	10:00	Andreas Hundt <andi@fischlustig.de>
+2003-04-08   andi	10:00:39	Andreas Hundt <andi@fischlustig.de>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.18) (+1 -0)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.18) (+1 -0;)
 	
 	forgot to include <linux/version.h>
 	
-2003-04-08   andi	09:39	Andreas Hundt <andi@fischlustig.de>
+2003-04-08   andi	09:39:23	Andreas Hundt <andi@fischlustig.de>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.17) (+14 -0)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.17) (+14 -0;)
 	
 	fix compilation for 2.5.xx
 	
-2003-04-07   dok	13:10	Denis Oliver Kropp <dok@directfb.org>
+2003-04-07   dok	13:10:03	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.13) (+100 -76)
-		fusion-full-linux-2.4.21-pre7.patch (1.2) (+100 -76)
-		fusion-full-linux-2.4.20.patch (1.7) (+100 -76)
+	Files:	fusion-full-linux-2.4.16.patch (1.13) (+100 -76;)
+		fusion-full-linux-2.4.21-pre7.patch (1.2) (+100 -76;)
+		fusion-full-linux-2.4.20.patch (1.7) (+100 -76;)
 	
 	Updated 2.4 patches.
 	
-2003-04-07   dok	12:10	Denis Oliver Kropp <dok@directfb.org>
+2003-04-07   dok	12:10:59	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	tests/.cvsignore (1.3) (+1 -0)
+	Files:	tests/.cvsignore (1.3) (+1 -0;)
 		tests/calls.c (1.1) ( )
 		tests/Makefile (1.1) ( )
 	
 	Added an RPC benchmark and a Makefile.
 	
-2003-04-07   dok	12:04	Denis Oliver Kropp <dok@directfb.org>
+2003-04-07   dok	12:04:20	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/call.c (1.2) (+1 -3)
-		linux/drivers/char/fusion/skirmish.c (1.7) (+1 -3)
-		linux/drivers/char/fusion/ref.c (1.10) (+1 -3)
-		linux/drivers/char/fusion/property.c (1.6) (+2 -6)
-		linux/drivers/char/fusion/fusionee.c (1.16) (+7 -4)
-		linux/drivers/char/fusion/fusiondev.h (1.3) (+6 -0)
-		linux/drivers/char/fusion/fusiondev.c (1.16) (+25 -0)
+	Files:	linux/drivers/char/fusion/call.c (1.2) (+1 -3;)
+		linux/drivers/char/fusion/skirmish.c (1.7) (+1 -3;)
+		linux/drivers/char/fusion/ref.c (1.10) (+1 -3;)
+		linux/drivers/char/fusion/property.c (1.6) (+2 -6;)
+		linux/drivers/char/fusion/fusionee.c (1.16) (+7 -4;)
+		linux/drivers/char/fusion/fusiondev.h (1.3) (+6 -0;)
+		linux/drivers/char/fusion/fusiondev.c (1.16) (+25 -0;)
 	
 	Added utility function fusion_sleep_on() which does the same as
 	interruptible_sleep_on() but takes an additional argument specifying
@@ -515,125 +1177,137 @@
 	
 	Forgot to call fusion_call_destroy_all() in fusionee_destroy().
 	
-2003-04-05   dok	02:45	Denis Oliver Kropp <dok@directfb.org>
+2003-04-05   dok	02:45:42	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.12) (+694 -77)
+	Files:	fusion-full-linux-2.4.16.patch (1.12) (+694 -77;)
 		fusion-part-linux-2.5.66.patch (1.1) ( )
-		fusion-part-linux-2.5.64.patch (1.2) (+0 -0)
+		fusion-part-linux-2.5.64.patch (1.2) (+0 -0;)
 		fusion-part-linux-2.4.21-pre7.patch (1.1) ( )
-		fusion-part-linux-2.4.21-pre3.patch (1.2) (+0 -0)
+		fusion-part-linux-2.4.21-pre3.patch (1.2) (+0 -0;)
 		fusion-full-linux-2.5.66.patch (1.1) ( )
-		fusion-full-linux-2.5.64.patch (1.2) (+0 -0)
+		fusion-full-linux-2.5.64.patch (1.2) (+0 -0;)
 		fusion-full-linux-2.4.21-pre7.patch (1.1) ( )
-		fusion-full-linux-2.4.21-pre3.patch (1.4) (+0 -0)
-		fusion-full-linux-2.4.20.patch (1.6) (+694 -77)
+		fusion-full-linux-2.4.21-pre3.patch (1.4) (+0 -0;)
+		fusion-full-linux-2.4.20.patch (1.6) (+694 -77;)
 	
 	Updated patches.
 	
-2003-04-05   dok	02:43	Denis Oliver Kropp <dok@directfb.org>
+2003-04-05   dok	02:43:00	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/include/linux/fusion.h (1.6) (+64 -5)
+	Files:	linux/include/linux/fusion.h (1.6) (+64 -5;)
 	
 	Added synchronous RPC mechanism (with return value).
 	
-2003-04-05   dok	02:42	Denis Oliver Kropp <dok@directfb.org>
+2003-04-05   dok	02:42:59	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/Makefile (1.5) (+1 -1)
-		linux/drivers/char/fusion/fusionee.c (1.15) (+3 -1)
-		linux/drivers/char/fusion/fusiondev.c (1.15) (+53 -1)
+	Files:	linux/drivers/char/fusion/Makefile (1.5) (+1 -1;)
+		linux/drivers/char/fusion/fusionee.c (1.15) (+3 -1;)
+		linux/drivers/char/fusion/fusiondev.c (1.15) (+53 -1;)
 		linux/drivers/char/fusion/call.h (1.1) ( )
 		linux/drivers/char/fusion/call.c (1.1) ( )
 	
 	Added synchronous RPC mechanism (with return value).
 	
-2003-03-17   andi	23:04	Andreas Hundt <andi@fischlustig.de>
+2003-03-17   andi	23:04:55	Andreas Hundt <andi@fischlustig.de>
 
-	Files:	fusion-full-linux-2.5.64.patch (1.1) ( )
-		fusion-part-linux-2.5.64.patch (1.1) ( )
+	Files:	fusion-part-linux-2.5.64.patch (1.1) ( )
 	
 	built patches for linux 2.5.64.
 	
 	it works somehow, but I get a kernel oops when applications using fusion quit. (even the latency.c application).
 	
-2003-03-03   dok	22:19	Denis Oliver Kropp <dok@directfb.org>
+2003-03-17   andi	23:04:54	Andreas Hundt <andi@fischlustig.de>
 
-	Files:	Makefile (1.2) (+1 -1)
+	Files:	fusion-full-linux-2.5.64.patch (1.1) ( )
+	
+	built patches for linux 2.5.64.
+	
+	it works somehow, but I get a kernel oops when applications using fusion quit. (even the latency.c application).
+	
+2003-03-03   dok	22:19:15	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.2) (+1 -1;)
 	
 	Remove copy of fusion.o during "mkae clean".
 	
-2003-03-03   dok	22:17	Denis Oliver Kropp <dok@directfb.org>
+2003-03-03   dok	22:17:42	Denis Oliver Kropp <dok@directfb.org>
 
 	Files:	Makefile (1.1) ( )
-		linux/drivers/char/fusion/fusiondev.c (1.14) (+4 -0)
+		linux/drivers/char/fusion/fusiondev.c (1.14) (+4 -0;)
 		linux/drivers/char/fusion/.cvsignore (1.1) ( )
 	
 	Added Makefile for compiling the fusion module outside the kernel tree.
 	Simply type "make" in the linux-fusion directory. You may need to adjust
 	the kernel path in the Makefile or use "make KERNEL_SOURCE=/foo".
 	
-2003-03-03   dok	16:18	Denis Oliver Kropp <dok@directfb.org>
+2003-03-03   dok	16:18:28	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusionee.c (1.14) (+0 -1)
+	Files:	linux/drivers/char/fusion/fusionee.c (1.14) (+0 -1;)
 	
 	Don't free already freed message data during fusionee_destroy().
 	
-2003-03-03   dok	15:23	Denis Oliver Kropp <dok@directfb.org>
+2003-03-03   dok	15:23:32	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusionee.c (1.13) (+2 -12)
+	Files:	linux/drivers/char/fusion/fusionee.c (1.13) (+2 -12;)
 	
 	Increased message throughput by about 15% by doing one kmalloc per message
 	(header/data) instead of two.
 	
-2003-02-28   dok	19:56	Denis Oliver Kropp <dok@directfb.org>
+2003-02-28   dok	19:56:03	Denis Oliver Kropp <dok@directfb.org>
 
 	Files:	ChangeLog (1.1) ( )
-		fusion-full-linux-2.4.21-pre3.patch (1.3) (+62 -48)
-		fusion-full-linux-2.4.20.patch (1.5) (+62 -48)
-		fusion-full-linux-2.4.16.patch (1.11) (+62 -48)
+		fusion-full-linux-2.4.21-pre3.patch (1.3) (+62 -48;)
+		fusion-full-linux-2.4.20.patch (1.5) (+62 -48;)
+		fusion-full-linux-2.4.16.patch (1.11) (+62 -48;)
 	
 	Updated patches, added ChangeLog.
 	
-2003-02-28   dok	19:45	Denis Oliver Kropp <dok@directfb.org>
+2003-02-28   dok	19:45:35	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.13) (+1 -1)
-		linux/drivers/char/fusion/reactor.c (1.6) (+1 -1)
-		linux/drivers/char/fusion/fusionee.h (1.8) (+1 -1)
-		linux/drivers/char/fusion/fusionee.c (1.12) (+20 -6)
+	Files:	linux/drivers/char/fusion/fusionee.c (1.12) (+20 -6;)
+		linux/drivers/char/fusion/reactor.c (1.6) (+1 -1;)
+		linux/drivers/char/fusion/fusionee.h (1.8) (+1 -1;)
 	
 	Ouput total messages sent and received.
 	
-2003-02-13   dok	19:14	Denis Oliver Kropp <dok@directfb.org>
+2003-02-28   dok	19:45:34	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusionee.c (1.11) (+13 -2)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.13) (+1 -1;)
+	
+	Ouput total messages sent and received.
+	
+2003-02-13   dok	19:14:15	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusionee.c (1.11) (+13 -2;)
 	
 	Output total number of messages received by each fusionee in /proc.
 	
-2003-02-04   dok	20:03	Denis Oliver Kropp <dok@directfb.org>
+2003-02-04   dok	20:03:14	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/reactor.c (1.5) (+4 -1)
+	Files:	linux/drivers/char/fusion/reactor.c (1.5) (+4 -1;)
 	
 	Plugged a very small mem leak.
 	
-2003-01-31   dok	17:48	Denis Oliver Kropp <dok@directfb.org>
+2003-01-31   dok	17:48:10	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	tests/throughput.c (1.3) (+11 -0)
+	Files:	tests/throughput.c (1.3) (+11 -0;)
 	
 	Added #if 0'ed code that gives the receiver thread realtime priority.
 	This results in 100% synchronized message dispatching and processing
 	independent of the nice value of the sender thread. Unfortunately it
 	limits the throughput at 280 thousand messages per second on my machine.
 	
-2003-01-31   dok	16:04	Denis Oliver Kropp <dok@directfb.org>
+2003-01-31   dok	16:04:45	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	tests/throughput.c (1.2) (+6 -1)
+	Files:	tests/throughput.c (1.2) (+6 -1;)
 	
 	Measure how many messages are dispatched synchronized.
 	I got 0% with nice 20 and 25% with nice -20. What if the
 	receiver has a higher priority?
 	
-2003-01-31   dok	15:33	Denis Oliver Kropp <dok@directfb.org>
+2003-01-31   dok	15:33:54	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	tests/.cvsignore (1.2) (+1 -0)
+	Files:	tests/.cvsignore (1.2) (+1 -0;)
 		tests/throughput.c (1.1) ( )
 	
 	Small program measuring the messages per second sent/received.
@@ -647,7 +1321,7 @@
 	I will add another test that measures the percentage of messages that got
 	received and processed "virtually during" the ioctl to send them.
 	
-2003-01-30   dok	22:24	Denis Oliver Kropp <dok@directfb.org>
+2003-01-30   dok	22:24:35	Denis Oliver Kropp <dok@directfb.org>
 
 	Files:	tests/.cvsignore (1.1) ( )
 		tests/latency.c (1.1) ( )
@@ -684,124 +1358,129 @@
 	I'm not sure if the preemptive kernel patch influences this latency,
 	but I guess the throughput would be affected.
 	
-2003-01-14   dok	15:21	Denis Oliver Kropp <dok@directfb.org>
+2003-01-14   dok	15:21:36	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.10) (+35 -27)
-		fusion-full-linux-2.4.21-pre3.patch (1.2) (+35 -27)
-		fusion-full-linux-2.4.20.patch (1.4) (+35 -27)
+	Files:	fusion-full-linux-2.4.20.patch (1.4) (+35 -27;)
+		fusion-full-linux-2.4.21-pre3.patch (1.2) (+35 -27;)
 	
 	Updated all patches.
 	
-2003-01-14   dok	15:09	Denis Oliver Kropp <dok@directfb.org>
+2003-01-14   dok	15:21:35	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusionee.c (1.10) (+1 -3)
-		linux/drivers/char/fusion/skirmish.c (1.6) (+3 -2)
-		linux/drivers/char/fusion/ref.c (1.9) (+3 -0)
-		linux/drivers/char/fusion/reactor.c (1.4) (+3 -0)
-		linux/drivers/char/fusion/property.c (1.5) (+3 -0)
+	Files:	fusion-full-linux-2.4.16.patch (1.10) (+35 -27;)
+	
+	Updated all patches.
+	
+2003-01-14   dok	15:09:30	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusionee.c (1.10) (+1 -3;)
+		linux/drivers/char/fusion/skirmish.c (1.6) (+3 -2;)
+		linux/drivers/char/fusion/ref.c (1.9) (+3 -0;)
+		linux/drivers/char/fusion/reactor.c (1.4) (+3 -0;)
+		linux/drivers/char/fusion/property.c (1.5) (+3 -0;)
 	
 	"Move-to-front" optimization added to other primitives, too.
 	Reset all id pools during cleanup (last fusionee closes device).
 	
-2003-01-14   dok	13:50	Denis Oliver Kropp <dok@directfb.org>
+2003-01-14   dok	13:50:58	Denis Oliver Kropp <dok@directfb.org>
 
 	Files:	fusion-full-linux-2.4.21-pre3.patch (1.1) ( )
 		fusion-part-linux-2.4.21-pre3.patch (1.1) ( )
 	
 	Needed to fix failing hunk in miscdevice.h
 	
-2003-01-13   dok	18:56	Denis Oliver Kropp <dok@directfb.org>
+2003-01-13   dok	18:56:53	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.9) (+44 -22)
-		fusion-full-linux-2.4.20.patch (1.3) (+44 -22)
+	Files:	fusion-full-linux-2.4.16.patch (1.9) (+44 -22;)
+		fusion-full-linux-2.4.20.patch (1.3) (+44 -22;)
 	
 	Updated patches.
 	
-2003-01-13   dok	18:46	Denis Oliver Kropp <dok@directfb.org>
+2003-01-13   dok	18:46:09	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/list.c (1.3) (+19 -0)
-		linux/drivers/char/fusion/skirmish.c (1.5) (+2 -0)
-		linux/drivers/char/fusion/list.h (1.4) (+3 -2)
+	Files:	linux/drivers/char/fusion/list.c (1.3) (+19 -0;)
+		linux/drivers/char/fusion/skirmish.c (1.5) (+2 -0;)
+		linux/drivers/char/fusion/list.h (1.4) (+3 -2;)
 	
 	Move skirmish to the front of the doubly linked list each time it is locked.
 	This nearly doubled the frame rate of ClanBomber2 on multi app core
 	on my system.
 	
-2002-12-13   dok	17:13	Denis Oliver Kropp <dok@directfb.org>
+2002-12-13   dok	17:13:18	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.8) (+74 -25)
-		fusion-full-linux-2.4.20.patch (1.2) (+74 -25)
+	Files:	fusion-full-linux-2.4.16.patch (1.8) (+74 -25;)
+		fusion-full-linux-2.4.20.patch (1.2) (+74 -25;)
 	
 	Updated patches.
 	
-2002-12-13   dok	17:05	Denis Oliver Kropp <dok@directfb.org>
+2002-12-13   dok	17:05:01	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.12) (+6 -0)
-		linux/include/linux/fusion.h (1.5) (+2 -1)
-		linux/drivers/char/fusion/property.h (1.4) (+1 -0)
-		linux/drivers/char/fusion/property.c (1.4) (+24 -0)
-		linux/drivers/char/fusion/fusionee.h (1.7) (+2 -0)
-		linux/drivers/char/fusion/fusionee.c (1.9) (+15 -0)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.12) (+6 -0;)
+		linux/include/linux/fusion.h (1.5) (+2 -1;)
+		linux/drivers/char/fusion/property.h (1.4) (+1 -0;)
+		linux/drivers/char/fusion/property.c (1.4) (+24 -0;)
+		linux/drivers/char/fusion/fusionee.h (1.7) (+2 -0;)
+		linux/drivers/char/fusion/fusionee.c (1.9) (+15 -0;)
 	
 	Added FUSION_PROPERTY_HOLDUP that sends a SIGKILL to the process that
 	purchased the property (e.g. a hanging fullscreen application).
 	
-2002-12-05   dok	17:46	Denis Oliver Kropp <dok@directfb.org>
+2002-12-05   dok	17:46:50	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.7) (+64 -20)
+	Files:	fusion-full-linux-2.4.16.patch (1.7) (+64 -20;)
 		fusion-part-linux-2.4.20.patch (1.1) ( )
-		fusion-part-linux-2.4.20-rc1.patch (1.4) (+0 -0)
+		fusion-part-linux-2.4.20-rc1.patch (1.4) (+0 -0;)
 		fusion-full-linux-2.4.20.patch (1.1) ( )
-		fusion-full-linux-2.4.20-rc1.patch (1.7) (+0 -0)
+		fusion-full-linux-2.4.20-rc1.patch (1.7) (+0 -0;)
 	
 	New patches.
 	
-2002-12-05   dok	17:36	Denis Oliver Kropp <dok@directfb.org>
+2002-12-05   dok	17:36:08	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.11) (+10 -0)
-		linux/drivers/char/fusion/fusionee.h (1.6) (+3 -0)
-		linux/drivers/char/fusion/fusionee.c (1.8) (+31 -0)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.11) (+10 -0;)
+		linux/drivers/char/fusion/fusionee.h (1.6) (+3 -0;)
+		linux/drivers/char/fusion/fusionee.c (1.8) (+31 -0;)
 	
 	Implemented poll(). Making select() work, too.
 	
-2002-11-12   dok	21:30	Denis Oliver Kropp <dok@directfb.org>
+2002-11-12   dok	21:30:39	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.6) (+149 -56)
-		linux/drivers/char/fusion/types.h (1.2) (+1 -1)
-		linux/drivers/char/fusion/skirmish.h (1.3) (+1 -1)
-		linux/drivers/char/fusion/skirmish.c (1.4) (+1 -1)
-		linux/drivers/char/fusion/ref.h (1.5) (+1 -1)
-		linux/drivers/char/fusion/ref.c (1.8) (+1 -1)
-		linux/drivers/char/fusion/reactor.h (1.3) (+1 -1)
-		linux/drivers/char/fusion/reactor.c (1.3) (+1 -1)
-		linux/drivers/char/fusion/property.h (1.3) (+1 -1)
-		linux/drivers/char/fusion/property.c (1.3) (+1 -1)
-		linux/drivers/char/fusion/list.h (1.3) (+1 -1)
-		linux/drivers/char/fusion/list.c (1.2) (+1 -1)
-		linux/drivers/char/fusion/fusionee.h (1.5) (+1 -1)
-		linux/drivers/char/fusion/fusionee.c (1.7) (+1 -1)
-		linux/drivers/char/fusion/fusiondev.h (1.2) (+1 -1)
-		linux/drivers/char/fusion/fusiondev.c (1.10) (+1 -1)
-		linux/drivers/char/fusion/fifo.h (1.2) (+1 -1)
-		linux/drivers/char/fusion/fifo.c (1.2) (+1 -1)
-		fusion-full-linux-2.4.20-rc1.patch (1.6) (+149 -56)
+	Files:	fusion-full-linux-2.4.16.patch (1.6) (+149 -56;)
+		linux/drivers/char/fusion/types.h (1.2) (+1 -1;)
+		linux/drivers/char/fusion/skirmish.h (1.3) (+1 -1;)
+		linux/drivers/char/fusion/skirmish.c (1.4) (+1 -1;)
+		linux/drivers/char/fusion/ref.h (1.5) (+1 -1;)
+		linux/drivers/char/fusion/ref.c (1.8) (+1 -1;)
+		linux/drivers/char/fusion/reactor.h (1.3) (+1 -1;)
+		linux/drivers/char/fusion/reactor.c (1.3) (+1 -1;)
+		linux/drivers/char/fusion/property.h (1.3) (+1 -1;)
+		linux/drivers/char/fusion/property.c (1.3) (+1 -1;)
+		linux/drivers/char/fusion/list.h (1.3) (+1 -1;)
+		linux/drivers/char/fusion/list.c (1.2) (+1 -1;)
+		linux/drivers/char/fusion/fusionee.h (1.5) (+1 -1;)
+		linux/drivers/char/fusion/fusionee.c (1.7) (+1 -1;)
+		linux/drivers/char/fusion/fusiondev.h (1.2) (+1 -1;)
+		linux/drivers/char/fusion/fusiondev.c (1.10) (+1 -1;)
+		linux/drivers/char/fusion/fifo.h (1.2) (+1 -1;)
+		linux/drivers/char/fusion/fifo.c (1.2) (+1 -1;)
+		fusion-full-linux-2.4.20-rc1.patch (1.6) (+149 -56;)
 	
 	Updated patches.
 	Fixed copyright info.
 	
-2002-11-12   dok	21:21	Denis Oliver Kropp <dok@directfb.org>
+2002-11-12   dok	21:21:12	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.9) (+34 -1)
-		linux/drivers/char/fusion/skirmish.h (1.2) (+1 -0)
-		linux/drivers/char/fusion/skirmish.c (1.3) (+13 -2)
-		linux/drivers/char/fusion/ref.h (1.4) (+1 -0)
-		linux/drivers/char/fusion/ref.c (1.7) (+13 -2)
-		linux/drivers/char/fusion/reactor.h (1.2) (+1 -0)
-		linux/drivers/char/fusion/reactor.c (1.2) (+13 -2)
-		linux/drivers/char/fusion/property.h (1.2) (+1 -0)
-		linux/drivers/char/fusion/property.c (1.2) (+13 -2)
-		linux/drivers/char/fusion/fusionee.h (1.4) (+1 -0)
-		linux/drivers/char/fusion/fusionee.c (1.6) (+13 -2)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.9) (+34 -1;)
+		linux/drivers/char/fusion/skirmish.h (1.2) (+1 -0;)
+		linux/drivers/char/fusion/skirmish.c (1.3) (+13 -2;)
+		linux/drivers/char/fusion/ref.h (1.4) (+1 -0;)
+		linux/drivers/char/fusion/ref.c (1.7) (+13 -2;)
+		linux/drivers/char/fusion/reactor.h (1.2) (+1 -0;)
+		linux/drivers/char/fusion/reactor.c (1.2) (+13 -2;)
+		linux/drivers/char/fusion/property.h (1.2) (+1 -0;)
+		linux/drivers/char/fusion/property.c (1.2) (+13 -2;)
+		linux/drivers/char/fusion/fusionee.h (1.4) (+1 -0;)
+		linux/drivers/char/fusion/fusionee.c (1.6) (+13 -2;)
 	
 	Implemented auto-cleanup if last fusionee closes the device.
 	
@@ -810,25 +1489,25 @@
 	
 	If it will ever crash... ;)
 	
-2002-11-11   dok	04:10	Denis Oliver Kropp <dok@directfb.org>
+2002-11-11   dok	04:10:44	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	TODO (1.2) (+6 -7)
-		fusion-full-linux-2.4.20-rc1.patch (1.5) (+943 -79)
-		fusion-full-linux-2.4.16.patch (1.5) (+943 -79)
+	Files:	TODO (1.2) (+6 -7;)
+		fusion-full-linux-2.4.20-rc1.patch (1.5) (+943 -79;)
+		fusion-full-linux-2.4.16.patch (1.5) (+943 -79;)
 	
 	Updated patches and TODO file.
 	
-2002-11-11   dok	01:58	Denis Oliver Kropp <dok@directfb.org>
+2002-11-11   dok	01:58:58	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/Makefile (1.4) (+1 -1)
-		linux/include/linux/fusion.h (1.4) (+41 -5)
-		linux/drivers/char/fusion/skirmish.c (1.2) (+40 -13)
-		linux/drivers/char/fusion/ref.c (1.6) (+2 -4)
+	Files:	linux/drivers/char/fusion/Makefile (1.4) (+1 -1;)
+		linux/include/linux/fusion.h (1.4) (+41 -5;)
+		linux/drivers/char/fusion/skirmish.c (1.2) (+40 -13;)
+		linux/drivers/char/fusion/ref.c (1.6) (+2 -4;)
 		linux/drivers/char/fusion/reactor.h (1.1) ( )
 		linux/drivers/char/fusion/reactor.c (1.1) ( )
-		linux/drivers/char/fusion/fusionee.h (1.3) (+7 -1)
-		linux/drivers/char/fusion/fusionee.c (1.5) (+161 -9)
-		linux/drivers/char/fusion/fusiondev.c (1.8) (+139 -25)
+		linux/drivers/char/fusion/fusionee.h (1.3) (+7 -1;)
+		linux/drivers/char/fusion/fusionee.c (1.5) (+161 -9;)
+		linux/drivers/char/fusion/fusiondev.c (1.8) (+139 -25;)
 		linux/drivers/char/fusion/fifo.h (1.1) ( )
 		linux/drivers/char/fusion/fifo.c (1.1) ( )
 	
@@ -850,131 +1529,131 @@
 	
 	FusionSkirmish is a recursive lock now.
 	
-2002-11-05   dok	21:42	Denis Oliver Kropp <dok@directfb.org>
+2002-11-05   dok	21:42:00	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.4) (+0 -21)
-		fusion-part-linux-2.4.20-rc1.patch (1.3) (+0 -21)
-		fusion-full-linux-2.4.20-rc1.patch (1.4) (+0 -21)
+	Files:	fusion-full-linux-2.4.16.patch (1.4) (+0 -21;)
+		fusion-part-linux-2.4.20-rc1.patch (1.3) (+0 -21;)
+		fusion-full-linux-2.4.20-rc1.patch (1.4) (+0 -21;)
 	
 	No need to patch misc.c, fusion_init() got called twice if compiled in.
 	
-2002-11-04   dok	16:41	Denis Oliver Kropp <dok@directfb.org>
+2002-11-04   dok	16:41:26	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.3) (+490 -34)
-		fusion-full-linux-2.4.20-rc1.patch (1.3) (+494 -38)
+	Files:	fusion-full-linux-2.4.16.patch (1.3) (+490 -34;)
+		fusion-full-linux-2.4.20-rc1.patch (1.3) (+494 -38;)
 	
 	Updated.
 	
-2002-11-04   dok	16:28	Denis Oliver Kropp <dok@directfb.org>
+2002-11-04   dok	16:28:36	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/Makefile (1.3) (+1 -1)
-		linux/include/linux/fusion.h (1.3) (+6 -0)
+	Files:	linux/drivers/char/fusion/Makefile (1.3) (+1 -1;)
+		linux/include/linux/fusion.h (1.3) (+6 -0;)
 		linux/drivers/char/fusion/property.h (1.1) ( )
 		linux/drivers/char/fusion/property.c (1.1) ( )
-		linux/drivers/char/fusion/fusionee.c (1.4) (+2 -0)
-		linux/drivers/char/fusion/fusiondev.c (1.7) (+40 -0)
+		linux/drivers/char/fusion/fusionee.c (1.4) (+2 -0;)
+		linux/drivers/char/fusion/fusiondev.c (1.7) (+40 -0;)
 	
 	Implemented FusionProperty in kernel space (200k -> 700k lease/cede per sec).
 	
-2002-11-02   dok	06:09	Denis Oliver Kropp <dok@directfb.org>
+2002-11-02   dok	06:09:54	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.16.patch (1.2) (+92 -59)
+	Files:	fusion-full-linux-2.4.16.patch (1.2) (+92 -59;)
 	
 	Fixed.
 	
-2002-11-02   dok	03:26	Denis Oliver Kropp <dok@directfb.org>
+2002-11-02   dok	03:26:59	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.6) (+2 -2)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.6) (+2 -2;)
 	
 	fusion_init/exit non-static now.
 	
-2002-11-02   dok	03:25	Denis Oliver Kropp <dok@directfb.org>
+2002-11-02   dok	03:25:00	Denis Oliver Kropp <dok@directfb.org>
 
 	Files:	fusion-full-linux-2.4.16.patch (1.1) ( )
-		fusion-part-linux-2.4.20-rc1.patch (1.2) (+6 -3)
-		fusion-full-linux-2.4.20-rc1.patch (1.2) (+11 -8)
+		fusion-part-linux-2.4.20-rc1.patch (1.2) (+6 -3;)
+		fusion-full-linux-2.4.20-rc1.patch (1.2) (+11 -8;)
 	
 	Should really work now if compiled in.
 	Added 2.4.16 patch.
 	
-2002-11-02   dok	02:19	Denis Oliver Kropp <dok@directfb.org>
+2002-11-02   dok	02:19:58	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	README (1.2) (+2 -2)
+	Files:	README (1.2) (+2 -2;)
 		fusion-part-linux-2.4.20-rc1.patch (1.1) ( )
-		fusion-part-linux-2.4.20-pre11.patch (1.3) (+0 -0)
+		fusion-part-linux-2.4.20-pre11.patch (1.3) (+0 -0;)
 		fusion-full-linux-2.4.20-rc1.patch (1.1) ( )
-		fusion-full-linux-2.4.20-pre11.patch (1.3) (+0 -0)
+		fusion-full-linux-2.4.20-pre11.patch (1.3) (+0 -0;)
 	
 	New patches.
 	
-2002-11-02   dok	01:28	Denis Oliver Kropp <dok@directfb.org>
+2002-11-02   dok	01:28:29	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/Makefile (1.2) (+1 -1)
-		linux/include/linux/fusion.h (1.2) (+6 -0)
+	Files:	linux/drivers/char/fusion/Makefile (1.2) (+1 -1;)
+		linux/include/linux/fusion.h (1.2) (+6 -0;)
 		linux/drivers/char/fusion/skirmish.h (1.1) ( )
 		linux/drivers/char/fusion/skirmish.c (1.1) ( )
-		linux/drivers/char/fusion/fusionee.c (1.3) (+2 -0)
-		linux/drivers/char/fusion/fusiondev.c (1.5) (+37 -0)
+		linux/drivers/char/fusion/fusionee.c (1.3) (+2 -0;)
+		linux/drivers/char/fusion/fusiondev.c (1.5) (+37 -0;)
 	
 	Added skirmish implementation,
 	no benefit yet except speed (600k -> 700k prevail/dismiss per second).
 	
 	SIGSTOP defering/blocking could be added.
 	
-2002-11-01   dok	15:13	Denis Oliver Kropp <dok@directfb.org>
+2002-11-01   dok	15:13:02	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.4) (+7 -7)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.4) (+7 -7;)
 	
 	Use ANSI C member initialization.
 	
-2002-11-01   dok	14:55	Denis Oliver Kropp <dok@directfb.org>
+2002-11-01   dok	14:55:58	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.3) (+34 -23)
-		linux/drivers/char/fusion/ref.h (1.3) (+13 -5)
-		linux/drivers/char/fusion/ref.c (1.5) (+23 -18)
-		linux/drivers/char/fusion/list.h (1.2) (+3 -0)
-		linux/drivers/char/fusion/fusionee.h (1.2) (+12 -5)
-		linux/drivers/char/fusion/fusionee.c (1.2) (+174 -8)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.3) (+34 -23;)
+		linux/drivers/char/fusion/ref.h (1.3) (+13 -5;)
+		linux/drivers/char/fusion/ref.c (1.5) (+23 -18;)
+		linux/drivers/char/fusion/list.h (1.2) (+3 -0;)
+		linux/drivers/char/fusion/fusionee.h (1.2) (+12 -5;)
+		linux/drivers/char/fusion/fusionee.c (1.2) (+174 -8;)
 	
 	Added /proc/fusion/fusionees. Minor cleanup. Added locking to fusionee code.
 	
-2002-11-01   dok	13:59	Denis Oliver Kropp <dok@directfb.org>
+2002-11-01   dok	13:59:12	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/ref.c (1.4) (+20 -10)
+	Files:	linux/drivers/char/fusion/ref.c (1.4) (+20 -10;)
 	
 	Remember pid of process that created the reference, shown in /proc/fusion/refs.
 	Added spin_lock() to fusion_ref_destroy() before destroying the reference.
 	
-2002-10-28   dok	17:31	Denis Oliver Kropp <dok@directfb.org>
+2002-10-28   dok	17:31:32	Denis Oliver Kropp <dok@directfb.org>
 
 	Files:	TODO (1.1) ( )
 	
 	Added TODO file with three items.
 	
-2002-10-28   dok	17:17	Denis Oliver Kropp <dok@directfb.org>
+2002-10-28   dok	17:17:03	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	fusion-full-linux-2.4.20-pre11.patch (1.2) (+197 -64)
-		fusion-part-linux-2.4.20-pre11.patch (1.2) (+27 -6)
+	Files:	fusion-full-linux-2.4.20-pre11.patch (1.2) (+197 -64;)
+		fusion-part-linux-2.4.20-pre11.patch (1.2) (+27 -6;)
 	
 	Should work now if built in (not using as a module).
 	Updated patches.
 	
-2002-10-28   dok	17:04	Denis Oliver Kropp <dok@directfb.org>
+2002-10-28   dok	17:04:55	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/fusiondev.c (1.2) (+14 -2)
-		linux/drivers/char/fusion/ref.h (1.2) (+2 -0)
-		linux/drivers/char/fusion/ref.c (1.3) (+69 -20)
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.2) (+14 -2;)
+		linux/drivers/char/fusion/ref.h (1.2) (+2 -0;)
+		linux/drivers/char/fusion/ref.c (1.3) (+69 -20;)
 		linux/drivers/char/fusion/fusiondev.h (1.1) ( )
 	
 	Added proc entry ("/proc/fusion/refs" for now).
 	
-2002-10-16   dok	16:03	Denis Oliver Kropp <dok@directfb.org>
+2002-10-16   dok	16:03:39	Denis Oliver Kropp <dok@directfb.org>
 
-	Files:	linux/drivers/char/fusion/ref.c (1.2) (+36 -13)
+	Files:	linux/drivers/char/fusion/ref.c (1.2) (+36 -13;)
 	
 	Implemented fusion_ref_zero_lock() via wait queue.
 	
-2002-10-16   dok	13:05	Denis Oliver Kropp <dok@directfb.org>
+2002-10-16   dok	13:05:47	Denis Oliver Kropp <dok@directfb.org>
 
 	Files:	README (1.1) ( )
 		linux/include/linux/fusion.h (1.1) ( )
