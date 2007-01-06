@@ -15,9 +15,13 @@
 #ifndef __FUSION__TYPES_H__
 #define __FUSION__TYPES_H__
 
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
 typedef enum {
   false = 0,
   true  = !false
 } bool;
+#endif
 
 #endif
