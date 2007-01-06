@@ -425,9 +425,6 @@ fusionee_poll (FusionDev *dev, FusionID id, struct file *file, poll_table * wait
      if (ret)
           return ret;
 
-     if (!fusionee)
-          return -EINVAL;
-
      if (fusionee->messages.count) {
           unlock_fusionee (fusionee);
 
@@ -574,16 +571,14 @@ lock_fusionee (FusionDev *dev, FusionID id, Fusionee **ret_fusionee)
      if (ret)
           return ret;
 
-     if (fusionee) {
-          fusion_list_move_to_front (&dev->fusionee.list, &fusionee->link);
+     fusion_list_move_to_front (&dev->fusionee.list, &fusionee->link);
 
-          if (down_interruptible (&fusionee->lock)) {
-               up (&dev->fusionee.lock);
-               return -EINTR;
-          }
-
+     if (down_interruptible (&fusionee->lock)) {
           up (&dev->fusionee.lock);
+          return -EINTR;
      }
+
+     up (&dev->fusionee.lock);
 
      *ret_fusionee = fusionee;
 
