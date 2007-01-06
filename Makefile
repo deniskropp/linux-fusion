@@ -17,6 +17,10 @@ ifeq ($(shell test -e $(KERNEL_BUILD)/include/linux/autoconf.h && echo yes),yes)
   AUTOCONF_H = -include $(KERNEL_BUILD)/include/linux/autoconf.h
 endif
 
+ifeq ($(shell test -e $(KERNEL_BUILD)/include/linux/config.h && echo yes),yes)
+  CPPFLAGS += -DHAVE_LINUX_CONFIG_H
+endif
+
 .PHONY: all install clean
 
 all:

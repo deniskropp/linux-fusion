@@ -12,7 +12,9 @@
  *	2 of the License, or (at your option) any later version.
  */
 
+#ifdef HAVE_LINUX_CONFIG_H
 #include <linux/config.h>
+#endif
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
