@@ -332,15 +332,14 @@ fusion_open (struct inode *inode, struct file *file)
 static int
 fusion_release (struct inode *inode, struct file *file)
 {
-     int ret;
      int minor        = iminor(inode);
      size_t fusion_id = (size_t) file->private_data;
 
      DEBUG( "fusion_release( %p, %d )\n", file, atomic_read(&file->f_count) );
 
-     ret = fusionee_destroy (fusion_devs[minor], fusion_id);
-     if (ret)
-          return ret;
+     /* FIXME: is this a good idea? */
+     while (fusionee_destroy (fusion_devs[minor], fusion_id))
+          schedule ();
 
      down (&devs_lock);
 
