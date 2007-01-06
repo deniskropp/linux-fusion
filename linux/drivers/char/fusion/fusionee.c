@@ -460,8 +460,10 @@ fusionee_kill (FusionDev *dev, FusionID id, int target, int signal, int timeout_
                }
           }
 
-          if (!killed || timeout_ms < 0)
+          if (!killed || timeout_ms < 0) {
+               up (&dev->fusionee.lock);
                break;
+          }
 
           if (timeout_ms) {
                switch (timeout) {
@@ -488,8 +490,6 @@ fusionee_kill (FusionDev *dev, FusionID id, int target, int signal, int timeout_
           if (signal_pending(current))
                return -EINTR;
      }
-
-     up (&dev->fusionee.lock);
 
      return 0;
 }
