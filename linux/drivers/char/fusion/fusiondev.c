@@ -24,6 +24,11 @@
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)
 #include <linux/devfs_fs_kernel.h>
 #endif
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 19)
+#include <linux/page-flags.h>
+#include <linux/mm.h>
+#endif
+
 #include <linux/proc_fs.h>
 #include <linux/poll.h>
 #include <linux/init.h>
