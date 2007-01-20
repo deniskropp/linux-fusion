@@ -303,8 +303,10 @@ fusion_open (struct inode *inode, struct file *file)
           }
      }
      else if (file->f_flags & O_EXCL) {
-          up (&devs_lock);
-          return -EBUSY;
+          if (fusion_devs[minor]->fusionee.last_id) {
+               up (&devs_lock);
+               return -EBUSY;
+          }
      }
 
      ret = fusionee_new (fusion_devs[minor], !!(file->f_flags & O_APPEND), &fusionee);
