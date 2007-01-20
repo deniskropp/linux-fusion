@@ -31,7 +31,7 @@
 typedef struct {
      FusionLink        link;
 
-     int               caller;
+     Fusionee         *caller;
 
      int               ret_val;
 
@@ -66,7 +66,7 @@ static int  lock_call   (FusionDev *dev, int id, FusionCall **ret_call);
 static void unlock_call (FusionCall *call);
 
 static FusionCallExecution *add_execution       (FusionCall          *call,
-                                                 int                  fusion_id,
+                                                 Fusionee            *caller,
                                                  FusionCallExecute   *execute);
 static void                 remove_execution    (FusionCall          *call,
                                                  FusionCallExecution *execution);
@@ -100,7 +100,7 @@ fusion_call_read_proc (char *buf, char **start, off_t offset,
           fusion_list_foreach (e, call->executions) {
                FusionCallExecution *exec = (FusionCallExecution *) e;
 
-               written += sprintf(buf+written, "  [0x%08x]", exec->caller);
+               written += sprintf(buf+written, "  [0x%08lx]", exec->caller ? fusionee_id( exec->caller ) : 0);
           }
 
           written += sprintf(buf+written, "\n");
@@ -198,7 +198,7 @@ fusion_call_new (FusionDev *dev, int fusion_id, FusionCallNew *call_new)
 }
 
 int
-fusion_call_execute (FusionDev *dev, int fusion_id, FusionCallExecute *execute)
+fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *execute)
 {
      int                  ret;
      FusionCall          *call;
@@ -209,7 +209,7 @@ fusion_call_execute (FusionDev *dev, int fusion_id, FusionCallExecute *execute)
      if (ret)
           return ret;
 
-     execution = add_execution (call, fusion_id, execute);
+     execution = add_execution (call, fusionee, execute);
      if (!execution) {
           unlock_call (call);
           return -ENOMEM;
@@ -219,12 +219,12 @@ fusion_call_execute (FusionDev *dev, int fusion_id, FusionCallExecute *execute)
      message.handler  = call->handler;
      message.ctx      = call->ctx;
 
-     message.caller   = fusion_id;
+     message.caller   = fusionee ? fusionee_id( fusionee ) : 0;
 
      message.call_arg = execute->call_arg;
      message.call_ptr = execute->call_ptr;
 
-     ret = fusionee_send_message (dev, fusion_id, call->fusion_id, FMT_CALL,
+     ret = fusionee_send_message (dev, fusionee, call->fusion_id, FMT_CALL,
                                   call->id, sizeof(message), &message);
      if (ret) {
           remove_execution (call, execution);
@@ -235,7 +235,7 @@ fusion_call_execute (FusionDev *dev, int fusion_id, FusionCallExecute *execute)
 
      call->count++;
 
-     if (fusion_id && !(execute->flags & FCEF_ONEWAY)) {
+     if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
           /* TODO: implement timeout */
           fusion_sleep_on (&execution->wait, &call->lock, 0);
 
@@ -427,7 +427,7 @@ unlock_call (FusionCall *call)
 
 static FusionCallExecution *
 add_execution (FusionCall        *call,
-               int                fusion_id,
+               Fusionee          *caller,
                FusionCallExecute *execute)
 {
      FusionCallExecution *execution;
@@ -440,7 +440,7 @@ add_execution (FusionCall        *call,
      /* Initialize execution. */
      memset (execution, 0, sizeof(FusionCallExecution));
 
-     execution->caller = fusion_id;
+     execution->caller = caller;
 
      init_waitqueue_head (&execution->wait);
 

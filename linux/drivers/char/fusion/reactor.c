@@ -206,12 +206,13 @@ fusion_reactor_detach (FusionDev *dev, int id, FusionID fusion_id)
 }
 
 int
-fusion_reactor_dispatch (FusionDev *dev, int id, FusionID fusion_id,
+fusion_reactor_dispatch (FusionDev *dev, int id, Fusionee *fusionee,
                          int msg_size, const void *msg_data)
 {
      int            ret;
      FusionLink    *l;
      FusionReactor *reactor;
+     FusionID       fusion_id = fusionee ? fusionee_id( fusionee ) : 0;
 
      ret = fusion_reactor_lock( &dev->reactor, id, false, &reactor );
      if (ret)
@@ -230,7 +231,7 @@ fusion_reactor_dispatch (FusionDev *dev, int id, FusionID fusion_id,
           if (node->fusion_id == fusion_id)
                continue;
 
-          fusionee_send_message (dev, fusion_id, node->fusion_id, FMT_REACTOR,
+          fusionee_send_message (dev, fusionee, node->fusion_id, FMT_REACTOR,
                                  reactor->entry.id, msg_size, msg_data);
      }
 

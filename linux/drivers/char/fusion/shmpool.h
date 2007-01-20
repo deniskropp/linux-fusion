@@ -40,7 +40,7 @@ int fusion_shmpool_detach   (FusionDev             *dev,
 
 int fusion_shmpool_dispatch (FusionDev             *dev,
                              FusionSHMPoolDispatch *dispatch,
-                             FusionID               fusion_id );
+                             Fusionee              *fusionee );
 
 int fusion_shmpool_destroy  (FusionDev             *dev,
                              int                    id);

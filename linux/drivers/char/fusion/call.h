@@ -32,8 +32,7 @@ int fusion_call_new     (FusionDev         *dev,
                          FusionCallNew     *call);
 
 int fusion_call_execute (FusionDev         *dev,
-                         int                fusion_id, /* zero if call is
-                                                          from Fusion */
+                         Fusionee          *fusionee, /* NULL if call is from kernel */
                          FusionCallExecute *execute);
 
 int fusion_call_return  (FusionDev         *dev,

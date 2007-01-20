@@ -265,9 +265,9 @@ fusiondev_deinit (FusionDev *dev)
 static int
 fusion_open (struct inode *inode, struct file *file)
 {
-     int      ret;
-     FusionID fusion_id;
-     int      minor = iminor(inode);
+     int       ret;
+     Fusionee *fusionee;
+     int       minor = iminor(inode);
 
      DEBUG( "fusion_open( %p, %d )\n", file, atomic_read(&file->f_count) );
 
@@ -307,7 +307,7 @@ fusion_open (struct inode *inode, struct file *file)
           return -EBUSY;
      }
 
-     ret = fusionee_new (fusion_devs[minor], &fusion_id);
+     ret = fusionee_new (fusion_devs[minor], !!(file->f_flags & O_APPEND), &fusionee);
      if (ret) {
           if (!fusion_devs[minor]->refs) {
                fusiondev_deinit (fusion_devs[minor]);
@@ -329,7 +329,7 @@ fusion_open (struct inode *inode, struct file *file)
      up (&devs_lock);
 
 
-     file->private_data = (void*) fusion_id;
+     file->private_data = fusionee;
 
      return 0;
 }
@@ -337,14 +337,14 @@ fusion_open (struct inode *inode, struct file *file)
 static int
 fusion_release (struct inode *inode, struct file *file)
 {
-     int minor        = iminor(inode);
-     size_t fusion_id = (size_t) file->private_data;
+     int       minor    = iminor(inode);
+     Fusionee *fusionee = file->private_data;
 
      DEBUG( "fusion_release( %p, %d )\n", file, atomic_read(&file->f_count) );
 
      /* FIXME: is this a good idea? */
-     while (fusionee_destroy (fusion_devs[minor], fusion_id))
-          schedule ();
+     /*while (*/fusionee_destroy (fusion_devs[minor], fusionee);//)
+          //schedule ();
 
      down (&devs_lock);
 
@@ -370,12 +370,12 @@ fusion_flush (struct file *file, fl_owner_t id)
 fusion_flush (struct file *file)
 #endif
 {
-     size_t     fusion_id = (size_t) file->private_data;
-     FusionDev *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
+     Fusionee  *fusionee = file->private_data;
+     FusionDev *dev      = fusion_devs[iminor(file->f_dentry->d_inode)];
 
-     (void) fusion_id;
+     (void) fusionee;
 
-     DEBUG( "fusion_flush( %p, %d, 0x%08x %d )\n", file, atomic_read(&file->f_count), fusion_id, current->pid );
+     DEBUG( "fusion_flush( %p, %d, 0x%08x %d )\n", file, atomic_read(&file->f_count), fusionee_id(fusionee), current->pid );
 
      if (current->flags & PF_EXITING)
           fusion_skirmish_dismiss_all_from_pid (dev, current->pid);
@@ -386,57 +386,28 @@ fusion_flush (struct file *file)
 static ssize_t
 fusion_read (struct file *file, char *buf, size_t count, loff_t *ppos)
 {
-     size_t     fusion_id = (size_t) file->private_data;
-     FusionDev *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
+     Fusionee  *fusionee = file->private_data;
+     FusionDev *dev      = fusion_devs[iminor(file->f_dentry->d_inode)];
 
      DEBUG( "fusion_read( %p, %d, %d )\n", file, atomic_read(&file->f_count), count );
 
-     return fusionee_get_messages (dev, fusion_id, buf, count,
+     return fusionee_get_messages (dev, fusionee, buf, count,
                                    !(file->f_flags & O_NONBLOCK));
 }
 
 static unsigned int
 fusion_poll (struct file *file, poll_table * wait)
 {
-     size_t     fusion_id = (size_t) file->private_data;
-     FusionDev *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
+     Fusionee  *fusionee = file->private_data;
+     FusionDev *dev      = fusion_devs[iminor(file->f_dentry->d_inode)];
 
      DEBUG( "fusion_poll( %p, %d )\n", file, atomic_read(&file->f_count) );
 
-     return fusionee_poll (dev, fusion_id, file, wait);
+     return fusionee_poll (dev, fusionee, file, wait);
 }
-/*
+
 static int
-fusion_fork (struct file *file, FusionDev *dev,
-             FusionID fusion_id, FusionID *ret_id)
-{
-     int      ret;
-     FusionID new_id;
-
-     DEBUG( "fusion_fork( %p, %d )\n", file, atomic_read(&file->f_count) );
-
-     if (down_interruptible( &devs_lock ))
-          return -EINTR;
-
-     ret = fusionee_new( dev, &new_id );
-     if (ret) {
-          up( &devs_lock );
-          return ret;
-     }
-
-     dev->refs++;
-
-     up( &devs_lock );
-
-     file->private_data = (void*) new_id;
-
-     *ret_id = new_id;
-
-     return 0;
-}
-*/
-static int
-lounge_ioctl (struct file *file, FusionDev *dev, FusionID fusion_id,
+lounge_ioctl (struct file *file, FusionDev *dev, Fusionee *fusionee,
               unsigned int cmd, unsigned long arg)
 {
      int             ret;
@@ -450,7 +421,7 @@ lounge_ioctl (struct file *file, FusionDev *dev, FusionID fusion_id,
                if (copy_from_user (&enter, (FusionEnter*) arg, sizeof(enter)))
                     return -EFAULT;
 
-               ret = fusionee_enter( dev, &enter, fusion_id );
+               ret = fusionee_enter( dev, &enter, fusionee );
                if (ret)
                     return ret;
 
@@ -460,7 +431,7 @@ lounge_ioctl (struct file *file, FusionDev *dev, FusionID fusion_id,
                return 0;
 
           case _IOC_NR(FUSION_UNBLOCK):
-               if (fusion_id != FUSION_ID_MASTER)
+               if (fusionee_id( fusionee ) != FUSION_ID_MASTER)
                     return -EPERM;
 
                if (down_interruptible( &dev->enter_lock ))
@@ -478,7 +449,7 @@ lounge_ioctl (struct file *file, FusionDev *dev, FusionID fusion_id,
                if (copy_from_user (&kill, (FusionKill*) arg, sizeof(kill)))
                     return -EFAULT;
 
-               return fusionee_kill (dev, fusion_id,
+               return fusionee_kill (dev, fusionee,
                                      kill.fusion_id, kill.signal, kill.timeout_ms);
 
           case _IOC_NR(FUSION_ENTRY_SET_INFO):
@@ -546,7 +517,7 @@ lounge_ioctl (struct file *file, FusionDev *dev, FusionID fusion_id,
                if (copy_from_user( &fork, (FusionFork*) arg, sizeof(fork) ))
                     return -EFAULT;
 
-               ret = fusionee_fork( dev, &fork, fusion_id );
+               ret = fusionee_fork( dev, &fork, fusionee );
                if (ret)
                     return ret;
 
@@ -560,7 +531,7 @@ lounge_ioctl (struct file *file, FusionDev *dev, FusionID fusion_id,
 }
 
 static int
-messaging_ioctl (FusionDev *dev, FusionID fusion_id,
+messaging_ioctl (FusionDev *dev, Fusionee *fusionee,
                  unsigned int cmd, unsigned long arg)
 {
      FusionSendMessage send;
@@ -577,7 +548,7 @@ messaging_ioctl (FusionDev *dev, FusionID fusion_id,
                if (send.msg_size > 0x10000)
                     return -EMSGSIZE;
 
-               return fusionee_send_message (dev, fusion_id, send.fusion_id, FMT_SEND,
+               return fusionee_send_message (dev, fusionee, send.fusion_id, FMT_SEND,
                                              send.msg_id, send.msg_size, send.msg_data);
      }
 
@@ -585,7 +556,7 @@ messaging_ioctl (FusionDev *dev, FusionID fusion_id,
 }
 
 static int
-call_ioctl (FusionDev *dev, FusionID fusion_id,
+call_ioctl (FusionDev *dev, Fusionee *fusionee,
             unsigned int cmd, unsigned long arg)
 {
      int               id;
@@ -593,6 +564,7 @@ call_ioctl (FusionDev *dev, FusionID fusion_id,
      FusionCallNew     call;
      FusionCallExecute execute;
      FusionCallReturn  call_ret;
+     FusionID          fusion_id = fusionee_id( fusionee );
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_CALL_NEW):
@@ -613,7 +585,7 @@ call_ioctl (FusionDev *dev, FusionID fusion_id,
                if (copy_from_user (&execute, (FusionCallExecute*) arg, sizeof(execute)))
                     return -EFAULT;
 
-               ret = fusion_call_execute (dev, fusion_id, &execute);
+               ret = fusion_call_execute (dev, fusionee, &execute);
                if (ret)
                     return ret;
 
@@ -638,7 +610,7 @@ call_ioctl (FusionDev *dev, FusionID fusion_id,
 }
 
 static int
-ref_ioctl (FusionDev *dev, FusionID fusion_id,
+ref_ioctl (FusionDev *dev, Fusionee *fusionee,
            unsigned int cmd, unsigned long arg)
 {
      int              id;
@@ -646,6 +618,7 @@ ref_ioctl (FusionDev *dev, FusionID fusion_id,
      int              refs;
      FusionRefWatch   watch;
      FusionRefInherit inherit;
+     FusionID         fusion_id = fusionee_id( fusionee );
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_REF_NEW):
@@ -734,12 +707,13 @@ ref_ioctl (FusionDev *dev, FusionID fusion_id,
 }
 
 static int
-skirmish_ioctl (FusionDev *dev, FusionID fusion_id,
+skirmish_ioctl (FusionDev *dev, Fusionee *fusionee,
                 unsigned int cmd, unsigned long arg)
 {
-     int id;
-     int ret;
-     int lock_count;
+     int      id;
+     int      ret;
+     int      lock_count;
+     FusionID fusion_id = fusionee_id( fusionee );
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_SKIRMISH_NEW):
@@ -792,11 +766,12 @@ skirmish_ioctl (FusionDev *dev, FusionID fusion_id,
 }
 
 static int
-property_ioctl (FusionDev *dev, FusionID fusion_id,
+property_ioctl (FusionDev *dev, Fusionee *fusionee,
                 unsigned int cmd, unsigned long arg)
 {
-     int id;
-     int ret;
+     int      id;
+     int      ret;
+     FusionID fusion_id = fusionee_id( fusionee );
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_PROPERTY_NEW):
@@ -832,7 +807,7 @@ property_ioctl (FusionDev *dev, FusionID fusion_id,
                if (get_user (id, (int*) arg))
                     return -EFAULT;
 
-               return fusion_property_holdup (dev, id, fusion_id);
+               return fusion_property_holdup (dev, id, fusionee);
 
           case _IOC_NR(FUSION_PROPERTY_DESTROY):
                if (get_user (id, (int*) arg))
@@ -845,12 +820,13 @@ property_ioctl (FusionDev *dev, FusionID fusion_id,
 }
 
 static int
-reactor_ioctl (FusionDev *dev, FusionID fusion_id,
+reactor_ioctl (FusionDev *dev, Fusionee *fusionee,
                unsigned int cmd, unsigned long arg)
 {
      int                   id;
      int                   ret;
      FusionReactorDispatch dispatch;
+     FusionID              fusion_id = fusionee_id( fusionee );
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_REACTOR_NEW):
@@ -889,7 +865,7 @@ reactor_ioctl (FusionDev *dev, FusionID fusion_id,
                     return -EMSGSIZE;
 
                return fusion_reactor_dispatch (dev, dispatch.reactor_id,
-                                               dispatch.self ? 0 : fusion_id,
+                                               dispatch.self ? NULL : fusionee,
                                                dispatch.msg_size, dispatch.msg_data);
 
           case _IOC_NR(FUSION_REACTOR_DESTROY):
@@ -903,7 +879,7 @@ reactor_ioctl (FusionDev *dev, FusionID fusion_id,
 }
 
 static int
-shmpool_ioctl (FusionDev *dev, FusionID fusion_id,
+shmpool_ioctl (FusionDev *dev, Fusionee *fusionee,
                unsigned int cmd, unsigned long arg)
 {
      int                   id;
@@ -911,6 +887,7 @@ shmpool_ioctl (FusionDev *dev, FusionID fusion_id,
      FusionSHMPoolNew      pool;
      FusionSHMPoolAttach   attach;
      FusionSHMPoolDispatch dispatch;
+     FusionID              fusion_id = fusionee_id( fusionee );
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_SHMPOOL_NEW):
@@ -955,7 +932,7 @@ shmpool_ioctl (FusionDev *dev, FusionID fusion_id,
                                    (FusionSHMPoolDispatch*) arg, sizeof(dispatch)))
                     return -EFAULT;
 
-               return fusion_shmpool_dispatch (dev, &dispatch, fusion_id);
+               return fusion_shmpool_dispatch (dev, &dispatch, fusionee);
 
           case _IOC_NR(FUSION_SHMPOOL_DESTROY):
                if (get_user (id, (int*) arg))
@@ -971,35 +948,35 @@ static int
 fusion_ioctl (struct inode *inode, struct file *file,
               unsigned int cmd, unsigned long arg)
 {
-     size_t     id  = (size_t) file->private_data;
-     FusionDev *dev = fusion_devs[iminor(inode)];
+     Fusionee  *fusionee = file->private_data;
+     FusionDev *dev      = fusion_devs[iminor(inode)];
 
      DEBUG( "fusion_ioctl (0x%08x)\n", cmd );
 
      switch (_IOC_TYPE(cmd)) {
           case FT_LOUNGE:
-               return lounge_ioctl( file, dev, id, cmd, arg );
+               return lounge_ioctl( file, dev, fusionee, cmd, arg );
 
           case FT_MESSAGING:
-               return messaging_ioctl( dev, id, cmd, arg );
+               return messaging_ioctl( dev, fusionee, cmd, arg );
 
           case FT_CALL:
-               return call_ioctl( dev, id, cmd, arg );
+               return call_ioctl( dev, fusionee, cmd, arg );
 
           case FT_REF:
-               return ref_ioctl( dev, id, cmd, arg );
+               return ref_ioctl( dev, fusionee, cmd, arg );
 
           case FT_SKIRMISH:
-               return skirmish_ioctl( dev, id, cmd, arg );
+               return skirmish_ioctl( dev, fusionee, cmd, arg );
 
           case FT_PROPERTY:
-               return property_ioctl( dev, id, cmd, arg );
+               return property_ioctl( dev, fusionee, cmd, arg );
 
           case FT_REACTOR:
-               return reactor_ioctl( dev, id, cmd, arg );
+               return reactor_ioctl( dev, fusionee, cmd, arg );
 
           case FT_SHMPOOL:
-               return shmpool_ioctl( dev, id, cmd, arg );
+               return shmpool_ioctl( dev, fusionee, cmd, arg );
      }
 
      return -ENOSYS;
@@ -1009,8 +986,8 @@ static int
 fusion_mmap( struct file           *file,
              struct vm_area_struct *vma )
 {
-     size_t        fusion_id = (size_t) file->private_data;
-     FusionDev    *dev       = fusion_devs[iminor(file->f_dentry->d_inode)];
+     Fusionee     *fusionee = file->private_data;
+     FusionDev    *dev      = fusion_devs[iminor(file->f_dentry->d_inode)];
      unsigned int  size;
 
      if (vma->vm_pgoff != 0)
@@ -1021,7 +998,7 @@ fusion_mmap( struct file           *file,
           return -EINVAL;
 
      if (!dev->shared_area) {
-          if (fusion_id != 1)
+          if (fusionee_id( fusionee ) != FUSION_ID_MASTER)
                return -EPERM;
 
           dev->shared_area = get_zeroed_page( GFP_KERNEL );

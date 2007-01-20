@@ -21,7 +21,6 @@
 #include "fusiondev.h"
 #include "types.h"
 
-
 /* module init/cleanup */
 
 int  fusionee_init   (FusionDev *dev);
@@ -31,18 +30,19 @@ void fusionee_deinit (FusionDev *dev);
 /* internal functions */
 
 int fusionee_new           (FusionDev         *dev,
-                            FusionID          *ret_id);
+                            bool               force_slave,
+                            Fusionee         **ret_fusionee);
 
 int fusionee_enter         (FusionDev         *dev,
                             FusionEnter       *enter,
-                            FusionID           id);
+                            Fusionee          *fusionee);
 
 int fusionee_fork          (FusionDev         *dev,
                             FusionFork        *fork,
-                            FusionID           id);
+                            Fusionee          *fusionee);
 
 int fusionee_send_message  (FusionDev         *dev,
-                            FusionID           id,
+                            Fusionee          *fusionee,
                             FusionID           recipient,
                             FusionMessageType  msg_type,
                             int                msg_id,
@@ -50,24 +50,26 @@ int fusionee_send_message  (FusionDev         *dev,
                             const void        *msg_data);
 
 int fusionee_get_messages  (FusionDev         *dev,
-                            FusionID           id,
+                            Fusionee          *fusionee,
                             void              *buf,
                             int                buf_size,
                             bool               block);
 
 unsigned
 int fusionee_poll          (FusionDev         *dev,
-                            FusionID           id,
+                            Fusionee          *fusionee,
                             struct file       *file,
                             poll_table        *wait);
 
 int fusionee_kill          (FusionDev         *dev,
-                            FusionID           id,
-                            int                target,
+                            Fusionee          *fusionee,
+                            FusionID           target,
                             int                signal,
                             int                timeout_ms);
 
 int fusionee_destroy       (FusionDev         *dev,
-                            FusionID           id);
+                            Fusionee          *fusionee);
+
+FusionID fusionee_id( const Fusionee *fusionee );
 
 #endif

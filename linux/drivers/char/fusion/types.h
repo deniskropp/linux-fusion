@@ -24,4 +24,6 @@ typedef enum {
 } bool;
 #endif
 
+typedef struct __Fusion_Fusionee Fusionee;
+
 #endif

@@ -279,10 +279,11 @@ fusion_property_cede( FusionDev *dev, int id, int fusion_id )
 }
 
 int
-fusion_property_holdup( FusionDev *dev, int id, int fusion_id )
+fusion_property_holdup( FusionDev *dev, int id, Fusionee *fusionee )
 {
      int             ret;
      FusionProperty *property;
+     FusionID        fusion_id = fusionee_id( fusionee );
 
      if (fusion_id > 1)
           return -EPERM;
@@ -297,7 +298,7 @@ fusion_property_holdup( FusionDev *dev, int id, int fusion_id )
                return -EIO;
           }
 
-          fusionee_kill( dev, fusion_id, property->fusion_id, SIGKILL, -1 );
+          fusionee_kill( dev, fusionee, property->fusion_id, SIGKILL, -1 );
      }
 
      fusion_property_unlock( property );

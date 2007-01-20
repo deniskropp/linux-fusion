@@ -282,12 +282,13 @@ fusion_shmpool_detach (FusionDev *dev, int id, FusionID fusion_id)
 int
 fusion_shmpool_dispatch( FusionDev             *dev,
                          FusionSHMPoolDispatch *dispatch,
-                         FusionID               fusion_id )
+                         Fusionee              *fusionee )
 {
      int                   ret;
      FusionLink           *l;
      FusionSHMPool        *shmpool;
      FusionSHMPoolMessage  message;
+     FusionID              fusion_id = fusionee_id( fusionee );
 
      if (dispatch->size <= 0)
           return -EINVAL;
@@ -309,7 +310,7 @@ fusion_shmpool_dispatch( FusionDev             *dev,
           if (node->fusion_id == fusion_id)
                continue;
 
-          fusionee_send_message (dev, fusion_id, node->fusion_id, FMT_SHMPOOL,
+          fusionee_send_message (dev, fusionee, node->fusion_id, FMT_SHMPOOL,
                                  shmpool->entry.id, sizeof(message), &message);
      }
 

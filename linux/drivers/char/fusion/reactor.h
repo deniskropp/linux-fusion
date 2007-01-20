@@ -40,7 +40,7 @@ int fusion_reactor_detach   (FusionDev  *dev,
 
 int fusion_reactor_dispatch (FusionDev  *dev,
                              int         id,
-                             FusionID    fusion_id,
+                             Fusionee   *fusionee,
                              int         msg_size,
                              const void *msg_data);
 

@@ -44,7 +44,7 @@ int fusion_property_cede     (FusionDev *dev,
 
 int fusion_property_holdup   (FusionDev *dev,
                               int        id,
-                              int        fusion_id);
+                              Fusionee  *fusionee);
 
 int fusion_property_destroy  (FusionDev *dev,
                               int        id);
