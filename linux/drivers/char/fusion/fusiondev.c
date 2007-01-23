@@ -344,9 +344,7 @@ fusion_release (struct inode *inode, struct file *file)
 
      DEBUG( "fusion_release( %p, %d )\n", file, atomic_read(&file->f_count) );
 
-     /* FIXME: is this a good idea? */
-     /*while (*/fusionee_destroy (fusion_devs[minor], fusionee);//)
-          //schedule ();
+     fusionee_destroy (fusion_devs[minor], fusionee);
 
      down (&devs_lock);
 

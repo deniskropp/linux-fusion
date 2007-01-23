@@ -475,22 +475,27 @@ fusionee_kill (FusionDev *dev,
      return 0;
 }
 
-int
+void
 fusionee_destroy (FusionDev *dev,
                   Fusionee  *fusionee)
 {
-     if (down_interruptible (&dev->fusionee.lock))
-          return -EINTR;
+     /* Lock list. */
+     down (&dev->fusionee.lock);
 
+     /* Lock fusionee. */
      down (&fusionee->lock);
 
+     /* Remove from list. */
      fusion_list_remove (&dev->fusionee.list, &fusionee->link);
 
+     /* Wake up waiting killer. */
      wake_up_interruptible_all (&dev->fusionee.wait);
 
+     /* Unlock list. */
      up (&dev->fusionee.lock);
 
 
+     /* Release locks, references, ... */
      fusion_call_destroy_all (dev, fusionee->id);
      fusion_skirmish_dismiss_all (dev, fusionee->id);
      fusion_reactor_detach_all (dev, fusionee->id);
@@ -498,20 +503,19 @@ fusionee_destroy (FusionDev *dev,
      fusion_ref_clear_all_local (dev, fusionee->id);
      fusion_shmpool_detach_all (dev, fusionee->id);
 
+     /* Free all pending messages. */
      while (fusionee->messages.count) {
           Message *message = (Message*) fusion_fifo_get (&fusionee->messages);
 
           kfree (message);
      }
 
+     /* Unlock fusionee. */
      up (&fusionee->lock);
 
-     if (fusionee->id == FUSION_ID_MASTER && !dev->enter_ok)
-          wake_up_interruptible_all (&dev->enter_wait);
 
+     /* Free fusionee data. */
      kfree (fusionee);
-
-     return 0;
 }
 
 FusionID

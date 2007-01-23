@@ -67,7 +67,7 @@ int fusionee_kill          (FusionDev         *dev,
                             int                signal,
                             int                timeout_ms);
 
-int fusionee_destroy       (FusionDev         *dev,
+void fusionee_destroy      (FusionDev         *dev,
                             Fusionee          *fusionee);
 
 FusionID fusionee_id( const Fusionee *fusionee );
