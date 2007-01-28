@@ -403,7 +403,7 @@ fusionee_poll (FusionDev   *dev,
 
      ret = lock_fusionee (dev, id, &fusionee);
      if (ret)
-          return ret;
+          return POLLERR;
 
      if (fusionee->messages.count) {
           unlock_fusionee (fusionee);
