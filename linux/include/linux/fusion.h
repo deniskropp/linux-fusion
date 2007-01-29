@@ -2,7 +2,6 @@
 #define __LINUX__FUSION_H__
 
 #include <asm/ioctl.h>
-#include <asm/types.h>
 
 /*
  * Fusion Kernel Device API Version
