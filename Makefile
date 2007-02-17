@@ -1,7 +1,8 @@
-KERNEL_MODLIB     = /lib/modules/$(shell uname -r)
+KERNEL_VERSION    = $(shell uname -r)
+KERNEL_MODLIB     = /lib/modules/$(KERNEL_VERSION)
 KERNEL_BUILD     = $(KERNEL_MODLIB)/build
 KERNEL_SOURCE    = $(KERNEL_MODLIB)/source
-KERNEL_PATCHLEVEL = $(shell uname -r | cut -d . -f 2)
+KERNEL_PATCHLEVEL = $(shell echo $(KERNEL_VERSION) | cut -d . -f 2)
 #KERNEL_PATCHLEVEL = $(shell grep 'PATCHLEVEL =' $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 3)
 
 SUB = linux/drivers/char/fusion
@@ -44,9 +45,9 @@ else
 	rm -f $(DESTDIR)$(KERNEL_MODLIB)/fusion.ko
 endif
 ifneq ($(strip $(DESTDIR)),)
-	/sbin/depmod -ae -b $(DESTDIR)
+	/sbin/depmod -ae -b $(DESTDIR) $(KERNEL_VERSION)
 else
-	/sbin/depmod -ae
+	/sbin/depmod -ae $(KERNEL_VERSION)
 endif
 
 
