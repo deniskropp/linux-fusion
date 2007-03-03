@@ -1,3 +1,131 @@
+2007-02-17   syrjala	14:17:36	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	Makefile (1.22) (+5 -4;)
+	
+	Pass kernel version to depmod. Get the kernel patchlevel from the build kernel, not the currently running kernel.
+	
+2007-01-29   dok	00:43:50	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/include/linux/fusion.h (1.17) (+0 -1;)
+	
+	Don't include <asm/types.h>.
+	
+2007-01-28   syrjala	23:31:00	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	linux/drivers/char/fusion/fusionee.c (1.35) (+1 -1;)
+	
+	Make fusionee_poll() return POLLERR on error. The return value is a
+	bitmask so returning the negative return value from lock_fusionee()
+	doesn't seem like good idea.
+	
+2007-01-26   dok	22:21:24	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	Makefile (1.21) (+1 -1;)
+	
+	Added "-I$(KERNEL_BUILD)/include".
+	
+	Had to do this for building on a freshly installed Ubuntu Feisty (AMD64).
+	
+2007-01-23   dok	21:19:25	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.56) (+1 -3;)
+		linux/drivers/char/fusion/fusionee.h (1.14) (+1 -1;)
+		linux/drivers/char/fusion/fusionee.c (1.34) (+11 -7;)
+	
+	Don't use interruptible locking in fusionee_destroy() called by fusiondev_release(),
+	which must complete.
+	
+	This should fix left over ghost fusionees which required reloading the module,
+	causing some badness messages in the proc file system.
+	
+2007-01-20   dok	04:16:22	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.55) (+4 -2;)
+	
+	Fixed O_EXCL (master) with slaves already waiting.
+	
+2007-01-20   dok	04:03:01	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	linux/drivers/char/fusion/call.c (1.13) (+10 -10;)
+		linux/drivers/char/fusion/types.h (1.4) (+2 -0;)
+		linux/drivers/char/fusion/shmpool.h (1.3) (+1 -1;)
+		linux/drivers/char/fusion/shmpool.c (1.5) (+3 -2;)
+		linux/drivers/char/fusion/reactor.h (1.6) (+1 -1;)
+		linux/drivers/char/fusion/reactor.c (1.18) (+3 -2;)
+		linux/drivers/char/fusion/property.h (1.7) (+1 -1;)
+		linux/drivers/char/fusion/property.c (1.25) (+3 -2;)
+		linux/drivers/char/fusion/fusionee.h (1.13) (+12 -10;)
+		linux/drivers/char/fusion/fusionee.c (1.33) (+95 -108;)
+		linux/drivers/char/fusion/fusiondev.c (1.54) (+60 -83;)
+		linux/drivers/char/fusion/call.h (1.4) (+1 -2;)
+	
+	Implemented waiting for master when entering a world as a slave
+	by setting the O_APPEND flag during open().
+	
+	Some restructuring was necessary to delay allocation of FusionIDs
+	until the world is really entered.
+	
+2007-01-11   mws	18:08:22	
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.53) (+5 -0;)
+	
+	
+	fix mentioned compile errors for kernel 2.6.20
+	i took 2.6.20 as the minimum kernel version for the additional includes
+	maybe that appeared already at 2.6.19
+	
+	linux-fusion/linux/drivers/char/fusion/fusiondev.c: In function 'fusiondev_deinit':
+	linux-fusion/linux/drivers/char/fusion/fusiondev.c:253: warning: implicit declaration of function 'ClearPageReserved'
+	linux-fusion/linux/drivers/char/fusion/fusiondev.c:253: error: invalid use of undefined type 'struct page'
+	linux-fusion/linux/drivers/char/fusion/fusiondev.c: In function 'fusion_mmap':
+	linux-fusion/linux/drivers/char/fusion/fusiondev.c:1011: error: dereferencing pointer to incomplete type
+	
+2007-01-06   syrjala	13:36:58	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	linux/drivers/char/fusion/fusiondev.c (1.52) (+3 -4;)
+	
+	Don't allow fusion_release() to fail. I'm not sure if it's a good idea
+	but at least keeps my console working when XDirectFB crashes.
+	
+2007-01-06   syrjala	13:26:36	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	linux/drivers/char/fusion/fusionee.c (1.32) (+3 -3;)
+	
+	Fix a potential double up() on dev->fusionee.lock.
+	
+2007-01-06   syrjala	13:19:37	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	linux/drivers/char/fusion/fusionee.c (1.31) (+5 -10;)
+	
+	lookup_fusionee() can't return a NULL fusionee on success.
+	
+2007-01-06   syrjala	13:09:45	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	Makefile (1.20) (+4 -0;)
+		linux/drivers/char/fusion/skirmish.c (1.24) (+2 -0;)
+		linux/drivers/char/fusion/shmpool.c (1.4) (+2 -0;)
+		linux/drivers/char/fusion/ref.c (1.23) (+2 -0;)
+		linux/drivers/char/fusion/reactor.c (1.17) (+2 -0;)
+		linux/drivers/char/fusion/property.c (1.24) (+2 -0;)
+		linux/drivers/char/fusion/fusionee.c (1.30) (+2 -0;)
+		linux/drivers/char/fusion/fusiondev.c (1.51) (+2 -0;)
+		linux/drivers/char/fusion/entries.c (1.12) (+2 -0;)
+		linux/drivers/char/fusion/call.c (1.12) (+2 -0;)
+	
+	linux/config.h is no more.
+	
+2007-01-06   syrjala	13:03:48	Ville Syrjala <syrjala@sci.fi>
+
+	Files:	linux/drivers/char/fusion/types.h (1.3) (+4 -0;)
+	
+	Fix bool redefinition. Patch from Daniel Laird.
+	
+2006-09-26   dok	07:12:36	Denis Oliver Kropp <dok@directfb.org>
+
+	Files:	ChangeLog (1.4) (+1059 -380;)
+	
+	updated
+	
 2006-09-26   dok	07:10:44	Denis Oliver Kropp <dok@directfb.org>
 
 	Files:	__________PLEASE_NOTE__THE_MAJOR_ID_CHANGED_TO_252__SEE_README_________ (1.2) (+0 -0;)
