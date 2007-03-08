@@ -405,11 +405,11 @@ fusion_entry_wait( FusionEntry *entry, long *timeout )
 
      entry->waiters--;
 
-     if (timeout && !*timeout)
-          return -ETIMEDOUT;
-
      if (signal_pending(current))
           return -EINTR;
+
+     if (timeout && !*timeout)
+          return -ETIMEDOUT;
 
      ret = fusion_entry_lock( entries, id, false, &entry2 );
      switch (ret) {
@@ -429,9 +429,6 @@ fusion_entry_notify( FusionEntry *entry, bool all )
 {
      FUSION_ASSERT( entry != NULL );
      FUSION_ASSUME( entry->lock_pid == current->pid );
-
-     if (!entry->waiters)
-          return;
 
      if (all)
           wake_up_interruptible_all( &entry->wait );
