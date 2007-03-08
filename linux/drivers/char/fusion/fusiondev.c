@@ -88,6 +88,24 @@ static struct class_simple *fusion_class;
 
 /******************************************************************************/
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+void
+fusion_sleep_on(wait_queue_head_t *q, struct semaphore *lock, signed long *timeout)
+{
+     DEFINE_WAIT(wait);
+
+     prepare_to_wait( q, &wait, TASK_INTERRUPTIBLE );
+
+     up( lock );
+
+     if (timeout)
+          *timeout = schedule_timeout(*timeout);
+     else
+          schedule();
+
+     finish_wait( q, &wait );
+}
+#else
 void
 fusion_sleep_on(wait_queue_head_t *q, struct semaphore *lock, signed long *timeout)
 {
@@ -97,22 +115,6 @@ fusion_sleep_on(wait_queue_head_t *q, struct semaphore *lock, signed long *timeo
 
      current->state = TASK_INTERRUPTIBLE;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-     spin_lock (&q->lock);
-     __add_wait_queue (q, &wait);
-     spin_unlock (&q->lock);
-
-     up (lock);
-
-     if (timeout)
-          *timeout = schedule_timeout(*timeout);
-     else
-          schedule();
-
-     spin_lock (&q->lock);
-     __remove_wait_queue (q, &wait);
-     spin_unlock (&q->lock);
-#else
      write_lock (&q->lock);
      __add_wait_queue (q, &wait);
      write_unlock (&q->lock);
@@ -127,8 +129,8 @@ fusion_sleep_on(wait_queue_head_t *q, struct semaphore *lock, signed long *timeo
      write_lock (&q->lock);
      __remove_wait_queue (q, &wait);
      write_unlock (&q->lock);
-#endif
 }
+#endif
 
 /******************************************************************************/
 
