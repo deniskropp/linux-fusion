@@ -10,9 +10,7 @@ Implement defering/blocking of SIGSTOP while a Skirmish is locked
 by the process. This will avoid rare deadlocks when pressing Ctrl-Z
 in the terminal where a DirectFB slave application has been started.
 
-Maybe implement other Fusion parts like Arena or Object(Pool).
+Revert semaphores to spinlocks where possible.
 
-
-Replace kmalloc() usage.
-
-Revert semaphores to spinlocks.
+Implement user space based skirmish_prevail()/dismiss() for the
+uncontended case, similar to futexes.
