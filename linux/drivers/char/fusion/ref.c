@@ -527,6 +527,7 @@ fork_local (FusionDev *dev, FusionRef *ref, FusionID fusion_id, FusionID from_id
 
           if (local->fusion_id == from_id) {
                if (local->refs) {
+#if 0
                     LocalRef *new_local;
 
                     new_local = kmalloc (sizeof(LocalRef), GFP_KERNEL);
@@ -541,6 +542,9 @@ fork_local (FusionDev *dev, FusionRef *ref, FusionID fusion_id, FusionID from_id
                     fusion_list_prepend( &ref->local_refs, &new_local->link );
 
                     propagate_local( dev, ref, local->refs );
+#else
+                    local->refs++;
+#endif
                }
                break;
           }
