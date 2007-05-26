@@ -32,5 +32,13 @@ FusionLink *fusion_fifo_get   (FusionFifo *fifo);
 
 int         fusion_fifo_count (FusionFifo *fifo);
 
+
+static inline void
+fusion_fifo_reset( FusionFifo *fifo )
+{
+     fifo->count = 0;
+     fifo->first = fifo->last = NULL;
+}
+
 #endif /* __FUSION__LIST_H__ */
 

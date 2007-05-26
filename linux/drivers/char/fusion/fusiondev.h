@@ -23,7 +23,7 @@
 #define FUSION_ASSERT(exp)    if (!(exp)) BUG()
 #define FUSION_ASSUME(exp)    if (!(exp)) printk( KERN_ERR "fusiondev: assumption '" #exp "' failed!\n" )
 
-typedef struct {
+struct __Fusion_FusionDev {
      int                    refs;
      int                    index;
 
@@ -70,7 +70,7 @@ typedef struct {
      FusionEntries  ref;
      FusionEntries  shmpool;
      FusionEntries  skirmish;
-} FusionDev;
+};
 
 /*
  * Special version of interruptible_sleep_on() that unlocks the mutex

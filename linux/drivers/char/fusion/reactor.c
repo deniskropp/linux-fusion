@@ -23,6 +23,7 @@
 
 #include <linux/fusion.h>
 
+#include "call.h"
 #include "fusiondev.h"
 #include "fusionee.h"
 #include "list.h"
@@ -37,6 +38,14 @@ typedef struct {
 } ReactorNode;
 
 typedef struct {
+     int                count;     /* number of recipients */
+
+     int                call_id;   /* id of call to execute when count reaches zero */
+     int                call_arg;  /* optional parameter of user space */
+     void              *call_ptr;
+} ReactorDispatch;
+
+typedef struct {
      FusionEntry        entry;
 
      FusionLink        *nodes;
@@ -44,6 +53,10 @@ typedef struct {
      int                dispatch_count;
 
      bool               destroyed;
+
+     int                call_id;
+     int                call_arg;
+     void              *call_ptr;
 } FusionReactor;
 
 /******************************************************************************/
@@ -205,14 +218,59 @@ fusion_reactor_detach (FusionDev *dev, int id, FusionID fusion_id)
      return 0;
 }
 
+static void
+dispatch_callback( FusionDev *dev,
+                   int        id,
+                   void      *ctx,
+                   int        arg )
+{
+     FusionLink      *l;
+     FusionReactor   *reactor  = NULL;
+     ReactorDispatch *dispatch = ctx;
+
+     down (&dev->reactor.lock);
+
+     fusion_list_foreach (l, dev->reactor.list) {
+          reactor = (FusionReactor *) l;
+
+          if (reactor->entry.id == id) {
+               down (&reactor->entry.lock);
+
+               if (! --dispatch->count) {
+                    FusionCallExecute execute;
+
+                    execute.call_id  = dispatch->call_id;
+                    execute.call_arg = dispatch->call_arg;
+                    execute.call_ptr = dispatch->call_ptr;
+
+                    fusion_call_execute( dev, NULL, &execute );
+
+                    kfree( dispatch );
+               }
+
+               up (&reactor->entry.lock);
+
+               break;
+          }
+     }
+
+     if (!reactor) {
+          if (! --dispatch->count)
+               kfree( dispatch );
+     }
+
+     up( &dev->reactor.lock );
+}
+
 int
 fusion_reactor_dispatch (FusionDev *dev, int id, Fusionee *fusionee,
                          int msg_size, const void *msg_data)
 {
-     int            ret;
-     FusionLink    *l;
-     FusionReactor *reactor;
-     FusionID       fusion_id = fusionee ? fusionee_id( fusionee ) : 0;
+     int              ret;
+     FusionLink      *l;
+     FusionReactor   *reactor;
+     ReactorDispatch *dispatch  = NULL;
+     FusionID         fusion_id = fusionee ? fusionee_id( fusionee ) : 0;
 
      ret = fusion_reactor_lock( &dev->reactor, id, false, &reactor );
      if (ret)
@@ -223,6 +281,19 @@ fusion_reactor_dispatch (FusionDev *dev, int id, Fusionee *fusionee,
           return -EIDRM;
      }
 
+     if (reactor->call_id) {
+          dispatch = kmalloc (sizeof(ReactorDispatch), GFP_KERNEL);
+          if (!dispatch) {
+               fusion_reactor_unlock( reactor );
+               return -ENOMEM;
+          }
+
+          dispatch->count    = 0;
+          dispatch->call_id  = reactor->call_id;
+          dispatch->call_arg = reactor->call_arg;
+          dispatch->call_ptr = reactor->call_ptr;
+     }
+
      reactor->dispatch_count++;
 
      fusion_list_foreach (l, reactor->nodes) {
@@ -231,9 +302,48 @@ fusion_reactor_dispatch (FusionDev *dev, int id, Fusionee *fusionee,
           if (node->fusion_id == fusion_id)
                continue;
 
-          fusionee_send_message (dev, fusionee, node->fusion_id, FMT_REACTOR,
-                                 reactor->entry.id, msg_size, msg_data);
+          if (dispatch) {
+               dispatch->count++;
+
+               fusionee_send_message (dev, fusionee, node->fusion_id, FMT_REACTOR,
+                                      reactor->entry.id, msg_size, msg_data,
+                                      dispatch_callback, dispatch, reactor->entry.id);
+          }
+          else
+               fusionee_send_message (dev, fusionee, node->fusion_id, FMT_REACTOR,
+                                      reactor->entry.id, msg_size, msg_data, NULL, NULL, 0);
      }
+
+     if (dispatch && !dispatch->count)
+         kfree( dispatch );
+
+     fusion_reactor_unlock( reactor );
+
+     return 0;
+}
+
+int
+fusion_reactor_set_dispatch_callback (FusionDev  *dev,
+                                      int         id,
+                                      int         call_id,
+                                      int         call_arg,
+                                      void       *call_ptr)
+{
+     int            ret;
+     FusionReactor *reactor;
+
+     ret = fusion_reactor_lock( &dev->reactor, id, false, &reactor );
+     if (ret)
+          return ret;
+
+     if (reactor->destroyed) {
+          fusion_reactor_unlock( reactor );
+          return -EIDRM;
+     }
+
+     reactor->call_id  = call_id;
+     reactor->call_arg = call_arg;
+     reactor->call_ptr = call_ptr;
 
      fusion_reactor_unlock( reactor );
 

@@ -24,6 +24,13 @@ typedef enum {
 } bool;
 #endif
 
-typedef struct __Fusion_Fusionee Fusionee;
+typedef struct __Fusion_FusionDev FusionDev;
+typedef struct __Fusion_Fusionee  Fusionee;
+
+
+typedef void (*MessageCallback)( FusionDev *dev,
+                                 int        msg_id,
+                                 void      *ctx,
+                                 int        param );
 
 #endif

@@ -49,6 +49,7 @@ struct __Fusion_Fusionee {
      int               pid;
 
      FusionFifo        messages;
+     FusionFifo        prev_msgs;
 
      int               rcv_total;  /* Total number of messages received. */
      int               snd_total;  /* Total number of messages sent. */
@@ -65,6 +66,10 @@ typedef struct {
      FusionID           id;
      int                size;
      void              *data;
+
+     MessageCallback    callback;
+     void              *callback_ctx;
+     int                callback_param;
 } Message;
 
 /******************************************************************************/
@@ -72,6 +77,8 @@ typedef struct {
 static int  lookup_fusionee (FusionDev *dev, FusionID id, Fusionee **ret_fusionee);
 static int  lock_fusionee   (FusionDev *dev, FusionID id, Fusionee **ret_fusionee);
 static void unlock_fusionee (Fusionee *fusionee);
+
+static void flush_messages  (FusionDev *dev, FusionFifo *fifo);
 
 /******************************************************************************/
 
@@ -249,13 +256,16 @@ fusionee_fork( FusionDev  *dev,
 }
 
 int
-fusionee_send_message (FusionDev         *dev,
+fusionee_send_message( FusionDev         *dev,
                        Fusionee          *sender,
                        FusionID           recipient,
                        FusionMessageType  msg_type,
                        int                msg_id,
                        int                msg_size,
-                       const void        *msg_data)
+                       const void        *msg_data,
+                       MessageCallback    callback,
+                       void              *callback_ctx,
+                       int                callback_param )
 {
      int       ret;
      Message  *message;
@@ -304,9 +314,12 @@ fusionee_send_message (FusionDev         *dev,
           return -EFAULT;
      }
 
-     message->type = msg_type;
-     message->id   = msg_id;
-     message->size = msg_size;
+     message->type           = msg_type;
+     message->id             = msg_id;
+     message->size           = msg_size;
+     message->callback       = callback;
+     message->callback_ctx   = callback_ctx;
+     message->callback_param = callback_param;
 
      fusion_fifo_put (&fusionee->messages, &message->link);
 
@@ -331,24 +344,34 @@ fusionee_get_messages (FusionDev *dev,
                        int        buf_size,
                        bool       block)
 {
-     int written = 0;
+     int        written = 0;
+     FusionFifo prev_msgs;
 
      if (down_interruptible (&fusionee->lock))
           return -EINTR;
 
+     prev_msgs = fusionee->prev_msgs;
+
+     fusion_fifo_reset( &fusionee->prev_msgs );
+
      while (!fusionee->messages.count) {
           if (!block) {
                unlock_fusionee (fusionee);
+               flush_messages( dev, &prev_msgs );
                return -EAGAIN;
           }
 
           fusion_sleep_on (&fusionee->wait, &fusionee->lock, 0);
 
-          if (signal_pending(current))
+          if (signal_pending(current)) {
+               flush_messages( dev, &prev_msgs );
                return -EINTR;
+          }
 
-          if (down_interruptible (&fusionee->lock))
+          if (down_interruptible (&fusionee->lock)) {
+               flush_messages( dev, &prev_msgs );
                return -EINTR;
+          }
      }
 
      while (fusionee->messages.count) {
@@ -359,6 +382,7 @@ fusionee_get_messages (FusionDev *dev,
           if (bytes > buf_size) {
                if (!written) {
                     unlock_fusionee (fusionee);
+                    flush_messages( dev, &prev_msgs );
                     return -EMSGSIZE;
                }
 
@@ -370,8 +394,10 @@ fusionee_get_messages (FusionDev *dev,
           header.msg_size = message->size;
 
           if (copy_to_user (buf, &header, sizeof(header)) ||
-              copy_to_user (buf + sizeof(header), message->data, message->size)) {
+              copy_to_user (buf + sizeof(header), message->data, message->size))
+          {
                unlock_fusionee (fusionee);
+               flush_messages( dev, &prev_msgs );
                return -EFAULT;
           }
 
@@ -381,10 +407,15 @@ fusionee_get_messages (FusionDev *dev,
 
           fusion_fifo_get (&fusionee->messages);
 
-          kfree (message);
+          if (message->callback)
+               fusion_fifo_put( &fusionee->prev_msgs, &message->link );
+          else
+               kfree( message );
      }
 
      unlock_fusionee (fusionee);
+
+     flush_messages( dev, &prev_msgs );
 
      return written;
 }
@@ -395,11 +426,24 @@ fusionee_poll (FusionDev   *dev,
                struct file *file,
                poll_table  *wait)
 {
-     int      ret;
-     FusionID id = fusionee->id;
+     int        ret;
+     FusionID   id = fusionee->id;
+     FusionFifo prev_msgs;
+
+     ret = lock_fusionee (dev, id, &fusionee);
+     if (ret)
+          return POLLERR;
+
+     prev_msgs = fusionee->prev_msgs;
+
+     fusion_fifo_reset( &fusionee->prev_msgs );
+
+     unlock_fusionee (fusionee);
+
+     flush_messages( dev, &prev_msgs );
+
 
      poll_wait (file, &fusionee->wait, wait);
-
 
      ret = lock_fusionee (dev, id, &fusionee);
      if (ret)
@@ -479,11 +523,17 @@ void
 fusionee_destroy (FusionDev *dev,
                   Fusionee  *fusionee)
 {
+     FusionFifo prev_msgs;
+     FusionFifo messages;
+
      /* Lock list. */
      down (&dev->fusionee.lock);
 
      /* Lock fusionee. */
      down (&fusionee->lock);
+
+     prev_msgs = fusionee->prev_msgs;
+     messages  = fusionee->messages;
 
      /* Remove from list. */
      fusion_list_remove (&dev->fusionee.list, &fusionee->link);
@@ -503,16 +553,12 @@ fusionee_destroy (FusionDev *dev,
      fusion_ref_clear_all_local (dev, fusionee->id);
      fusion_shmpool_detach_all (dev, fusionee->id);
 
-     /* Free all pending messages. */
-     while (fusionee->messages.count) {
-          Message *message = (Message*) fusion_fifo_get (&fusionee->messages);
-
-          kfree (message);
-     }
-
      /* Unlock fusionee. */
      up (&fusionee->lock);
 
+     /* Free all pending messages. */
+     flush_messages( dev, &prev_msgs );
+     flush_messages( dev, &messages );
 
      /* Free fusionee data. */
      kfree (fusionee);
@@ -580,5 +626,20 @@ static void
 unlock_fusionee (Fusionee *fusionee)
 {
      up (&fusionee->lock);
+}
+
+/******************************************************************************/
+
+static void
+flush_messages( FusionDev *dev, FusionFifo *fifo )
+{
+     Message *message;
+
+     while ((message = (Message*) fusion_fifo_get( fifo )) != NULL) {
+          if (message->callback)
+               message->callback( dev, message->id, message->callback_ctx, message->callback_param );
+
+          kfree( message );
+     }
 }
 

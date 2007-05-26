@@ -53,8 +53,8 @@ typedef struct {
      void              *handler;
      void              *ctx;
 
-     FusionLink          *executions;      /* prepending! */
-     FusionLink          *last;            /* points to the last item of executions */
+     FusionLink        *executions;      /* prepending! */
+     FusionLink        *last;            /* points to the last item of executions */
 
      int                count;    /* number of calls ever made */
 } FusionCall;
@@ -180,7 +180,7 @@ fusion_call_new (FusionDev *dev, int fusion_id, FusionCallNew *call_new)
           return -EINTR;
      }
 
-     call->id        = dev->call.ids++;
+     call->id        = ++dev->call.ids;
      call->pid       = current->pid;
      call->fusion_id = fusion_id;
      call->handler   = call_new->handler;
@@ -225,7 +225,7 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
      message.call_ptr = execute->call_ptr;
 
      ret = fusionee_send_message (dev, fusionee, call->fusion_id, FMT_CALL,
-                                  call->id, sizeof(message), &message);
+                                  call->id, sizeof(message), &message, NULL, NULL, 0);
      if (ret) {
           remove_execution (call, execution);
           kfree (execution);

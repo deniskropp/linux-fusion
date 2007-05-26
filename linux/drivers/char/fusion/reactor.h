@@ -47,6 +47,12 @@ int fusion_reactor_dispatch (FusionDev  *dev,
 int fusion_reactor_destroy  (FusionDev  *dev,
                              int         id);
 
+int fusion_reactor_set_dispatch_callback (FusionDev  *dev,
+                                          int         id,
+                                          int         call_id,
+                                          int         call_arg,
+                                          void       *call_ptr);
+
 
 /* internal functions */
 

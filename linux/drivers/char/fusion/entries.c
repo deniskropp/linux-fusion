@@ -173,7 +173,7 @@ fusion_entry_create( FusionEntries *entries,
      }
 
      entry->entries = entries;
-     entry->id      = entries->ids++;
+     entry->id      = ++entries->ids;
      entry->pid     = current->pid;
 
      init_MUTEX( &entry->lock );

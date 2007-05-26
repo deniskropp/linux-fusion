@@ -551,7 +551,8 @@ messaging_ioctl (FusionDev *dev, Fusionee *fusionee,
                     return -EMSGSIZE;
 
                return fusionee_send_message (dev, fusionee, send.fusion_id, FMT_SEND,
-                                             send.msg_id, send.msg_size, send.msg_data);
+                                             send.msg_id, send.msg_size, send.msg_data,
+                                             NULL, NULL, 0);
      }
 
      return -ENOSYS;
@@ -825,10 +826,11 @@ static int
 reactor_ioctl (FusionDev *dev, Fusionee *fusionee,
                unsigned int cmd, unsigned long arg)
 {
-     int                   id;
-     int                   ret;
-     FusionReactorDispatch dispatch;
-     FusionID              fusion_id = fusionee_id( fusionee );
+     int                      id;
+     int                      ret;
+     FusionReactorDispatch    dispatch;
+     FusionReactorSetCallback callback;
+     FusionID                 fusion_id = fusionee_id( fusionee );
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_REACTOR_NEW):
@@ -875,6 +877,15 @@ reactor_ioctl (FusionDev *dev, Fusionee *fusionee,
                     return -EFAULT;
 
                return fusion_reactor_destroy (dev, id);
+
+          case _IOC_NR(FUSION_REACTOR_SET_DISPATCH_CALLBACK):
+               if (copy_from_user (&callback,
+                                   (FusionReactorSetCallback*) arg, sizeof(callback)))
+                    return -EFAULT;
+
+               return fusion_reactor_set_dispatch_callback (dev, callback.reactor_id,
+                                                            callback.call_id, callback.call_arg,
+                                                            callback.call_ptr);
      }
 
      return -ENOSYS;
