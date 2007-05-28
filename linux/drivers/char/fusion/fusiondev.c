@@ -763,6 +763,18 @@ skirmish_ioctl (FusionDev *dev, Fusionee *fusionee,
                     return -EFAULT;
 
                return ret;
+
+          case _IOC_NR(FUSION_SKIRMISH_WAIT):
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
+
+               return fusion_skirmish_wait_ (dev, id, fusion_id);
+
+          case _IOC_NR(FUSION_SKIRMISH_NOTIFY):
+               if (get_user (id, (int*) arg))
+                    return -EFAULT;
+
+               return fusion_skirmish_notify_ (dev, id, fusion_id);
      }
 
      return -ENOSYS;

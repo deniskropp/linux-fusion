@@ -35,18 +35,20 @@
 typedef struct __FUSION_FusionSkirmish FusionSkirmish;
 
 struct __FUSION_FusionSkirmish {
-     FusionEntry entry;
+     FusionEntry  entry;
 
-     int         lock_fid;  /* non-zero if locked */
-     int         lock_pid;
-     int         lock_count;
+     int          lock_fid;  /* non-zero if locked */
+     int          lock_pid;
+     int          lock_count;
 
-     int         lock_total;
+     int          lock_total;
+
+     unsigned int notify_count;
 
 #ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
-     int         pre_acquis[MAX_PRE_ACQUISITIONS];
+     int          pre_acquis[MAX_PRE_ACQUISITIONS];
 
-     bool        outer;
+     bool         outer;
 #endif
 };
 
@@ -341,6 +343,80 @@ fusion_skirmish_destroy (FusionDev *dev, int id)
 #endif
 
      return fusion_entry_destroy( &dev->skirmish, id );
+}
+
+int
+fusion_skirmish_wait_ (FusionDev *dev, int id, int fusion_id)
+{
+     int             ret;
+     int             lock_count;
+     unsigned int    notify_count;
+     FusionSkirmish *skirmish;
+
+     ret = fusion_skirmish_lock( &dev->skirmish, id, false, &skirmish );
+     if (ret)
+          return ret;
+
+     dev->stat.skirmish_wait++;
+
+     if (skirmish->lock_pid != current->pid) {
+          fusion_skirmish_unlock( skirmish );
+          return -EIO;
+     }
+
+     lock_count   = skirmish->lock_count;
+     notify_count = skirmish->notify_count;
+
+     skirmish->lock_fid = 0;
+     skirmish->lock_pid = 0;
+
+     fusion_skirmish_notify( skirmish, true );
+
+     while (notify_count == skirmish->notify_count) {
+          ret = fusion_skirmish_wait( skirmish, NULL );
+          if (ret)
+               return ret;
+     }
+
+     while (skirmish->lock_pid) {
+          ret = fusion_skirmish_wait( skirmish, NULL );
+          if (ret)
+               return ret;
+     }
+
+     skirmish->lock_fid   = fusion_id;
+     skirmish->lock_pid   = current->pid;
+     skirmish->lock_count = lock_count;
+
+     fusion_skirmish_unlock( skirmish );
+
+     return 0;
+}
+
+int
+fusion_skirmish_notify_ (FusionDev *dev, int id, int fusion_id)
+{
+     int             ret;
+     FusionSkirmish *skirmish;
+
+     ret = fusion_skirmish_lock( &dev->skirmish, id, false, &skirmish );
+     if (ret)
+          return ret;
+
+     dev->stat.skirmish_notify++;
+
+     if (skirmish->lock_pid != current->pid) {
+          fusion_skirmish_unlock( skirmish );
+          return -EIO;
+     }
+
+     skirmish->notify_count++;
+
+     fusion_skirmish_notify( skirmish, true );
+
+     fusion_skirmish_unlock( skirmish );
+
+     return 0;
 }
 
 void

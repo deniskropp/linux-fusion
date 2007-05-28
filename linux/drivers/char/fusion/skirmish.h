@@ -50,6 +50,14 @@ int fusion_skirmish_dismiss (FusionDev *dev,
 int fusion_skirmish_destroy (FusionDev *dev,
                              int        id);
 
+int fusion_skirmish_wait_   (FusionDev *dev,
+                             int        id,
+                             int        fusion_id);
+
+int fusion_skirmish_notify_ (FusionDev *dev,
+                             int        id,
+                             int        fusion_id);
+
 
 /* internal functions */
 

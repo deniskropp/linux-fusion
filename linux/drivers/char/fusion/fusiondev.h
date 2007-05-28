@@ -47,6 +47,8 @@ struct __Fusion_FusionDev {
 
           int skirmish_prevail_swoop;
           int skirmish_dismiss;
+          int skirmish_wait;
+          int skirmish_notify;
 
           int shmpool_attach;
           int shmpool_detach;

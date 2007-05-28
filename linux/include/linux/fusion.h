@@ -290,6 +290,8 @@ typedef struct {
 #define FUSION_SKIRMISH_DISMISS              _IOW(FT_SKIRMISH,  0x03, int)
 #define FUSION_SKIRMISH_DESTROY              _IOW(FT_SKIRMISH,  0x04, int)
 #define FUSION_SKIRMISH_LOCK_COUNT           _IOW(FT_SKIRMISH,  0x05, int)
+#define FUSION_SKIRMISH_WAIT                 _IOW(FT_SKIRMISH,  0x06, int)
+#define FUSION_SKIRMISH_NOTIFY               _IOW(FT_SKIRMISH,  0x07, int)
 
 #define FUSION_PROPERTY_NEW                  _IOW(FT_PROPERTY,  0x00, int)
 #define FUSION_PROPERTY_LEASE                _IOW(FT_PROPERTY,  0x01, int)
