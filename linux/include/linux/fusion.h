@@ -6,8 +6,8 @@
 /*
  * Fusion Kernel Device API Version
  */
-#define FUSION_API_MAJOR      3         /* Increased if backward compatibility is dropped. */
-#define FUSION_API_MINOR      3         /* Increased if new features are added. */
+#define FUSION_API_MAJOR      4         /* Increased if backward compatibility is dropped. */
+#define FUSION_API_MINOR      0         /* Increased if new features are added. */
 
 /*
  * The Fusion ID is a unique identifier for one process consisting of threads.
@@ -120,6 +120,8 @@ typedef struct {
      int                 call_id;       /* id of currently executing call */
 
      int                 val;           /* value to return */
+
+     unsigned int        serial;        
 } FusionCallReturn;
 
 typedef struct {
@@ -129,6 +131,8 @@ typedef struct {
      int                 caller;        /* fusion id of the caller or zero if called from Fusion */
      int                 call_arg;      /* optional call parameter */
      void               *call_ptr;      /* optional call parameter */
+
+     unsigned int        serial;
 } FusionCallMessage;
 
 /*

@@ -38,6 +38,9 @@ typedef struct {
      bool              executed;
 
      wait_queue_head_t wait;
+
+     int               call_id;
+     unsigned int      serial;
 } FusionCallExecution;
 
 typedef struct {
@@ -57,6 +60,8 @@ typedef struct {
      FusionLink        *last;            /* points to the last item of executions */
 
      int                count;    /* number of calls ever made */
+
+     unsigned int       serial;
 } FusionCall;
 
 /******************************************************************************/
@@ -67,7 +72,8 @@ static void unlock_call (FusionCall *call);
 
 static FusionCallExecution *add_execution       (FusionCall          *call,
                                                  Fusionee            *caller,
-                                                 FusionCallExecute   *execute);
+                                                 FusionCallExecute   *execute,
+                                                 unsigned int         serial);
 static void                 remove_execution    (FusionCall          *call,
                                                  FusionCallExecution *execution);
 static void                 free_all_executions (FusionCall          *call);
@@ -202,17 +208,22 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
 {
      int                  ret;
      FusionCall          *call;
-     FusionCallExecution *execution;
+     FusionCallExecution *execution = NULL;
      FusionCallMessage    message;
+     unsigned int         serial;
 
      ret = lock_call (dev, execute->call_id, &call);
      if (ret)
           return ret;
 
-     execution = add_execution (call, fusionee, execute);
-     if (!execution) {
-          unlock_call (call);
-          return -ENOMEM;
+     serial = ++call->serial;
+
+     if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
+          execution = add_execution (call, fusionee, execute, serial);
+          if (!execution) {
+               unlock_call (call);
+               return -ENOMEM;
+          }
      }
 
      /* Send call message. */
@@ -224,18 +235,22 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
      message.call_arg = execute->call_arg;
      message.call_ptr = execute->call_ptr;
 
+     message.serial   = serial;
+
      ret = fusionee_send_message (dev, fusionee, call->fusion_id, FMT_CALL,
                                   call->id, sizeof(message), &message, NULL, NULL, 0);
      if (ret) {
-          remove_execution (call, execution);
-          kfree (execution);
+          if (execution) {
+               remove_execution (call, execution);
+               kfree (execution);
+          }
           unlock_call (call);
           return ret;
      }
 
      call->count++;
 
-     if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
+     if (execution) {
           /* TODO: implement timeout */
           fusion_sleep_on (&execution->wait, &call->lock, 0);
 
@@ -276,31 +291,29 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
      while (l) {
           FusionCallExecution *execution = (FusionCallExecution*) l;
 
-          if (execution->executed) {
+          if (execution->call_id != call_ret->call_id || execution->serial != call_ret->serial) {
                l = l->prev;
                continue;
           }
 
-          if (execution->caller) {
-               execution->ret_val  = call_ret->val;
-               execution->executed = true;
-
-               wake_up_interruptible_all (&execution->wait);
-          }
-          else {
-               remove_execution (call, execution);
-
-               kfree (execution);
+          if (execution->executed) {
+               unlock_call (call);
+               return -EIO;
           }
 
-          unlock_call (call);
+          FUSION_ASSUME (execution->caller != NULL);
 
-          return 0;
+          execution->ret_val  = call_ret->val;
+          execution->executed = true;
+
+          wake_up_interruptible_all (&execution->wait);
+
+          break;
      }
 
      unlock_call (call);
 
-     return -EIO;
+     return 0;
 }
 
 int
@@ -428,7 +441,8 @@ unlock_call (FusionCall *call)
 static FusionCallExecution *
 add_execution (FusionCall        *call,
                Fusionee          *caller,
-               FusionCallExecute *execute)
+               FusionCallExecute *execute,
+               unsigned int       serial)
 {
      FusionCallExecution *execution;
 
@@ -440,7 +454,9 @@ add_execution (FusionCall        *call,
      /* Initialize execution. */
      memset (execution, 0, sizeof(FusionCallExecution));
 
-     execution->caller = caller;
+     execution->caller  = caller;
+     execution->call_id = call->id;
+     execution->serial  = serial;
 
      init_waitqueue_head (&execution->wait);
 
