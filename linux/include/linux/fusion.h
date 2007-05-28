@@ -6,7 +6,7 @@
 /*
  * Fusion Kernel Device API Version
  */
-#define FUSION_API_MAJOR      4         /* Increased if backward compatibility is dropped. */
+#define FUSION_API_MAJOR      5         /* Increased if backward compatibility is dropped. */
 #define FUSION_API_MINOR      0         /* Increased if new features are added. */
 
 /*
@@ -42,6 +42,7 @@ typedef struct {
      FusionID            fusion_id;     /* recipient */
 
      int                 msg_id;        /* optional message identifier */
+     int                 msg_channel;   /* optional channel number */
      int                 msg_size;      /* message size, must be greater than zero */
      const void         *msg_data;      /* message data, must not be NULL */
 } FusionSendMessage;
@@ -61,6 +62,7 @@ typedef struct {
 
      int                 msg_id;        /* message id (custom id or call/reactor/pool id) */
      int                 msg_size;      /* size of the following message data */
+     int                 msg_channel;   /* optional or reactor channel */
 
      /* message data follows */
 } FusionReadMessage;
@@ -69,12 +71,29 @@ typedef struct {
  * Dispatching a message via a reactor
  */
 typedef struct {
-     int                 reactor_id;
-     int                 self;
+     int                 reactor_id;    /* id of target reactor */
+     int                 channel;       /* optional reactor channel (0-1023) */
+     int                 self;          /* send to ourself if attached */
 
      int                 msg_size;      /* message size, must be greater than zero */
      const void         *msg_data;      /* message data, must not be NULL */
 } FusionReactorDispatch;
+
+/*
+ * Attaching to a reactor
+ */
+typedef struct {
+     int                 reactor_id;
+     int                 channel;
+} FusionReactorAttach;
+
+/*
+ * Detaching from a reactor
+ */
+typedef struct {
+     int                 reactor_id;
+     int                 channel;
+} FusionReactorDetach;
 
 /*
  * Registering a dispatch callback
@@ -280,8 +299,8 @@ typedef struct {
 #define FUSION_PROPERTY_DESTROY              _IOW(FT_PROPERTY,  0x05, int)
 
 #define FUSION_REACTOR_NEW                   _IOW(FT_REACTOR,   0x00, int)
-#define FUSION_REACTOR_ATTACH                _IOW(FT_REACTOR,   0x01, int)
-#define FUSION_REACTOR_DETACH                _IOW(FT_REACTOR,   0x02, int)
+#define FUSION_REACTOR_ATTACH                _IOW(FT_REACTOR,   0x01, FusionReactorAttach)
+#define FUSION_REACTOR_DETACH                _IOW(FT_REACTOR,   0x02, FusionReactorDetach)
 #define FUSION_REACTOR_DISPATCH              _IOW(FT_REACTOR,   0x03, FusionReactorDispatch)
 #define FUSION_REACTOR_DESTROY               _IOW(FT_REACTOR,   0x04, int)
 #define FUSION_REACTOR_SET_DISPATCH_CALLBACK _IOW(FT_REACTOR,   0x05, FusionReactorSetCallback)

@@ -63,7 +63,8 @@ typedef struct {
      FusionLink         link;
 
      FusionMessageType  type;
-     FusionID           id;
+     int                id;
+     int                channel;
      int                size;
      void              *data;
 
@@ -261,6 +262,7 @@ fusionee_send_message( FusionDev         *dev,
                        FusionID           recipient,
                        FusionMessageType  msg_type,
                        int                msg_id,
+                       int                msg_channel,
                        int                msg_size,
                        const void        *msg_data,
                        MessageCallback    callback,
@@ -316,6 +318,7 @@ fusionee_send_message( FusionDev         *dev,
 
      message->type           = msg_type;
      message->id             = msg_id;
+     message->channel        = msg_channel;
      message->size           = msg_size;
      message->callback       = callback;
      message->callback_ctx   = callback_ctx;
@@ -389,9 +392,10 @@ fusionee_get_messages (FusionDev *dev,
                break;
           }
 
-          header.msg_type = message->type;
-          header.msg_id   = message->id;
-          header.msg_size = message->size;
+          header.msg_type    = message->type;
+          header.msg_id      = message->id;
+          header.msg_channel = message->channel;
+          header.msg_size    = message->size;
 
           if (copy_to_user (buf, &header, sizeof(header)) ||
               copy_to_user (buf + sizeof(header), message->data, message->size))

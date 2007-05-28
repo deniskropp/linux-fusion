@@ -551,7 +551,7 @@ messaging_ioctl (FusionDev *dev, Fusionee *fusionee,
                     return -EMSGSIZE;
 
                return fusionee_send_message (dev, fusionee, send.fusion_id, FMT_SEND,
-                                             send.msg_id, send.msg_size, send.msg_data,
+                                             send.msg_id, send.msg_channel, send.msg_size, send.msg_data,
                                              NULL, NULL, 0);
      }
 
@@ -828,6 +828,8 @@ reactor_ioctl (FusionDev *dev, Fusionee *fusionee,
 {
      int                      id;
      int                      ret;
+     FusionReactorAttach      attach;
+     FusionReactorDetach      detach;
      FusionReactorDispatch    dispatch;
      FusionReactorSetCallback callback;
      FusionID                 fusion_id = fusionee_id( fusionee );
@@ -845,16 +847,18 @@ reactor_ioctl (FusionDev *dev, Fusionee *fusionee,
                return 0;
 
           case _IOC_NR(FUSION_REACTOR_ATTACH):
-               if (get_user (id, (int*) arg))
+               if (copy_from_user (&attach,
+                                   (FusionReactorAttach*) arg, sizeof(attach)))
                     return -EFAULT;
 
-               return fusion_reactor_attach (dev, id, fusion_id);
+               return fusion_reactor_attach (dev, attach.reactor_id, attach.channel, fusion_id);
 
           case _IOC_NR(FUSION_REACTOR_DETACH):
-               if (get_user (id, (int*) arg))
+               if (copy_from_user (&detach,
+                                   (FusionReactorDetach*) arg, sizeof(detach)))
                     return -EFAULT;
 
-               return fusion_reactor_detach (dev, id, fusion_id);
+               return fusion_reactor_detach (dev, detach.reactor_id, detach.channel, fusion_id);
 
           case _IOC_NR(FUSION_REACTOR_DISPATCH):
                if (copy_from_user (&dispatch,
@@ -868,7 +872,7 @@ reactor_ioctl (FusionDev *dev, Fusionee *fusionee,
                if (dispatch.msg_size > 0x10000)
                     return -EMSGSIZE;
 
-               return fusion_reactor_dispatch (dev, dispatch.reactor_id,
+               return fusion_reactor_dispatch (dev, dispatch.reactor_id, dispatch.channel,
                                                dispatch.self ? NULL : fusionee,
                                                dispatch.msg_size, dispatch.msg_data);
 

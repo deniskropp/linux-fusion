@@ -34,7 +34,8 @@ typedef struct {
 
      int                fusion_id;
 
-     int                count;     /* number of attach calls */
+     int               *counts;     /* number of attach calls */
+     int                num_counts;
 } ReactorNode;
 
 typedef struct {
@@ -144,11 +145,14 @@ fusion_reactor_new (FusionDev *dev, int *ret_id)
 }
 
 int
-fusion_reactor_attach (FusionDev *dev, int id, FusionID fusion_id)
+fusion_reactor_attach (FusionDev *dev, int id, int channel, FusionID fusion_id)
 {
      int            ret;
      ReactorNode   *node;
      FusionReactor *reactor;
+
+     if (channel < 0 || channel > 1023)
+          return -EINVAL;
 
      ret = fusion_reactor_lock( &dev->reactor, id, false, &reactor );
      if (ret)
@@ -163,19 +167,47 @@ fusion_reactor_attach (FusionDev *dev, int id, FusionID fusion_id)
 
      node = get_node (reactor, fusion_id);
      if (!node) {
+          int ncount = channel + 4;
+
           node = kmalloc (sizeof(ReactorNode), GFP_KERNEL);
           if (!node) {
                fusion_reactor_unlock( reactor );
                return -ENOMEM;
           }
 
-          node->fusion_id = fusion_id;
-          node->count     = 1;
+          node->counts = kmalloc( sizeof(int) * ncount, GFP_KERNEL );
+          if (!node->counts) {
+               kfree( node );
+               fusion_reactor_unlock( reactor );
+               return -ENOMEM;
+          }
+
+          node->num_counts = ncount;
+          node->fusion_id  = fusion_id;
+
+          node->counts[channel] = 1;
 
           fusion_list_prepend (&reactor->nodes, &node->link);
      }
-     else
-          node->count++;
+     else {
+          if (node->num_counts <= channel) {
+               int  ncount = channel + 4;
+               int *counts = kmalloc( sizeof(int) * ncount, GFP_KERNEL );
+
+               if (!counts) {
+                    fusion_reactor_unlock( reactor );
+                    return -ENOMEM;
+               }
+
+               memcpy( counts, node->counts, sizeof(int) * node->num_counts );
+               memset( counts + node->num_counts, 0, sizeof(int) * (ncount - node->num_counts) );
+
+               node->counts     = counts;
+               node->num_counts = ncount;
+          }
+
+          node->counts[channel]++;
+     }
 
      fusion_reactor_unlock( reactor );
 
@@ -183,11 +215,14 @@ fusion_reactor_attach (FusionDev *dev, int id, FusionID fusion_id)
 }
 
 int
-fusion_reactor_detach (FusionDev *dev, int id, FusionID fusion_id)
+fusion_reactor_detach (FusionDev *dev, int id, int channel, FusionID fusion_id)
 {
      int            ret;
      ReactorNode   *node;
      FusionReactor *reactor;
+
+     if (channel < 0 || channel > 1023)
+          return -EINVAL;
 
      ret = fusion_reactor_lock( &dev->reactor, id, true, &reactor );
      if (ret)
@@ -196,15 +231,25 @@ fusion_reactor_detach (FusionDev *dev, int id, FusionID fusion_id)
      dev->stat.reactor_detach++;
 
      node = get_node (reactor, fusion_id);
-     if (!node) {
+     if (!node || node->num_counts <= channel) {
           fusion_reactor_unlock( reactor );
           up( &dev->reactor.lock );
           return -EIO;
      }
 
-     if (! --node->count) {
-          fusion_list_remove (&reactor->nodes, &node->link);
-          kfree (node);
+     if (! --node->counts[channel]) {
+          int i;
+
+          for (i=0; i<node->num_counts; i++) {
+               if (node->counts[i])
+                    break;
+          }
+
+          if (i == node->num_counts) {
+               fusion_list_remove (&reactor->nodes, &node->link);
+               kfree (node->counts);
+               kfree (node);
+          }
      }
 
      if (reactor->destroyed && !reactor->nodes)
@@ -262,7 +307,7 @@ dispatch_callback( FusionDev *dev,
 }
 
 int
-fusion_reactor_dispatch (FusionDev *dev, int id, Fusionee *fusionee,
+fusion_reactor_dispatch (FusionDev *dev, int id, int channel, Fusionee *fusionee,
                          int msg_size, const void *msg_data)
 {
      int              ret;
@@ -270,6 +315,9 @@ fusion_reactor_dispatch (FusionDev *dev, int id, Fusionee *fusionee,
      FusionReactor   *reactor;
      ReactorDispatch *dispatch  = NULL;
      FusionID         fusion_id = fusionee ? fusionee_id( fusionee ) : 0;
+
+     if (channel < 0 || channel > 1023)
+          return -EINVAL;
 
      ret = fusion_reactor_lock( &dev->reactor, id, false, &reactor );
      if (ret)
@@ -289,7 +337,7 @@ fusion_reactor_dispatch (FusionDev *dev, int id, Fusionee *fusionee,
 
           dispatch->count    = 0;
           dispatch->call_id  = reactor->call_id;
-          dispatch->call_arg = 0;/*FIXME CHANNEL*/
+          dispatch->call_arg = channel;
           dispatch->call_ptr = reactor->call_ptr;
      }
 
@@ -298,19 +346,19 @@ fusion_reactor_dispatch (FusionDev *dev, int id, Fusionee *fusionee,
      fusion_list_foreach (l, reactor->nodes) {
           ReactorNode *node = (ReactorNode *) l;
 
-          if (node->fusion_id == fusion_id)
+          if (node->fusion_id == fusion_id || node->num_counts <= channel || !node->counts[channel])
                continue;
 
           if (dispatch) {
                dispatch->count++;
 
                fusionee_send_message (dev, fusionee, node->fusion_id, FMT_REACTOR,
-                                      reactor->entry.id, msg_size, msg_data,
+                                      reactor->entry.id, 0, msg_size, msg_data,
                                       dispatch_callback, dispatch, reactor->entry.id);
           }
           else
                fusionee_send_message (dev, fusionee, node->fusion_id, FMT_REACTOR,
-                                      reactor->entry.id, msg_size, msg_data, NULL, NULL, 0);
+                                      reactor->entry.id, 0, msg_size, msg_data, NULL, NULL, 0);
      }
 
      if (dispatch && !dispatch->count) {
@@ -400,6 +448,7 @@ fusion_reactor_detach_all (FusionDev *dev, FusionID fusion_id)
           fusion_list_foreach (node, reactor->nodes) {
                if (node->fusion_id == fusion_id) {
                     fusion_list_remove (&reactor->nodes, &node->link);
+                    kfree (node->counts);
                     kfree (node);
                     break;
                }
@@ -454,8 +503,17 @@ fork_node (FusionReactor *reactor, FusionID fusion_id, FusionID from_id)
                     return -ENOMEM;
                }
 
-               new_node->fusion_id = fusion_id;
-               new_node->count     = node->count;
+               new_node->counts = kmalloc (sizeof(int) * node->num_counts, GFP_KERNEL);
+               if (!new_node->counts) {
+                    kfree( new_node );
+                    up (&reactor->entry.lock);
+                    return -ENOMEM;
+               }
+
+               new_node->fusion_id  = fusion_id;
+               new_node->num_counts = node->num_counts;
+
+               memcpy( new_node->counts, node->counts, sizeof(int) * node->num_counts );
 
                fusion_list_prepend (&reactor->nodes, &new_node->link);
 
@@ -476,6 +534,7 @@ free_all_nodes (FusionReactor *reactor)
      ReactorNode *node;
 
      fusion_list_foreach_safe (node, n, reactor->nodes) {
+          kfree (node->counts);
           kfree (node);
      }
 

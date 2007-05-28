@@ -238,7 +238,7 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
      message.serial   = serial;
 
      ret = fusionee_send_message (dev, fusionee, call->fusion_id, FMT_CALL,
-                                  call->id, sizeof(message), &message, NULL, NULL, 0);
+                                  call->id, 0, sizeof(message), &message, NULL, NULL, 0);
      if (ret) {
           if (execution) {
                remove_execution (call, execution);

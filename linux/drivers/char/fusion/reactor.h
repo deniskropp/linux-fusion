@@ -32,14 +32,17 @@ int fusion_reactor_new      (FusionDev  *dev,
 
 int fusion_reactor_attach   (FusionDev  *dev,
                              int         id,
+                             int         channel,
                              FusionID    fusion_id);
 
 int fusion_reactor_detach   (FusionDev  *dev,
                              int         id,
+                             int         channel,
                              FusionID    fusion_id);
 
 int fusion_reactor_dispatch (FusionDev  *dev,
                              int         id,
+                             int         channel,
                              Fusionee   *fusionee,
                              int         msg_size,
                              const void *msg_data);
