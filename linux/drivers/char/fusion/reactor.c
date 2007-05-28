@@ -55,7 +55,6 @@ typedef struct {
      bool               destroyed;
 
      int                call_id;
-     int                call_arg;
      void              *call_ptr;
 } FusionReactor;
 
@@ -290,7 +289,7 @@ fusion_reactor_dispatch (FusionDev *dev, int id, Fusionee *fusionee,
 
           dispatch->count    = 0;
           dispatch->call_id  = reactor->call_id;
-          dispatch->call_arg = reactor->call_arg;
+          dispatch->call_arg = 0;/*FIXME CHANNEL*/
           dispatch->call_ptr = reactor->call_ptr;
      }
 
@@ -314,8 +313,17 @@ fusion_reactor_dispatch (FusionDev *dev, int id, Fusionee *fusionee,
                                       reactor->entry.id, msg_size, msg_data, NULL, NULL, 0);
      }
 
-     if (dispatch && !dispatch->count)
-         kfree( dispatch );
+     if (dispatch && !dispatch->count) {
+          FusionCallExecute execute;
+
+          execute.call_id  = dispatch->call_id;
+          execute.call_arg = dispatch->call_arg;
+          execute.call_ptr = dispatch->call_ptr;
+
+          fusion_call_execute( dev, NULL, &execute );
+
+          kfree( dispatch );
+     }
 
      fusion_reactor_unlock( reactor );
 
@@ -326,7 +334,6 @@ int
 fusion_reactor_set_dispatch_callback (FusionDev  *dev,
                                       int         id,
                                       int         call_id,
-                                      int         call_arg,
                                       void       *call_ptr)
 {
      int            ret;
@@ -342,7 +349,6 @@ fusion_reactor_set_dispatch_callback (FusionDev  *dev,
      }
 
      reactor->call_id  = call_id;
-     reactor->call_arg = call_arg;
      reactor->call_ptr = call_ptr;
 
      fusion_reactor_unlock( reactor );

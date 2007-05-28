@@ -884,8 +884,7 @@ reactor_ioctl (FusionDev *dev, Fusionee *fusionee,
                     return -EFAULT;
 
                return fusion_reactor_set_dispatch_callback (dev, callback.reactor_id,
-                                                            callback.call_id, callback.call_arg,
-                                                            callback.call_ptr);
+                                                            callback.call_id, callback.call_ptr);
      }
 
      return -ENOSYS;

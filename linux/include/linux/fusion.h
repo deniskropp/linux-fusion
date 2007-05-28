@@ -78,15 +78,16 @@ typedef struct {
 
 /*
  * Registering a dispatch callback
+ *
+ * The call_arg will be set to the channel number
  */
 typedef struct {
      int                 reactor_id;
 
      int                 call_id;       /* id of the call to execute when a message has been
                                            processed by all recipients of the dispatch */
-     int                 call_arg;      /* optional call parameter, e.g. the id of a user
+     int                *call_ptr;      /* optional call parameter, e.g. the pointer of a user
                                            space resource associated with that reference */
-     void               *call_ptr;
 } FusionReactorSetCallback;
 
 /*
