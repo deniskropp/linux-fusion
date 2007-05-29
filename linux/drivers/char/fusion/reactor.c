@@ -28,6 +28,7 @@
 #include "fusionee.h"
 #include "list.h"
 #include "reactor.h"
+#include "shmpool.h"
 
 typedef struct {
      FusionLink         link;
@@ -329,6 +330,8 @@ fusion_reactor_dispatch (FusionDev *dev, int id, int channel, Fusionee *fusionee
      }
 
      if (reactor->call_id) {
+          void *ptr = *(void**)msg_data;
+
           dispatch = kmalloc (sizeof(ReactorDispatch), GFP_KERNEL);
           if (!dispatch) {
                fusion_reactor_unlock( reactor );
@@ -338,7 +341,13 @@ fusion_reactor_dispatch (FusionDev *dev, int id, int channel, Fusionee *fusionee
           dispatch->count    = 0;
           dispatch->call_id  = reactor->call_id;
           dispatch->call_arg = channel;
-          dispatch->call_ptr = reactor->call_ptr;
+
+          if (!reactor->call_ptr && msg_size == sizeof(ptr) &&
+              (unsigned long) ptr >= FUSION_SHM_BASE &&
+              (unsigned long) ptr < (FUSION_SHM_BASE+FUSION_SHM_BASE))
+               dispatch->call_ptr = ptr;
+          else
+               dispatch->call_ptr = reactor->call_ptr;
      }
 
      reactor->dispatch_count++;

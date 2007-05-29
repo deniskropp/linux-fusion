@@ -29,9 +29,6 @@
 #include "shmpool.h"
 
 
-#define SHM_BASE    0x20010000     /* virtual base address */
-#define SHM_SIZE    0x1FFEF000     /* size of virtual address space */
-
 
 typedef struct {
      FusionLink         link;
@@ -81,7 +78,7 @@ static void         free_all_nodes( FusionSHMPool *shmpool );
 
 static DECLARE_MUTEX (addr_lock);
 static FusionLink    *addr_entries;
-static unsigned long  addr_base = SHM_BASE;
+static unsigned long  addr_base = FUSION_SHM_BASE;
 
 /******************************************************************************/
 
@@ -109,7 +106,7 @@ fusion_shmpool_construct( FusionEntry *entry,
 
      down( &addr_lock );
 
-     if (addr_base + poolnew->max_size >= SHM_BASE + SHM_SIZE) {
+     if (addr_base + poolnew->max_size >= FUSION_SHM_BASE + FUSION_SHM_SIZE) {
           up( &addr_lock );
           printk( KERN_WARNING "%s: virtual address space exhausted! (FIXME)\n", __FUNCTION__ );
           return -ENOSPC;
@@ -146,7 +143,7 @@ fusion_shmpool_destruct( FusionEntry *entry,
       * free trailing address space
       */
 
-     addr_base = SHM_BASE;
+     addr_base = FUSION_SHM_BASE;
 
      fusion_list_foreach (addr_entry, addr_entries) {
           if (addr_entry->next_base > addr_base)

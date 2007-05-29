@@ -18,6 +18,8 @@
 #include "fusiondev.h"
 #include "types.h"
 
+#define FUSION_SHM_BASE    0x20010000     /* virtual base address */
+#define FUSION_SHM_SIZE    0x1FFEF000     /* size of virtual address space */
 
 /* module init/cleanup */
 
