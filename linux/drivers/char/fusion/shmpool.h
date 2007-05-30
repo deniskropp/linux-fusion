@@ -19,8 +19,8 @@
 #include "types.h"
 
 #ifdef __x86_64__
-#define FUSION_SHM_BASE    0x500000010000     /* virtual base address */
-#define FUSION_SHM_SIZE    0x0FFFFFFEF000     /* size of virtual address space */
+#define FUSION_SHM_BASE    0x523000010000     /* virtual base address */
+#define FUSION_SHM_SIZE    0x000FFFFEF000     /* size of virtual address space */
 #else
 
 
