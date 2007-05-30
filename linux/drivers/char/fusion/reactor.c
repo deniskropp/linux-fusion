@@ -344,7 +344,7 @@ fusion_reactor_dispatch (FusionDev *dev, int id, int channel, Fusionee *fusionee
 
           if (!reactor->call_ptr && msg_size == sizeof(ptr) &&
               (unsigned long) ptr >= FUSION_SHM_BASE &&
-              (unsigned long) ptr < (FUSION_SHM_BASE+FUSION_SHM_BASE))
+              (unsigned long) ptr < (FUSION_SHM_BASE+FUSION_SHM_SIZE))
                dispatch->call_ptr = ptr;
           else
                dispatch->call_ptr = reactor->call_ptr;
