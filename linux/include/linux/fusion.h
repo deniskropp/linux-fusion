@@ -6,7 +6,7 @@
 /*
  * Fusion Kernel Device API Version
  */
-#define FUSION_API_MAJOR      5         /* Increased if backward compatibility is dropped. */
+#define FUSION_API_MAJOR      6         /* Increased if backward compatibility is dropped. */
 #define FUSION_API_MINOR      0         /* Increased if new features are added. */
 
 /*
@@ -190,6 +190,14 @@ typedef struct {
                                            max. time to wait until the fusionee(s) terminated */
 } FusionKill;
 
+/*
+ * Wait for a skirmish notification
+ */
+typedef struct {
+     int                 id;            /* skirmish id */
+     unsigned int        timeout;       /* timeout in ms (0 = unlimited) */
+} FusionSkirmishWait;
+
 
 /*
  * Shared memory pools
@@ -290,7 +298,7 @@ typedef struct {
 #define FUSION_SKIRMISH_DISMISS              _IOW(FT_SKIRMISH,  0x03, int)
 #define FUSION_SKIRMISH_DESTROY              _IOW(FT_SKIRMISH,  0x04, int)
 #define FUSION_SKIRMISH_LOCK_COUNT           _IOW(FT_SKIRMISH,  0x05, int)
-#define FUSION_SKIRMISH_WAIT                 _IOW(FT_SKIRMISH,  0x06, int)
+#define FUSION_SKIRMISH_WAIT                 _IOW(FT_SKIRMISH,  0x06, FusionSkirmishWait)
 #define FUSION_SKIRMISH_NOTIFY               _IOW(FT_SKIRMISH,  0x07, int)
 
 #define FUSION_PROPERTY_NEW                  _IOW(FT_PROPERTY,  0x00, int)

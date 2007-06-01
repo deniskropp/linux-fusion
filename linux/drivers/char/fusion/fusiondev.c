@@ -713,10 +713,11 @@ static int
 skirmish_ioctl (FusionDev *dev, Fusionee *fusionee,
                 unsigned int cmd, unsigned long arg)
 {
-     int      id;
-     int      ret;
-     int      lock_count;
-     FusionID fusion_id = fusionee_id( fusionee );
+     int                id;
+     int                ret;
+     int                lock_count;
+     FusionSkirmishWait wait;
+     FusionID           fusion_id = fusionee_id( fusionee );
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_SKIRMISH_NEW):
@@ -765,10 +766,10 @@ skirmish_ioctl (FusionDev *dev, Fusionee *fusionee,
                return ret;
 
           case _IOC_NR(FUSION_SKIRMISH_WAIT):
-               if (get_user (id, (int*) arg))
+               if (copy_from_user (&wait, (FusionSkirmishWait*) arg, sizeof(wait)))
                     return -EFAULT;
 
-               return fusion_skirmish_wait_ (dev, id, fusion_id);
+               return fusion_skirmish_wait_ (dev, wait.id, fusion_id, wait.timeout);
 
           case _IOC_NR(FUSION_SKIRMISH_NOTIFY):
                if (get_user (id, (int*) arg))

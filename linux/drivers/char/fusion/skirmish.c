@@ -45,6 +45,8 @@ struct __FUSION_FusionSkirmish {
 
      unsigned int notify_count;
 
+     unsigned long  lock_time;
+
 #ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
      int          pre_acquis[MAX_PRE_ACQUISITIONS];
 
@@ -220,6 +222,7 @@ fusion_skirmish_prevail (FusionDev *dev, int id, int fusion_id)
      skirmish->lock_fid   = fusion_id;
      skirmish->lock_pid   = current->pid;
      skirmish->lock_count = 1;
+     skirmish->lock_time  = jiffies;
 
      skirmish->lock_total++;
 
@@ -294,6 +297,7 @@ fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
 {
      int             ret;
      FusionSkirmish *skirmish;
+     unsigned long   lock_jiffies = 0;
 
      ret = fusion_skirmish_lock( &dev->skirmish, id, false, &skirmish );
      if (ret)
@@ -310,10 +314,16 @@ fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
           skirmish->lock_fid = 0;
           skirmish->lock_pid = 0;
 
+          lock_jiffies = jiffies - skirmish->lock_time;
+
           fusion_skirmish_notify( skirmish, true );
      }
 
      fusion_skirmish_unlock( skirmish );
+
+     /* Locked > 20 ms ? */
+     if (lock_jiffies > HZ/50 && current->policy == SCHED_NORMAL)
+          yield();
 
      return 0;
 }
@@ -346,7 +356,7 @@ fusion_skirmish_destroy (FusionDev *dev, int id)
 }
 
 int
-fusion_skirmish_wait_ (FusionDev *dev, int id, int fusion_id)
+fusion_skirmish_wait_ (FusionDev *dev, int id, int fusion_id, unsigned int timeout)
 {
      int             ret;
      int             lock_count;
@@ -372,10 +382,21 @@ fusion_skirmish_wait_ (FusionDev *dev, int id, int fusion_id)
 
      fusion_skirmish_notify( skirmish, true );
 
-     while (notify_count == skirmish->notify_count) {
-          ret = fusion_skirmish_wait( skirmish, NULL );
-          if (ret)
-               return ret;
+     if (timeout) {
+          long timeout_jiffies = timeout * HZ / 1000;
+
+          while (notify_count == skirmish->notify_count) {
+               ret = fusion_skirmish_wait( skirmish, &timeout_jiffies );
+               if (ret)
+                    return ret;
+          }
+     }
+     else {
+          while (notify_count == skirmish->notify_count) {
+               ret = fusion_skirmish_wait( skirmish, NULL );
+               if (ret)
+                    return ret;
+          }
      }
 
      while (skirmish->lock_pid) {
