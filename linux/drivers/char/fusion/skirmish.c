@@ -54,6 +54,26 @@ struct __FUSION_FusionSkirmish {
 #endif
 };
 
+/******************************************************************************/
+
+static unsigned int m_pidlocks[PID_MAX_DEFAULT+1];  /* FIXME: find cleaner, but still fast method */
+static sigset_t     m_sigmask;
+
+static int
+skirmish_signal_handler( void *ctx )
+{
+     if (current->pid <= PID_MAX_DEFAULT && !m_pidlocks[current->pid]) {
+          unblock_all_signals();
+          return 1;
+     }
+
+     printk( KERN_DEBUG "FusionSkirmish: Blocking signal for process %d!\n", current->pid );
+     
+     return 0;
+}
+
+/******************************************************************************/
+
 static int
 fusion_skirmish_print( FusionEntry *entry,
                        void        *ctx,
@@ -108,6 +128,12 @@ fusion_skirmish_init (FusionDev *dev)
 
      create_proc_read_entry( "skirmishs", 0, dev->proc_dir,
                              fusion_entries_read_proc, &dev->skirmish );
+
+     sigemptyset( &m_sigmask );
+     sigaddset( &m_sigmask, SIGSTOP );
+     sigaddset( &m_sigmask, SIGTTIN );
+     sigaddset( &m_sigmask, SIGTERM );
+     sigaddset( &m_sigmask, SIGINT );
 
      return 0;
 }
@@ -219,6 +245,9 @@ fusion_skirmish_prevail (FusionDev *dev, int id, int fusion_id)
                return ret;
      }
 
+     if (current->pid <= PID_MAX_DEFAULT && !m_pidlocks[current->pid]++)
+          block_all_signals( skirmish_signal_handler, dev, &m_sigmask );
+
      skirmish->lock_fid   = fusion_id;
      skirmish->lock_pid   = current->pid;
      skirmish->lock_count = 1;
@@ -255,6 +284,9 @@ fusion_skirmish_swoop (FusionDev *dev, int id, int fusion_id)
 
           return -EAGAIN;
      }
+
+     if (current->pid <= PID_MAX_DEFAULT && !m_pidlocks[current->pid]++)
+          block_all_signals( skirmish_signal_handler, dev, &m_sigmask );
 
      skirmish->lock_fid   = fusion_id;
      skirmish->lock_pid   = current->pid;
@@ -317,6 +349,9 @@ fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
           lock_jiffies = jiffies - skirmish->lock_time;
 
           fusion_skirmish_notify( skirmish, true );
+
+          if (current->pid <= PID_MAX_DEFAULT && ! --m_pidlocks[current->pid])
+               unblock_all_signals();
      }
 
      fusion_skirmish_unlock( skirmish );
@@ -331,14 +366,18 @@ fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
 int
 fusion_skirmish_destroy (FusionDev *dev, int id)
 {
+     int             ret;
+     FusionSkirmish *skirmish;
 #ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
      int             i;
      FusionSkirmish *s;
+#endif
 
-     /* Lock entries. */
-     if (down_interruptible( &dev->skirmish.lock ))
-          return -EINTR;
+     ret = fusion_skirmish_lock( &dev->skirmish, id, true, &skirmish );
+     if (ret)
+          return ret;
 
+#ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
      /* remove from all pre-acquisition lists */
      fusion_list_foreach (s, dev->skirmish.list) {
           for (i=0; i<MAX_PRE_ACQUISITIONS; i++) {
@@ -346,11 +385,17 @@ fusion_skirmish_destroy (FusionDev *dev, int id)
                     s->pre_acquis[i] = 0;
           }
      }
+#endif
 
      up( &dev->skirmish.lock );
 
+     if (skirmish->lock_pid == current->pid &&
+         current->pid <= PID_MAX_DEFAULT && ! --m_pidlocks[current->pid])
+          unblock_all_signals();
+
+     fusion_skirmish_unlock( skirmish );
+
      /* FIXME: gap? */
-#endif
 
      return fusion_entry_destroy( &dev->skirmish, id );
 }
@@ -380,6 +425,9 @@ fusion_skirmish_wait_ (FusionDev *dev, int id, int fusion_id, unsigned int timeo
      skirmish->lock_fid = 0;
      skirmish->lock_pid = 0;
 
+     if (current->pid <= PID_MAX_DEFAULT && ! --m_pidlocks[current->pid])
+          unblock_all_signals();
+
      fusion_skirmish_notify( skirmish, true );
 
      if (timeout) {
@@ -404,6 +452,9 @@ fusion_skirmish_wait_ (FusionDev *dev, int id, int fusion_id, unsigned int timeo
           if (ret)
                return ret;
      }
+
+     if (current->pid <= PID_MAX_DEFAULT && !m_pidlocks[current->pid]++)
+          block_all_signals( skirmish_signal_handler, dev, &m_sigmask );
 
      skirmish->lock_fid   = fusion_id;
      skirmish->lock_pid   = current->pid;
@@ -453,6 +504,8 @@ fusion_skirmish_dismiss_all (FusionDev *dev, int fusion_id)
           down (&skirmish->entry.lock);
 
           if (skirmish->lock_fid == fusion_id) {
+               m_pidlocks[skirmish->lock_pid] = 0;
+
                skirmish->lock_fid   = 0;
                skirmish->lock_pid   = 0;
                skirmish->lock_count = 0;
@@ -472,6 +525,8 @@ fusion_skirmish_dismiss_all_from_pid (FusionDev *dev, int pid)
      FusionLink *l;
 
      down (&dev->skirmish.lock);
+
+     m_pidlocks[pid] = 0;
 
      fusion_list_foreach (l, dev->skirmish.list) {
           FusionSkirmish *skirmish = (FusionSkirmish *) l;
