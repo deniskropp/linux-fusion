@@ -56,9 +56,14 @@ struct __FUSION_FusionSkirmish {
 
 /******************************************************************************/
 
+#ifndef PID_MAX_DEFAULT
+#define PID_MAX_DEFAULT PID_MAX
+#endif
+
 static unsigned int m_pidlocks[PID_MAX_DEFAULT+1];  /* FIXME: find cleaner, but still fast method */
 static sigset_t     m_sigmask;
 
+#ifdef FUSION_BLOCK_SIGNALS
 static int
 skirmish_signal_handler( void *ctx )
 {
@@ -71,6 +76,7 @@ skirmish_signal_handler( void *ctx )
      
      return 0;
 }
+#endif
 
 /******************************************************************************/
 
@@ -245,8 +251,10 @@ fusion_skirmish_prevail (FusionDev *dev, int id, int fusion_id)
                return ret;
      }
 
+#ifdef FUSION_BLOCK_SIGNALS
      if (current->pid <= PID_MAX_DEFAULT && !m_pidlocks[current->pid]++)
           block_all_signals( skirmish_signal_handler, dev, &m_sigmask );
+#endif
 
      skirmish->lock_fid   = fusion_id;
      skirmish->lock_pid   = current->pid;
@@ -285,8 +293,10 @@ fusion_skirmish_swoop (FusionDev *dev, int id, int fusion_id)
           return -EAGAIN;
      }
 
+#ifdef FUSION_BLOCK_SIGNALS
      if (current->pid <= PID_MAX_DEFAULT && !m_pidlocks[current->pid]++)
           block_all_signals( skirmish_signal_handler, dev, &m_sigmask );
+#endif
 
      skirmish->lock_fid   = fusion_id;
      skirmish->lock_pid   = current->pid;
@@ -350,14 +360,16 @@ fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
 
           fusion_skirmish_notify( skirmish, true );
 
+#ifdef FUSION_BLOCK_SIGNALS
           if (current->pid <= PID_MAX_DEFAULT && ! --m_pidlocks[current->pid])
                unblock_all_signals();
+#endif
      }
 
      fusion_skirmish_unlock( skirmish );
 
      /* Locked > 20 ms ? */
-     if (lock_jiffies > HZ/50 && current->policy == SCHED_NORMAL)
+     if (lock_jiffies > HZ/50)// && current->policy == SCHED_NORMAL)
           yield();
 
      return 0;
@@ -389,9 +401,11 @@ fusion_skirmish_destroy (FusionDev *dev, int id)
 
      up( &dev->skirmish.lock );
 
+#ifdef FUSION_BLOCK_SIGNALS
      if (skirmish->lock_pid == current->pid &&
          current->pid <= PID_MAX_DEFAULT && ! --m_pidlocks[current->pid])
           unblock_all_signals();
+#endif
 
      fusion_skirmish_unlock( skirmish );
 
@@ -425,8 +439,10 @@ fusion_skirmish_wait_ (FusionDev *dev, int id, int fusion_id, unsigned int timeo
      skirmish->lock_fid = 0;
      skirmish->lock_pid = 0;
 
+#ifdef FUSION_BLOCK_SIGNALS
      if (current->pid <= PID_MAX_DEFAULT && ! --m_pidlocks[current->pid])
           unblock_all_signals();
+#endif
 
      fusion_skirmish_notify( skirmish, true );
 
@@ -453,8 +469,10 @@ fusion_skirmish_wait_ (FusionDev *dev, int id, int fusion_id, unsigned int timeo
                return ret;
      }
 
+#ifdef FUSION_BLOCK_SIGNALS
      if (current->pid <= PID_MAX_DEFAULT && !m_pidlocks[current->pid]++)
           block_all_signals( skirmish_signal_handler, dev, &m_sigmask );
+#endif
 
      skirmish->lock_fid   = fusion_id;
      skirmish->lock_pid   = current->pid;
