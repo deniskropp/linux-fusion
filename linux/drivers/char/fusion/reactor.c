@@ -352,6 +352,8 @@ fusion_reactor_dispatch (FusionDev *dev, int id, int channel, Fusionee *fusionee
 
      reactor->dispatch_count++;
 
+     dev->stat.reactor_dispatch++;
+
      fusion_list_foreach (l, reactor->nodes) {
           ReactorNode *node = (ReactorNode *) l;
 

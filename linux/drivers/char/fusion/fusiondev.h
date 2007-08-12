@@ -41,6 +41,7 @@ struct __Fusion_FusionDev {
 
           int reactor_attach;
           int reactor_detach;
+          int reactor_dispatch;
 
           int ref_up;
           int ref_down;

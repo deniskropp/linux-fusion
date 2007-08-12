@@ -142,7 +142,7 @@ fusiondev_stat_read_proc(char *buf, char **start, off_t offset,
      int        written = 0;
 
      written += snprintf( buf, len,
-                          "lease/purchase   cede      attach     detach      "
+                          "lease/purchase   cede      attach     detach   dispatch      "
                           "ref up   ref down  prevail/swoop dismiss\n" );
      if (written < offset) {
           offset -= written;
@@ -151,11 +151,12 @@ fusiondev_stat_read_proc(char *buf, char **start, off_t offset,
 
      if (written < len) {
           written += snprintf( buf+written, len - written,
-                               "%10d %10d  %10d %10d  %10d %10d  %10d %10d\n",
+                               "%10d %10d  %10d %10d %10d  %10d %10d  %10d %10d\n",
                                dev->stat.property_lease_purchase,
                                dev->stat.property_cede,
                                dev->stat.reactor_attach,
                                dev->stat.reactor_detach,
+                               dev->stat.reactor_dispatch,
                                dev->stat.ref_up,
                                dev->stat.ref_down,
                                dev->stat.skirmish_prevail_swoop,
