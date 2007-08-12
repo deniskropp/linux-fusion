@@ -29,7 +29,7 @@
 #include "skirmish.h"
 
 
-#define MAX_PRE_ACQUISITIONS  32
+#define MAX_PRE_ACQUISITIONS  256
 
 
 typedef struct __FUSION_FusionSkirmish FusionSkirmish;
