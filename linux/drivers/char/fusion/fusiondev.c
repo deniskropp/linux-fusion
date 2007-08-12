@@ -57,7 +57,7 @@
 #endif
 
 #ifndef FUSION_MAJOR
-#define FUSION_MAJOR 252
+#define FUSION_MAJOR 250
 #endif
 
 MODULE_LICENSE("GPL");
