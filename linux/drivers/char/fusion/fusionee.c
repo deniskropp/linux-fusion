@@ -15,10 +15,12 @@
 #ifdef HAVE_LINUX_CONFIG_H
 #include <linux/config.h>
 #endif
+#include <linux/version.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/smp_lock.h>
+#include <linux/sched.h>
 #include <asm/uaccess.h>
 
 #include <linux/fusion.h>
@@ -57,6 +59,8 @@ struct __Fusion_Fusionee {
      wait_queue_head_t wait;
 
      bool              force_slave;
+
+     struct mm_struct *mm;
 };
 
 typedef struct {
@@ -184,6 +188,7 @@ fusionee_new( FusionDev  *dev,
 
      fusionee->pid         = current->pid;
      fusionee->force_slave = force_slave;
+     fusionee->mm          = current->mm;
 
      init_MUTEX (&fusionee->lock);
 
@@ -484,8 +489,31 @@ fusionee_kill (FusionDev *dev,
                Fusionee *f = (Fusionee*) l;
 
                if (f != fusionee && (!target || target == f->id)) {
-                    kill_proc (f->pid, signal, 0);
-                    killed++;
+                    struct task_struct *p;
+
+#ifdef rcu_read_lock
+                    rcu_read_lock();
+#else
+                    read_lock(&tasklist_lock);
+#endif
+#ifdef for_each_task // 2.4
+                    for_each_task(p) {
+#else  // for >= 2.6.0 & redhat WS EL3 w/ 2.4 kernel
+                    for_each_process(p) {
+#endif
+                         if (p->mm == f->mm) {
+                              send_sig_info( signal,
+                                    (void*)1L /* 1 means from kernel */,
+                                    p );
+                              killed++;
+                         }
+                    }
+
+#ifdef rcu_read_unlock
+                    rcu_read_unlock();
+#else
+                    read_unlock(&tasklist_lock);
+#endif
                }
           }
 
