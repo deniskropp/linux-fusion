@@ -6,7 +6,7 @@
 /*
  * Fusion Kernel Device API Version
  */
-#define FUSION_API_MAJOR      6         /* Increased if backward compatibility is dropped. */
+#define FUSION_API_MAJOR      7         /* Increased if backward compatibility is dropped. */
 #define FUSION_API_MINOR      0         /* Increased if new features are added. */
 
 /*

@@ -385,7 +385,7 @@ fusionee_get_messages (FusionDev *dev,
      while (fusionee->messages.count) {
           FusionReadMessage  header;
           Message           *message = (Message*) fusionee->messages.first;
-          int                bytes   = message->size + sizeof(header);
+          int                bytes   = ((message->size + 3) & ~3) + sizeof(header);
 
           if (bytes > buf_size) {
                if (!written) {
@@ -408,6 +408,14 @@ fusionee_get_messages (FusionDev *dev,
                unlock_fusionee (fusionee);
                flush_messages( dev, &prev_msgs );
                return -EFAULT;
+          }
+          
+          if (bytes > message->size + sizeof(header)) {
+               int pad = bytes - message->size - sizeof(header);
+               u8 *dst = buf + sizeof(header) + message->size;
+               
+               while (pad--)
+                    *dst++ = 0;
           }
 
           written  += bytes;
