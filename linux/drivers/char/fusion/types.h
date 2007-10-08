@@ -17,7 +17,7 @@
 
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 18)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)
 typedef enum {
   false = 0,
   true  = !false
