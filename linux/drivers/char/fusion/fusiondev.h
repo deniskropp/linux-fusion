@@ -20,8 +20,8 @@
 #include "entries.h"
 #include "list.h"
 
-#define FUSION_ASSERT(exp)    if (!(exp)) BUG()
-#define FUSION_ASSUME(exp)    if (!(exp)) printk( KERN_ERR "fusiondev: assumption '" #exp "' failed!\n" )
+#define FUSION_ASSERT(exp)    do { if (!(exp)) BUG(); } while (0)
+#define FUSION_ASSUME(exp)    do { if (!(exp)) printk( KERN_ERR "fusiondev: assumption '" #exp "' failed!\n" ); } while (0)
 
 struct __Fusion_FusionDev {
      int                    refs;
