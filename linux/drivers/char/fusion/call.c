@@ -255,13 +255,11 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
           fusion_sleep_on (&execution->wait, &call->lock, 0);
 
           ret = lock_call (dev, execute->call_id, &call);
-          if (ret)
-               return ret == -EINVAL ? -EIDRM : ret;
+          if (ret) {
+               /* Clear caller to allow cleanup of entry. */
+               execution->caller = NULL;
 
-          if (signal_pending(current)) {
-               execution->caller = 0;
-               unlock_call (call);
-               return -EINTR;
+               return ret == -EINVAL ? -EIDRM : ret;
           }
 
           execute->ret_val = execution->ret_val;
@@ -273,7 +271,7 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
 
      unlock_call (call);
 
-     return 0;
+     return ret;
 }
 
 int
@@ -290,6 +288,14 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
      l = call->last;
      while (l) {
           FusionCallExecution *execution = (FusionCallExecution*) l;
+
+          /* Cleanup entry from caller that got a signal? */
+          if (!execution->caller) {
+               l = l->prev;
+               remove_execution (call, execution);
+               kfree (execution);
+               continue;
+          }
 
           if (execution->call_id != call_ret->call_id || execution->serial != call_ret->serial) {
                l = l->prev;
