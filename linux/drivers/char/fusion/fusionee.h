@@ -76,4 +76,7 @@ void fusionee_destroy      (FusionDev         *dev,
 
 FusionID fusionee_id( const Fusionee *fusionee );
 
+pid_t    fusionee_dispatcher_pid( FusionDev *dev,
+                                  FusionID   fusion_id );
+
 #endif

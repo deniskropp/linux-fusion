@@ -61,6 +61,8 @@ struct __Fusion_Fusionee {
      bool              force_slave;
 
      struct mm_struct *mm;
+
+     pid_t             dispatcher_pid;
 };
 
 typedef struct {
@@ -358,6 +360,11 @@ fusionee_get_messages (FusionDev *dev,
      if (down_interruptible (&fusionee->lock))
           return -EINTR;
 
+     if (fusionee->dispatcher_pid)
+          FUSION_ASSUME( fusionee->dispatcher_pid == current->pid );
+
+     fusionee->dispatcher_pid = current->pid;
+
      prev_msgs = fusionee->prev_msgs;
 
      fusion_fifo_reset( &fusionee->prev_msgs );
@@ -608,6 +615,32 @@ FusionID
 fusionee_id( const Fusionee *fusionee )
 {
      return fusionee->id;
+}
+
+pid_t
+fusionee_dispatcher_pid( FusionDev *dev,
+                         FusionID   fusion_id )
+{
+     FusionLink *l;
+     int         ret = -EINVAL;
+
+     down (&dev->fusionee.lock);
+
+     fusion_list_foreach (l, dev->fusionee.list) {
+          Fusionee *fusionee = (Fusionee *) l;
+
+          if (fusionee->id == fusion_id) {
+               /* FIXME: wait for it? */
+               FUSION_ASSUME( fusionee->dispatcher_pid != 0 );
+
+               ret = fusionee->dispatcher_pid;
+               break;
+          }
+     }
+
+     up (&dev->fusionee.lock);
+
+     return ret;
 }
 
 /******************************************************************************/
