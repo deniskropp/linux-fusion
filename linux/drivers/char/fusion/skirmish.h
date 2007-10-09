@@ -68,4 +68,12 @@ void fusion_skirmish_dismiss_all (FusionDev *dev,
 void fusion_skirmish_dismiss_all_from_pid (FusionDev *dev,
                                            int        pid);
 
+void fusion_skirmish_transfer_all (FusionDev *dev,
+                                   FusionID   to,
+                                   FusionID   from,
+                                   int        from_pid);
+
+void fusion_skirmish_reclaim_all (FusionDev *dev,
+                                  int        from_pid);
+
 #endif

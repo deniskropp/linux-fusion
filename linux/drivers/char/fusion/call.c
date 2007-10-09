@@ -26,6 +26,7 @@
 #include "fusiondev.h"
 #include "fusionee.h"
 #include "list.h"
+#include "skirmish.h"
 #include "call.h"
 
 typedef struct {
@@ -251,8 +252,14 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
      call->count++;
 
      if (execution) {
+          /* Transfer locks. */
+          fusion_skirmish_transfer_all( dev, call->fusion_id, fusionee_id( fusionee ), current->pid );
+
           /* TODO: implement timeout */
           fusion_sleep_on (&execution->wait, &call->lock, 0);
+
+          /* Reclaim locks. */
+          fusion_skirmish_reclaim_all( dev, current->pid );
 
           ret = lock_call (dev, execute->call_id, &call);
           if (ret) {
