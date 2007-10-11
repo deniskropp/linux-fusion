@@ -376,9 +376,11 @@ fusion_skirmish_dismiss (FusionDev *dev, int id, int fusion_id)
 
      fusion_skirmish_unlock( skirmish );
 
+#ifdef FUSION_SKIRMISH_YIELD
      /* Locked > 20 ms ? */
      if (lock_jiffies > HZ/50)// && current->policy == SCHED_NORMAL)
           yield();
+#endif
 
      return 0;
 }
