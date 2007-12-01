@@ -318,6 +318,9 @@ fusion_entry_lock( FusionEntries  *entries,
                    FusionEntry   **ret_entry )
 {
      FusionEntry *entry;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
+     struct timespec xtime;
+#endif
 
      FUSION_ASSERT( entries != NULL );
      FUSION_ASSERT( ret_entry != NULL );
@@ -355,6 +358,9 @@ fusion_entry_lock( FusionEntries  *entries,
      /* Keep timestamp, but use the slightly
         inexact version to avoid performance impacts. */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0) && defined _STRUCT_TIMESPEC
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
+     xtime = current_kernel_time();
+#endif
      entry->last_lock.tv_sec = xtime.tv_sec;
      entry->last_lock.tv_usec = xtime.tv_nsec / 1000;
 #else
