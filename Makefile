@@ -2,8 +2,10 @@ KERNEL_VERSION    = $(shell uname -r)
 KERNEL_MODLIB     = /lib/modules/$(KERNEL_VERSION)
 KERNEL_BUILD     = $(KERNEL_MODLIB)/build
 KERNEL_SOURCE    = $(KERNEL_MODLIB)/source
-KERNEL_PATCHLEVEL = $(shell echo $(KERNEL_VERSION) | cut -d . -f 2)
-#KERNEL_PATCHLEVEL = $(shell grep 'PATCHLEVEL =' $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 3)
+K_VERSION    := $(shell echo $(KERNEL_VERSION) | cut -d . -f 1)
+K_PATCHLEVEL := $(shell echo $(KERNEL_VERSION) | cut -d . -f 2)
+K_SUBLEVEL   := $(shell echo $(KERNEL_VERSION) | cut -d . -f 3 | cut -d '-' -f 1)
+#K_PATCHLEVEL = $(shell grep 'PATCHLEVEL =' $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 3)
 
 SUB = linux/drivers/char/fusion
 
@@ -22,14 +24,22 @@ ifeq ($(shell test -e $(KERNEL_BUILD)/include/linux/config.h && echo yes),yes)
   CPPFLAGS += -DHAVE_LINUX_CONFIG_H
 endif
 
+check-version = $(shell expr \( $(K_VERSION) \* 65536 + $(K_PATCHLEVEL) \* 256 + $(K_SUBLEVEL) \) \>= \( $(1) \* 65536 + $(2) \* 256 + $(3) \))
+
 .PHONY: all install clean
 
 all:
 	rm -f $(SUB)/Makefile
-	ln -s Makefile-2.$(KERNEL_PATCHLEVEL) $(SUB)/Makefile
+	ln -s Makefile-2.$(K_PATCHLEVEL) $(SUB)/Makefile
+ifeq ($(call check-version,2,6,24),1)
+	$(MAKE) -C $(KERNEL_BUILD) \
+		KCPPFLAGS="$(CPPFLAGS) -I`pwd`/linux/include" \
+		SUBDIRS=`pwd`/$(SUB) modules
+else
 	$(MAKE) -C $(KERNEL_BUILD) \
 		CPPFLAGS="$(CPPFLAGS) -D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_BUILD)/include -I$(KERNEL_SOURCE)/include $(AUTOCONF_H)" \
 		SUBDIRS=`pwd`/$(SUB) modules
+endif
 
 install: all
 	install -d $(DESTDIR)/usr/include/linux
@@ -37,7 +47,7 @@ install: all
 
 	install -d $(DESTDIR)$(KERNEL_MODLIB)/drivers/char/fusion
 
-ifeq ($(KERNEL_PATCHLEVEL),4)
+ifeq ($(K_PATCHLEVEL),4)
 	install -m 644 $(SUB)/fusion.o $(DESTDIR)$(KERNEL_MODLIB)/drivers/char/fusion
 	rm -f $(DESTDIR)$(KERNEL_MODLIB)/fusion.o
 else
