@@ -183,6 +183,8 @@ fusion_reactor_attach (FusionDev *dev, int id, int channel, FusionID fusion_id)
                return -ENOMEM;
           }
 
+          memset( node->counts, 0, sizeof(node->counts) );
+
           node->num_counts = ncount;
           node->fusion_id  = fusion_id;
 
@@ -202,6 +204,8 @@ fusion_reactor_attach (FusionDev *dev, int id, int channel, FusionID fusion_id)
 
                memcpy( counts, node->counts, sizeof(int) * node->num_counts );
                memset( counts + node->num_counts, 0, sizeof(int) * (ncount - node->num_counts) );
+
+               kfree( node->counts );
 
                node->counts     = counts;
                node->num_counts = ncount;
@@ -363,13 +367,13 @@ fusion_reactor_dispatch (FusionDev *dev, int id, int channel, Fusionee *fusionee
           if (dispatch) {
                dispatch->count++;
 
-               fusionee_send_message (dev, fusionee, node->fusion_id, FMT_REACTOR,
-                                      reactor->entry.id, channel, msg_size, msg_data,
-                                      dispatch_callback, dispatch, reactor->entry.id);
+               ret = fusionee_send_message (dev, fusionee, node->fusion_id, FMT_REACTOR,
+								    reactor->entry.id, channel, msg_size, msg_data,
+								    dispatch_callback, dispatch, reactor->entry.id);
           }
           else
-               fusionee_send_message (dev, fusionee, node->fusion_id, FMT_REACTOR,
-                                      reactor->entry.id, channel, msg_size, msg_data, NULL, NULL, 0);
+               ret = fusionee_send_message (dev, fusionee, node->fusion_id, FMT_REACTOR,
+								    reactor->entry.id, channel, msg_size, msg_data, NULL, NULL, 0);
      }
 
      if (dispatch && !dispatch->count) {
