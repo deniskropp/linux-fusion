@@ -1,11 +1,11 @@
-KERNEL_VERSION    = $(shell uname -r)
-KERNEL_MODLIB     = /lib/modules/$(KERNEL_VERSION)
-KERNEL_BUILD     = $(KERNEL_MODLIB)/build
-KERNEL_SOURCE    = $(KERNEL_MODLIB)/source
+KERNEL_VERSION  ?= $(shell uname -r)
+KERNEL_MODLIB   ?= /lib/modules/$(KERNEL_VERSION)
+KERNEL_BUILD    ?= $(KERNEL_MODLIB)/build
+KERNEL_SOURCE   ?= $(KERNEL_MODLIB)/source
+
 K_VERSION    := $(shell echo $(KERNEL_VERSION) | cut -d . -f 1)
 K_PATCHLEVEL := $(shell echo $(KERNEL_VERSION) | cut -d . -f 2)
 K_SUBLEVEL   := $(shell echo $(KERNEL_VERSION) | cut -d . -f 3 | cut -d '-' -f 1)
-#K_PATCHLEVEL = $(shell grep 'PATCHLEVEL =' $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 3)
 
 SUB = linux/drivers/char/fusion
 
