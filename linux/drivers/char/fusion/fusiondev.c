@@ -770,7 +770,11 @@ skirmish_ioctl (FusionDev *dev, Fusionee *fusionee,
                if (copy_from_user (&wait, (FusionSkirmishWait*) arg, sizeof(wait)))
                     return -EFAULT;
 
-               return fusion_skirmish_wait_ (dev, wait.id, fusion_id, wait.timeout);
+               ret = fusion_skirmish_wait_ (dev, &wait, fusion_id);
+               if (copy_to_user ((FusionSkirmishWait*) arg, &wait, sizeof(wait)))
+                    return -EFAULT;
+
+               return ret;
 
           case _IOC_NR(FUSION_SKIRMISH_NOTIFY):
                if (get_user (id, (int*) arg))

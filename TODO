@@ -14,3 +14,5 @@ Revert semaphores to spinlocks where possible.
 
 Implement user space based skirmish_prevail()/dismiss() for the
 uncontended case, similar to futexes.
+
+Fix types.

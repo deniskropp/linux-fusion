@@ -6,7 +6,7 @@
 /*
  * Fusion Kernel Device API Version
  */
-#define FUSION_API_MAJOR      7         /* Increased if backward compatibility is dropped. */
+#define FUSION_API_MAJOR      8         /* Increased if backward compatibility is dropped. */
 #define FUSION_API_MINOR      0         /* Increased if new features are added. */
 
 /*
@@ -196,6 +196,9 @@ typedef struct {
 typedef struct {
      int                 id;            /* skirmish id */
      unsigned int        timeout;       /* timeout in ms (0 = unlimited) */
+
+     unsigned int        lock_count;    /* MUST be set to zero, MUST NOT be reset when the system call is resumed. */
+     unsigned int        notify_count;  /* MUST NOT be reset when the system call is resumed after a signal. */
 } FusionSkirmishWait;
 
 
