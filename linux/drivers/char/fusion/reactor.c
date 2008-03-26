@@ -183,7 +183,7 @@ fusion_reactor_attach (FusionDev *dev, int id, int channel, FusionID fusion_id)
                return -ENOMEM;
           }
 
-          memset( node->counts, 0, sizeof(node->counts) );
+          memset( node->counts, 0, sizeof(int) * ncount );
 
           node->num_counts = ncount;
           node->fusion_id  = fusion_id;
