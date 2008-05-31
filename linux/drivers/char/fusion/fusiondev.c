@@ -1094,7 +1094,12 @@ register_devices(void)
 #endif
 
      for (i=0; i<NUM_MINORS; i++) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 15)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
+          device_create (fusion_class,
+                         NULL,
+                         MKDEV(FUSION_MAJOR, i),
+                         "fusion%d", i);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 15)
           class_device_create (fusion_class,
                                NULL,
                                MKDEV(FUSION_MAJOR, i),
@@ -1169,7 +1174,9 @@ deregister_devices(void)
 
      for (i=0; i<NUM_MINORS; i++) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
+          device_destroy (fusion_class, MKDEV(FUSION_MAJOR, i));
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
           class_device_destroy (fusion_class, MKDEV(FUSION_MAJOR, i));
 #else
           class_simple_device_remove (MKDEV(FUSION_MAJOR, i));

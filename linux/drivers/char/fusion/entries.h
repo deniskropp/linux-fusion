@@ -15,6 +15,8 @@
 #ifndef __FUSION__ENTRIES_H__
 #define __FUSION__ENTRIES_H__
 
+#include <linux/semaphore.h>
+
 #include "types.h"
 #include "list.h"
 
