@@ -59,6 +59,11 @@ int fusionee_get_messages  (FusionDev         *dev,
                             int                buf_size,
                             bool               block);
 
+int fusionee_wait_processing (FusionDev         *dev,
+                              int                fusion_id,
+                              FusionMessageType  msg_type,
+                              int                msg_id);
+
 unsigned
 int fusionee_poll          (FusionDev         *dev,
                             Fusionee          *fusionee,

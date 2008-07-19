@@ -213,12 +213,14 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
      FusionCallMessage    message;
      unsigned int         serial;
 
+     /* Lookup and lock call. */
      ret = lock_call (dev, execute->call_id, &call);
      if (ret)
           return ret;
 
      serial = ++call->serial;
 
+     /* Add execution to receive the result. */
      if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
           execution = add_execution (call, fusionee, execute, serial);
           if (!execution) {
@@ -227,7 +229,7 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
           }
      }
 
-     /* Send call message. */
+     /* Fill call message. */
      message.handler  = call->handler;
      message.ctx      = call->ctx;
 
@@ -238,8 +240,9 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
 
      message.serial   = serial;
 
+     /* Put message into queue of callee. */
      ret = fusionee_send_message (dev, fusionee, call->fusion_id, FMT_CALL,
-                                  call->id, 0, sizeof(message), &message, NULL, NULL, 0);
+                                  call->id, 0, sizeof(message), &message, NULL, NULL, 1);
      if (ret) {
           if (execution) {
                remove_execution (call, execution);
@@ -251,34 +254,34 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
 
      call->count++;
 
+     /* When waiting for a result... */
      if (execution) {
-          /* Transfer locks. */
+          /* Transfer held skirmishs (locks). */
           fusion_skirmish_transfer_all( dev, call->fusion_id, fusionee_id( fusionee ), current->pid );
 
-          /* TODO: implement timeout */
-          fusion_sleep_on (&execution->wait, &call->lock, 0);
+          /* Unlock call and wait for execution result. TODO: add timeout? */
+          fusion_sleep_on( &execution->wait, &call->lock, 0 );
 
-          /* Reclaim locks. */
-          fusion_skirmish_reclaim_all( dev, current->pid );
-
-          ret = lock_call (dev, execute->call_id, &call);
-          if (ret) {
-               /* Clear caller to allow cleanup of entry. */
+          if (signal_pending(current)) {
+               /* Indicate that a signal was received and execution won't be freed by caller. */
                execution->caller = NULL;
-
-               return ret == -EINVAL ? -EIDRM : ret;
+               return -EINTR;
           }
 
+          /* Return result to calling process. */
           execute->ret_val = execution->ret_val;
 
-          remove_execution (call, execution);
+          /* Free execution, which has already been removed by callee. */
+          kfree( execution );
 
-          kfree (execution);
+          /* Reclaim skirmishs. */
+          fusion_skirmish_reclaim_all( dev, current->pid );
      }
+     else
+          /* Unlock call. */
+          unlock_call( call );
 
-     unlock_call (call);
-
-     return ret;
+     return 0;
 }
 
 int
@@ -288,42 +291,53 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
      FusionLink *l;
      FusionCall *call;
 
+     /* Lookup and lock call. */
      ret = lock_call (dev, call_ret->call_id, &call);
      if (ret)
           return ret;
 
+     /* Search for execution, starting with last (oldest). */
      l = call->last;
      while (l) {
           FusionCallExecution *execution = (FusionCallExecution*) l;
 
-          /* Cleanup entry from caller that got a signal? */
-          if (!execution->caller) {
-               l = l->prev;
-               remove_execution (call, execution);
-               kfree (execution);
-               continue;
-          }
-
+          /* Check for call ID (should always match) and execution serial. */
           if (execution->call_id != call_ret->call_id || execution->serial != call_ret->serial) {
                l = l->prev;
                continue;
           }
 
-          if (execution->executed) {
-               unlock_call (call);
-               return -EIO;
+          /*
+           * Check if caller received a signal while waiting for the result.
+           *
+           * TODO: This is not completely solved. Restarting the system call
+           * should be possible without causing another execution.
+           */
+          FUSION_ASSUME (execution->caller != NULL);
+          if (!execution->caller) {
+               /* Remove and free execution. */
+               remove_execution( call, execution );
+               kfree( execution );
+               return -EIDRM;
           }
 
-          FUSION_ASSUME (execution->caller != NULL);
-
+          /* Write result to execution. */
           execution->ret_val  = call_ret->val;
           execution->executed = true;
 
-          wake_up_interruptible_all (&execution->wait);
+          /* Remove execution, freeing is up to caller. */
+          remove_execution( call, execution );
+
+          /* FIXME: Caller might still have received a signal since check above. */
+          FUSION_ASSERT( execution->caller != NULL );
+
+          /* Wake up caller. */
+          wake_up_interruptible( &execution->wait );
 
           break;
      }
 
+     /* Unlock call. */
      unlock_call (call);
 
      return 0;
@@ -332,22 +346,43 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
 int
 fusion_call_destroy (FusionDev *dev, int fusion_id, int call_id)
 {
-     int         ret;
-     FusionCall *call;
+     int                  ret;
+     FusionCall          *call;
+     FusionCallExecution *execution;
 
-     ret = lookup_call (dev, call_id, &call);
-     if (ret)
-          return ret;
+     do {
+          /* Wait for all messages being processed. */
+          fusionee_wait_processing( dev, fusion_id, FMT_CALL, call_id );
 
-     if (call->fusion_id != fusion_id) {
-          up (&dev->call.lock);
-          return -EIO;
-     }
+          /* Lookup call only, list still locked. */
+          ret = lookup_call( dev, call_id, &call );
+          if (ret)
+               return ret;
 
-     if (down_interruptible (&call->lock)) {
-          up (&dev->call.lock);
-          return -EINTR;
-     }
+          /* Check if we own the call. */
+          if (call->fusion_id != fusion_id) {
+               up (&dev->call.lock);
+               return -EIO;
+          }
+
+          /* Lock the call, too. */
+          if (down_interruptible (&call->lock)) {
+               up (&dev->call.lock);
+               return -EINTR;
+          }
+
+          /* If an execution is pending... */
+          execution = (FusionCallExecution *) call->executions;
+          if (execution) {
+               /* Unlock the list. */
+               up (&call->lock);
+
+               /* Unlock call and wait for execution. TODO: add timeout? */
+               fusion_sleep_on( &execution->wait, &call->lock, 0 );
+          }
+     } while (execution);
+
+
 
      fusion_list_remove (&dev->call.list, &call->link);
 

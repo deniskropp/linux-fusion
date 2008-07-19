@@ -369,6 +369,8 @@ fusionee_get_messages (FusionDev *dev,
 
      fusion_fifo_reset( &fusionee->prev_msgs );
 
+     wake_up_interruptible_all (&fusionee->wait);
+
      while (!fusionee->messages.count) {
           if (!block) {
                unlock_fusionee (fusionee);
@@ -431,7 +433,7 @@ fusionee_get_messages (FusionDev *dev,
 
           fusion_fifo_get (&fusionee->messages);
 
-          if (message->callback)
+          if (message->callback || message->callback_ctx || message->callback_param)
                fusion_fifo_put( &fusionee->prev_msgs, &message->link );
           else
                kfree( message );
@@ -442,6 +444,58 @@ fusionee_get_messages (FusionDev *dev,
      flush_messages( dev, &prev_msgs );
 
      return written;
+}
+
+int
+fusionee_wait_processing (FusionDev         *dev,
+                          int                fusion_id,
+                          FusionMessageType  msg_type,
+                          int                msg_id)
+{
+     Fusionee *fusionee;
+
+     do {
+          int      ret;
+          Message *message;
+
+          ret = lock_fusionee( dev, fusion_id, &fusionee );
+          if (ret)
+               return ret;
+
+          /* Search all pending messages. */
+          message = (Message*) fusionee->messages.first;
+          while (message) {
+               if (message->type == msg_type && message->id == msg_id)
+                    break;
+
+               message = (Message*) message->link.next;
+          }
+
+          /* Search messages being processed right now. */
+          if (!message) {
+               message = (Message*) fusionee->prev_msgs.first;
+               while (message) {
+                    if (message->type == msg_type && message->id == msg_id)
+                         break;
+
+                    message = (Message*) message->link.next;
+               }
+          }
+
+          /* Really no more message of that type and ID? */
+          if (!message)
+               break;
+
+          if (fusionee->dispatcher_pid)
+               FUSION_ASSUME( fusionee->dispatcher_pid != current->pid );
+
+          /* Otherwise unlock and wait. */
+          fusion_sleep_on( &fusionee->wait, &fusionee->lock, 0 );
+     } while (true);
+
+     unlock_fusionee (fusionee);
+
+     return 0;
 }
 
 unsigned int
