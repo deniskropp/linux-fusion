@@ -1,22 +1,51 @@
-commit b12fbc749861289f07abd57eee74e7c5888bc821
-Merge: df4c79c... c53d14b...
+commit b26593de0f879ee57ee5bf5c5ad64fd543306c34
 Author: Denis Oliver Kropp <dok@cyto.(none)>
-Date:   Mon May 19 10:30:41 2008 +0200
+Date:   Tue Aug 12 14:49:54 2008 +0200
 
-    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+    [skirmish] Replaced bad debugging printk by new FUSION_SKIRMISH_LOG macro (no-op).
+
+commit 2889e1738d5e8b39987a40de39eac994d2c15389
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Sat Jul 19 18:15:25 2008 +0200
+
+    [calls] Fixed FUSION_CALL_RETURN errors with destroyed calls during shutdown.
+    
+    When a FusionCall is destroyed via FUSION_CALL_DESTROY, it waits for all pending
+    execution requests to be processed (synchronous or asynchronous) and waits for
+    the results to be sent back for synchronous calls in case they get defered...
+    
+    Added fusionee_wait_processing() to wait for processing of all pending messages
+    with a certain type and ID.
+
+commit 86c1cadd7d62e4d4c759c94941a41172044187b1
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Sat Jul 19 18:13:20 2008 +0200
+
+    [tests] Change calls test to use asynchronous (FCEF_ONEWAY) calls, more output.
+
+commit 23605c744abcccbd911ab7cf3185d2bf86c1e355
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Sat Jul 19 18:12:23 2008 +0200
+
+    [entries] Include <linux/mutex.h> instead of <linux/semaphore.h>, probably not working with all kernels...
+
+commit a7aa6226c4f2c67d093a92e09118f86efb6d7254
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Mon Jun 2 16:40:35 2008 +0200
+
+    updated ChangeLog
+
+commit 392ec5afbc51af64505321922d3283ecfa82d328
+Author: Denis Oliver Kropp <dok@shark.directfb.home>
+Date:   Sat May 31 17:01:51 2008 +0200
+
+    Fixes for 2.6.26.
 
 commit c53d14b217900928f13269ec1e11b009cc8a5913
 Author: Denis Oliver Kropp <dok@shizo.directfb.home>
 Date:   Wed Mar 26 11:37:10 2008 +0100
 
     REACTOR: Fixed call to memset() in reactor_attach(). Thanks to Peter Deckmyn!
-
-commit df4c79cedcf587352bbf9bb9a0066ca090c82afc
-Merge: f6235bc... 40f4adb...
-Author: Denis Oliver Kropp <dok@shizo.directfb.home>
-Date:   Fri Feb 22 19:49:46 2008 +0100
-
-    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
 
 commit 40f4adbcaf0bf9cb016d478a89e156a06cb04466
 Author: Denis Oliver Kropp <dok@shizo.directfb.home>
@@ -34,41 +63,11 @@ Date:   Mon Feb 18 22:36:44 2008 +0100
 
     [Makefile] Don't override KERNEL_VERSION and other variables if they're set in the environment.
 
-commit f6235bcfc2c061f0aaa3efa3ec730e1dcd15a5a1
-Merge: c4b88e6... 196b44e...
-Author: Denis Oliver Kropp <dok@shizo.directfb.home>
-Date:   Fri Feb 22 19:35:20 2008 +0100
-
-    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
-
 commit 196b44e17fa2bb73c284284758c23675cb6c5c7d
 Author: Ville Syrjala <syrjala@sci.fi>
 Date:   Fri Feb 22 00:00:26 2008 +0200
 
     Add a Kconfig file.
-
-commit c4b88e6bd148ee54d680ff3cbb82cbc30779caaa
-Author: Denis Oliver Kropp <dok@shizo.directfb.home>
-Date:   Tue Feb 19 15:29:05 2008 +0100
-
-    [skirmish] Support resume of interrupted wait and regain lock after timeout.
-    
-    This is compatible with mutex/condition, except for expected errors.
-    
-    Requires user space changes.
-
-commit 9f78cff8a1336657bf5082161490bec78c710596
-Author: Denis Oliver Kropp <dok@shizo.directfb.home>
-Date:   Mon Feb 18 22:36:44 2008 +0100
-
-    [Makefile] Don't override KERNEL_VERSION and other variables if they're set in the environment.
-
-commit d7edbe78a058c10a9d90c735c0c5a97bbf55ab31
-Merge: 9e9470a... 5c7f24e...
-Author: Denis Oliver Kropp <dok@shizo.directfb.home>
-Date:   Sun Feb 17 11:22:41 2008 +0100
-
-    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
 
 commit 5c7f24e59db5709ef95c5db0c20054ee12352253
 Author: Denis Oliver Kropp <dok@shizo.directfb.home>
@@ -98,20 +97,6 @@ Author: Denis Oliver Kropp <dok@shizo.zion.home>
 Date:   Thu Oct 11 11:59:22 2007 +0200
 
     Don't build with yield() by default, but require FUSION_SKIRMISH_YIELD to be defined.
-
-commit 9e9470ac0d46455d92891be09d4ba50b8bedcc01
-Author: Denis Oliver Kropp <dok@shizo.(none)>
-Date:   Tue Jan 8 14:20:46 2008 +0100
-
-    SHMPOOL: Added configurable fence size, align pool to fence size before adding the fence.
-    
-    Default fence size is PAGE_SIZE * 16, but can be overridden by defining FUSION_SHMPOOL_FENCE_SIZE.
-    
-    The amount of memory in the fence and the alignment before is not physically allocated, but just
-    a hole in the adress space used for shared memory pools.
-    
-    For example, a fence size of PAGE_SIZE * 2 is mandatory on SH7722 due to cache aliasing
-    restrictions when using MAP_SHARED | MAP_FIXED.
 
 commit a3de17819d39a23199d7b1c6f606d70c0d7580db
 Author: Ville Syrjala <syrjala@sci.fi>
