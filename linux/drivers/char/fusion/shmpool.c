@@ -115,7 +115,7 @@ fusion_shmpool_construct( FusionEntry *entry,
      shmpool->max_size  = poolnew->max_size;
      shmpool->addr_base = poolnew->addr_base = (void*) addr_base;
 
-     addr_base += PAGE_ALIGN(poolnew->max_size) + PAGE_SIZE; /* fence page */
+     addr_base = (addr_base + PAGE_ALIGN(poolnew->max_size) + PAGE_SIZE + 0xffff) & ~0xffff;
 
      shmpool->addr_entry = add_addr_entry( addr_base );
 
