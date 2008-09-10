@@ -24,3 +24,15 @@ Easy installation without kernel patch
 	KERNEL=="fusion[0-9]*", NAME="fusion/%n", GROUP="video", MODE="0660"
 
 	...customize to suit your needs
+
+
+Special arguments for cross builds
+----------------------------------
+
+1) Simple example:
+
+	make KERNEL_VERSION=2.6.25.4 SYSROOT=/opt/sh7723 install
+
+2) Explicit source tree:
+
+	make KERNEL_VERSION=2.6.25.4 SYSROOT=/opt/sh7723 KERNEL_BUILD=/home/sh7723/kernel install
