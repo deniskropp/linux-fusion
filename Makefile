@@ -1,11 +1,23 @@
 KERNEL_VERSION  ?= $(shell uname -r)
 KERNEL_MODLIB   ?= /lib/modules/$(KERNEL_VERSION)
-KERNEL_BUILD    ?= $(KERNEL_MODLIB)/build
-KERNEL_SOURCE   ?= $(KERNEL_MODLIB)/source
+KERNEL_BUILD    ?= $(SYSROOT)$(KERNEL_MODLIB)/build
+KERNEL_SOURCE   ?= $(SYSROOT)$(KERNEL_MODLIB)/source
+
+ifeq ($(shell test -L $(KERNEL_BUILD) && echo yes),yes)
+  KERNEL_BUILD := $(SYSROOT)$(shell readlink $(KERNEL_BUILD))
+endif
+
+ifeq ($(shell test -L $(KERNEL_SOURCE) && echo yes),yes)
+  KERNEL_SOURCE := $(SYSROOT)$(shell readlink $(KERNEL_SOURCE))
+endif
 
 K_VERSION    := $(shell echo $(KERNEL_VERSION) | cut -d . -f 1)
 K_PATCHLEVEL := $(shell echo $(KERNEL_VERSION) | cut -d . -f 2)
 K_SUBLEVEL   := $(shell echo $(KERNEL_VERSION) | cut -d . -f 3 | cut -d '-' -f 1)
+
+
+DESTDIR ?= $(SYSROOT)
+
 
 SUB = linux/drivers/char/fusion
 
