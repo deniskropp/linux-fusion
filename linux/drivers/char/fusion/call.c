@@ -375,10 +375,13 @@ fusion_call_destroy (FusionDev *dev, int fusion_id, int call_id)
           execution = (FusionCallExecution *) call->executions;
           if (execution) {
                /* Unlock the list. */
-               up (&call->lock);
+               up (&dev->call.lock);
 
                /* Unlock call and wait for execution. TODO: add timeout? */
                fusion_sleep_on( &execution->wait, &call->lock, 0 );
+
+               if (signal_pending(current))
+                    return -EINTR;
           }
      } while (execution);
 

@@ -491,6 +491,9 @@ fusionee_wait_processing (FusionDev         *dev,
 
           /* Otherwise unlock and wait. */
           fusion_sleep_on( &fusionee->wait, &fusionee->lock, 0 );
+
+          if (signal_pending(current))
+               return -EINTR;
      } while (true);
 
      unlock_fusionee (fusionee);
