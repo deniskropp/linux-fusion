@@ -687,6 +687,8 @@ fusion_skirmish_transfer_all (FusionDev *dev,
                skirmish->lock_fid   = 0;
                skirmish->lock_pid   = 0;
                skirmish->lock_count = 0;
+
+               wake_up_interruptible_all (&skirmish->entry.wait);
           }
 
           up (&skirmish->entry.lock);
