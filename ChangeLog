@@ -1,3 +1,44 @@
+commit fa3c697fc3d31958c27bf4dbaaa2a31b00d8b22f
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Sun Sep 14 02:52:21 2008 +0200
+
+    [calls] Fixed dead lock in fusion_call_destroy() leading to unkillable process.
+    
+    There was a typo that caused the call to be unlocked instead of the list.
+    
+    Furthermore, there were two places without checking for a pending signal after
+    calling fusion_sleep_on().
+
+commit 0353c456668028cd658b5a95f8a44e1d5e89ff4e
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Wed Sep 10 18:25:15 2008 +0200
+
+    [README] Some initial cross build notes...
+
+commit 597949f214df557d3c5b77c7ba2ec7ffe90cffd7
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Wed Sep 10 18:21:59 2008 +0200
+
+    [shm] Align pool base on a 64K boundary.
+
+commit 0323ca485081e86000bba37e5ffc17b6a3d9c3de
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Wed Sep 10 18:16:30 2008 +0200
+
+    [Makefile] Allow SYSROOT variable to resolve absolute symbolic links relative to it.
+
+commit ecb399e30402798059f4378a66d22221512261cd
+Author: Denis Oliver Kropp <dok@debian.(none)>
+Date:   Wed Sep 3 00:45:43 2008 +0900
+
+    [types] Changed maximum version for bool definition to 2.6.18 to make it build on such kernels.
+
+commit f8a74066663849a94ee967efc1130d49b76ce730
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Tue Aug 12 14:50:54 2008 +0200
+
+    updated
+
 commit b26593de0f879ee57ee5bf5c5ad64fd543306c34
 Author: Denis Oliver Kropp <dok@cyto.(none)>
 Date:   Tue Aug 12 14:49:54 2008 +0200
