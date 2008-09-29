@@ -1,3 +1,31 @@
+commit 174daaf1df8a693101be64a941188c5f23e14f54
+Merge: 566a807... d61ea53...
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Mon Sep 29 12:20:06 2008 +0200
+
+    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+
+commit 566a8070584aefe7aa058b8d8a5cadaab1b78a32
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Mon Sep 29 12:19:47 2008 +0200
+
+    Updated ChangeLog
+
+commit d61ea53415720bd07838aaba40dffca5c5878e81
+Author: Niels Roest <niels@directfb.org>
+Date:   Thu Sep 18 10:52:53 2008 +0200
+
+    [fusion] new feature: automatically unlock transferred skirmishes
+    If you expect that a callee will lock a skirmish, call you and thereby
+    transferring that skirmish to you, you may already lock it; it will
+    be unlocked automatically when the call is due.
+
+commit 65d1b30f089509d98dd00fcc5519644da3a513c1
+Author: Niels Roest <niels@directfb.org>
+Date:   Mon Sep 15 15:22:46 2008 +0200
+
+    [fusion] made include order consistent. Was needed for new 2.6.26.5 kernel.
+
 commit fa3c697fc3d31958c27bf4dbaaa2a31b00d8b22f
 Author: Denis Oliver Kropp <dok@cyto.(none)>
 Date:   Sun Sep 14 02:52:21 2008 +0200
