@@ -27,8 +27,8 @@
 
 #include <linux/fusion.h>
 
-#include "entries.h"
 #include "fusiondev.h"
+#include "entries.h"
 #include "fusionee.h"
 #include "list.h"
 #include "property.h"
