@@ -1094,7 +1094,12 @@ register_devices(void)
 #endif
 
      for (i=0; i<NUM_MINORS; i++) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
+          device_create (fusion_class,
+                         NULL,
+                         MKDEV(FUSION_MAJOR, i),
+                         NULL, "fusion%d", i);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
           device_create (fusion_class,
                          NULL,
                          MKDEV(FUSION_MAJOR, i),
