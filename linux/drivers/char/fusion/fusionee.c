@@ -373,22 +373,24 @@ fusionee_get_messages (FusionDev *dev,
 
      while (!fusionee->messages.count) {
           if (!block) {
-               unlock_fusionee (fusionee);
+               unlock_fusionee( fusionee );
                flush_messages( dev, &prev_msgs );
                return -EAGAIN;
           }
 
-          fusion_sleep_on (&fusionee->wait, &fusionee->lock, 0);
-
-          if (signal_pending(current)) {
+          if (prev_msgs.count) {
+               unlock_fusionee( fusionee );
                flush_messages( dev, &prev_msgs );
-               return -EINTR;
+          }
+          else {
+               fusion_sleep_on( &fusionee->wait, &fusionee->lock, 0 );
+
+               if (signal_pending( current ))
+                    return -EINTR;
           }
 
-          if (down_interruptible (&fusionee->lock)) {
-               flush_messages( dev, &prev_msgs );
+          if (down_interruptible (&fusionee->lock))
                return -EINTR;
-          }
      }
 
      while (fusionee->messages.count) {
