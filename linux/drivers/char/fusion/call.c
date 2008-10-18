@@ -218,7 +218,9 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
      if (ret)
           return ret;
 
-     serial = ++call->serial;
+     do {
+          serial = ++call->serial;
+     } while (!serial);
 
      /* Add execution to receive the result. */
      if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
@@ -238,7 +240,7 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
      message.call_arg = execute->call_arg;
      message.call_ptr = execute->call_ptr;
 
-     message.serial   = serial;
+     message.serial   = execution ? serial : 0;
 
      /* Put message into queue of callee. */
      ret = fusionee_send_message (dev, fusionee, call->fusion_id, FMT_CALL,
@@ -291,6 +293,9 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
      FusionLink *l;
      FusionCall *call;
 
+     if (!call_ret->serial)
+          return -EOPNOTSUPP;
+
      /* Lookup and lock call. */
      ret = lock_call (dev, call_ret->call_id, &call);
      if (ret)
@@ -318,6 +323,7 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
                /* Remove and free execution. */
                remove_execution( call, execution );
                kfree( execution );
+               unlock_call( call );
                return -EIDRM;
           }
 
@@ -334,13 +340,16 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
           /* Wake up caller. */
           wake_up_interruptible( &execution->wait );
 
-          break;
+          /* Unlock call. */
+          unlock_call (call);
+
+          return 0;
      }
 
      /* Unlock call. */
      unlock_call (call);
 
-     return 0;
+     return -ENOMSG;
 }
 
 int

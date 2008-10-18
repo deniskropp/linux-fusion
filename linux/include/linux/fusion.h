@@ -152,7 +152,7 @@ typedef struct {
      int                 call_arg;      /* optional call parameter */
      void               *call_ptr;      /* optional call parameter */
 
-     unsigned int        serial;
+     unsigned int        serial;        /* serial number of call, used for return, zero if nothing shall be returned */
 } FusionCallMessage;
 
 /*
