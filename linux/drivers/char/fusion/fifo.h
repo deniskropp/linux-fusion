@@ -30,8 +30,6 @@ void        fusion_fifo_put   (FusionFifo *fifo,
 
 FusionLink *fusion_fifo_get   (FusionFifo *fifo);
 
-int         fusion_fifo_count (FusionFifo *fifo);
-
 
 static inline void
 fusion_fifo_reset( FusionFifo *fifo )
@@ -40,5 +38,5 @@ fusion_fifo_reset( FusionFifo *fifo )
      fifo->first = fifo->last = NULL;
 }
 
-#endif /* __FUSION__LIST_H__ */
+#endif /* __FUSION__FIFO_H__ */
 
