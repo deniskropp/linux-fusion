@@ -521,6 +521,10 @@ fusionee_poll (FusionDev   *dev,
 
      fusion_fifo_reset( &fusionee->prev_msgs );
 
+     /* if we have previous messages, fusionee_wait_processing() can be waiting */
+     if (prev_msgs.count)
+          wake_up_interruptible_all (&fusionee->wait);
+
      unlock_fusionee (fusionee);
 
      flush_messages( dev, &prev_msgs );

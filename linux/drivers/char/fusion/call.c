@@ -361,7 +361,9 @@ fusion_call_destroy (FusionDev *dev, int fusion_id, int call_id)
 
      do {
           /* Wait for all messages being processed. */
-          fusionee_wait_processing( dev, fusion_id, FMT_CALL, call_id );
+          ret = fusionee_wait_processing( dev, fusion_id, FMT_CALL, call_id );
+          if (ret)
+               return ret;
 
           /* Lookup call only, list still locked. */
           ret = lookup_call( dev, call_id, &call );
