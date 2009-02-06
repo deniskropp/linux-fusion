@@ -8,6 +8,7 @@
  */
 #define FUSION_API_MAJOR      8         /* Increased if backward compatibility is dropped. */
 #define FUSION_API_MINOR      0         /* Increased if new features are added. */
+#define FUSION_API_MICRO      3         /* Micro release. Bugfixes. */
 
 /*
  * The Fusion ID is a unique identifier for one process consisting of threads.

@@ -1,3 +1,56 @@
+commit 9ef27337f4ab671b6d863beb5f3ea493eb5332fa
+Author: Niels Roest <niels@directfb.org>
+Date:   Mon Jan 19 16:30:58 2009 +0100
+
+    [call] small change on advise of dok, fixes other cases too.
+
+commit 6ca69c003cff627c04c04012baaaa0b92628fc86
+Author: Niels Roest <niels@directfb.org>
+Date:   Tue Jan 13 18:57:02 2009 +0100
+
+    [call] fixes forever-wait in ioctl shutdown + small fix for interrupted shutdown
+
+commit 28550540dfc76601288b8ec06403a036e0e6f46e
+Merge: 4319618... db9bfae...
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Sat Oct 18 03:14:45 2008 +0200
+
+    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+
+commit 43196188dcbab64e3c3adefd1feb60d48821b9c7
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Sat Oct 18 03:11:48 2008 +0200
+
+    [call] Use zero serial number to indicate call without return. Fail upon invalid return again.
+    
+    Return EOPNOTSUP if FUSION_CALL_RETURN is attempted with a zero serial.
+    
+    Return ENOMSG if serial number has not been found.
+
+commit 33a29f995614bd68db7802c57580f876d8609ae6
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Sat Oct 18 02:48:06 2008 +0200
+
+    [fusionee] Flush previous messages before waiting for new ones which only applies to the unused blocking mode.
+
+commit ca246664364600b422d3e5550f64240604be06d8
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Sat Oct 18 02:47:01 2008 +0200
+
+    [fifo] Remove obsolete proto type.
+
+commit db9bfaea729d0013d0631da03badd98249bced71
+Author: Niels Roest <niels@directfb.org>
+Date:   Fri Oct 10 15:45:29 2008 +0200
+
+    [fusion] changes for 2.6.27-rc8 kernel
+
+commit 675c45e0d957518c5ae2321893cccf50c18f170e
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Mon Sep 29 12:20:22 2008 +0200
+
+    Updated ChangeLog
+
 commit 174daaf1df8a693101be64a941188c5f23e14f54
 Merge: 566a807... d61ea53...
 Author: Denis Oliver Kropp <dok@cyto.(none)>
