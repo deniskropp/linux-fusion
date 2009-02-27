@@ -210,9 +210,6 @@ fusionee_enter( FusionDev   *dev,
                 FusionEnter *enter,
                 Fusionee    *fusionee )
 {
-     if (enter->api.major != FUSION_API_MAJOR || enter->api.minor > FUSION_API_MINOR)
-          return -ENOPROTOOPT;
-
      if (down_interruptible( &dev->enter_lock ))
           return -EINTR;
 
@@ -228,6 +225,20 @@ fusionee_enter( FusionDev   *dev,
           }
 
           FUSION_ASSERT( dev->fusionee.last_id != 0 );
+     }
+
+     if( dev->fusionee.last_id == 0 ) {
+          /* master determines Fusion API (if supported) */
+          int major = enter->api.major;
+          if( (major != 3) && (major != 4) && (major != 8) )
+               return -ENOPROTOOPT;
+
+          dev->api.major = enter->api.major;
+          dev->api.minor = enter->api.minor;
+     }
+     else {
+          if( (enter->api.major != dev->api.major) || (enter->api.minor > dev->api.minor) )
+               return -ENOPROTOOPT;
      }
 
      fusionee->id = ++dev->fusionee.last_id;

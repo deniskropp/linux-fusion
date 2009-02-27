@@ -5,10 +5,16 @@
 
 /*
  * Fusion Kernel Device API Version
+ * Default behaviour: 3.3 -> DirectFB 1.0.x
  */
-#define FUSION_API_MAJOR      8         /* Increased if backward compatibility is dropped. */
-#define FUSION_API_MINOR      0         /* Increased if new features are added. */
-#define FUSION_API_MICRO      3         /* Micro release. Bugfixes. */
+#ifndef FUSION_API_MAJOR
+#undef FUSION_API_MAJOR
+#undef FUSION_API_MINOR
+#undef FUSION_API_MICRO
+#define FUSION_API_MAJOR      3
+#define FUSION_API_MINOR      3
+#define FUSION_API_MICRO      0
+#endif
 
 /*
  * The Fusion ID is a unique identifier for one process consisting of threads.
@@ -19,11 +25,13 @@ typedef unsigned long FusionID;
 
 /*
  * Entering a world
+ * API version (major/minor): master determines API of this world. slave has to follow.
+ * supported are API 3.x for DirectFB 1.0.x, API 4.x for DirectFB 1.1.x, and API 8.x for DirectFB 1.2.x and beyond.
  */
 typedef struct {
      struct {
-          int            major;         /* Must be set to FUSION_API_MAJOR before entering. */
-          int            minor;         /* Must be set to FUSION_API_MINOR before entering. */
+          int            major;
+          int            minor;
      } api;
 
      FusionID            fusion_id;     /* Returns the fusion id of the entering process. */

@@ -141,7 +141,10 @@ fusiondev_stat_read_proc(char *buf, char **start, off_t offset,
      FusionDev *dev     = private;
      int        written = 0;
 
-     written += snprintf( buf, len,
+     if ( (dev->api.major != 0) || (dev->api.minor != 0) )
+          written += sprintf( buf, "Fusion API:%d.%d\n", dev->api.major, dev->api.minor );
+     
+     written += snprintf( buf + written, offset + len - written,
                           "lease/purchase   cede      attach     detach   dispatch      "
                           "ref up   ref down  prevail/swoop dismiss\n" );
      if (written < offset) {
@@ -150,7 +153,7 @@ fusiondev_stat_read_proc(char *buf, char **start, off_t offset,
      }
 
      if (written < len) {
-          written += snprintf( buf+written, len - written,
+          written += snprintf( buf+written, offset + len - written,
                                "%10d %10d  %10d %10d %10d  %10d %10d  %10d %10d\n",
                                dev->stat.property_lease_purchase,
                                dev->stat.property_cede,
@@ -865,16 +868,34 @@ reactor_ioctl (FusionDev *dev, Fusionee *fusionee,
                return 0;
 
           case _IOC_NR(FUSION_REACTOR_ATTACH):
-               if (copy_from_user (&attach,
-                                   (FusionReactorAttach*) arg, sizeof(attach)))
-                    return -EFAULT;
+               if (dev->api.major <= 4) {
+                    if (get_user (id, (int*) arg))
+                         return -EFAULT;
+
+                    attach.reactor_id = id;
+                    attach.channel    = 0;
+               }
+               else {
+                    if (copy_from_user (&attach,
+                                       (FusionReactorAttach*) arg, sizeof(attach)))
+                         return -EFAULT;
+               }
 
                return fusion_reactor_attach (dev, attach.reactor_id, attach.channel, fusion_id);
 
           case _IOC_NR(FUSION_REACTOR_DETACH):
-               if (copy_from_user (&detach,
-                                   (FusionReactorDetach*) arg, sizeof(detach)))
-                    return -EFAULT;
+               if (dev->api.major <= 4) {
+                    if (get_user (id, (int*) arg))
+                         return -EFAULT;
+
+                    detach.reactor_id = id;
+                    detach.channel    = 0;
+               }
+               else {
+                    if (copy_from_user (&detach,
+                                       (FusionReactorDetach*) arg, sizeof(detach)))
+                         return -EFAULT;
+               }
 
                return fusion_reactor_detach (dev, detach.reactor_id, detach.channel, fusion_id);
 
@@ -889,6 +910,9 @@ reactor_ioctl (FusionDev *dev, Fusionee *fusionee,
                /* message data > 64k should be stored in shared memory */
                if (dispatch.msg_size > 0x10000)
                     return -EMSGSIZE;
+
+               if (dev->api.major <= 4)
+                    dispatch.channel = 0;
 
                return fusion_reactor_dispatch (dev, dispatch.reactor_id, dispatch.channel,
                                                dispatch.self ? NULL : fusionee,

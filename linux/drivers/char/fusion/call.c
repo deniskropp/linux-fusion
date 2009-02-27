@@ -306,8 +306,9 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
      while (l) {
           FusionCallExecution *execution = (FusionCallExecution*) l;
 
-          /* Check for call ID (should always match) and execution serial. */
-          if (execution->call_id != call_ret->call_id || execution->serial != call_ret->serial) {
+          if (    (execution->executed)
+               || (execution->call_id != call_ret->call_id)
+               || ((dev->api.major >= 4) && (execution->serial != call_ret->serial))    ) {
                l = l->prev;
                continue;
           }

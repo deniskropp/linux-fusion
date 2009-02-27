@@ -26,6 +26,10 @@
 struct __Fusion_FusionDev {
      int                    refs;
      int                    index;
+     struct {
+          int               major;
+          int               minor;
+     } api;
 
      struct semaphore       enter_lock;
      int                    enter_ok;
