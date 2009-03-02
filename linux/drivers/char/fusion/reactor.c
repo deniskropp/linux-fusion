@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/smp_lock.h>
 #include <linux/sched.h>
+#include <linux/proc_fs.h>
 
 #include <linux/fusion.h>
 
@@ -95,10 +96,10 @@ fusion_reactor_destruct( FusionEntry *entry,
      free_all_nodes( reactor );
 }
 
-static int
-fusion_reactor_print( FusionEntry *entry,
-                      void        *ctx,
-                      char        *buf )
+static void
+fusion_reactor_print( FusionEntry     *entry,
+                      void            *ctx,
+                      struct seq_file *p )
 {
      int            num     = 0;
      FusionReactor *reactor = (FusionReactor*) entry;
@@ -108,8 +109,8 @@ fusion_reactor_print( FusionEntry *entry,
           num++;
      }
 
-     return sprintf( buf, "%5dx dispatch, %d nodes%s\n", reactor->dispatch_count, num,
-                     reactor->destroyed ? "  DESTROYED" : "" );
+     seq_printf( p, "%5dx dispatch, %d nodes%s\n", reactor->dispatch_count, num,
+                    reactor->destroyed ? "  DESTROYED" : "" );
 }
 
 
@@ -123,8 +124,7 @@ fusion_reactor_init (FusionDev *dev)
 {
      fusion_entries_init( &dev->reactor, &reactor_class, dev );
 
-     create_proc_read_entry( "reactors", 0, dev->proc_dir,
-                             fusion_entries_read_proc, &dev->reactor );
+     fusion_entries_create_proc_entry( dev, "reactors", &dev->reactor );
 
      return 0;
 }

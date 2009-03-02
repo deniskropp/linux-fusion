@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/smp_lock.h>
 #include <linux/sched.h>
+#include <linux/proc_fs.h>
 
 #include <linux/fusion.h>
 
@@ -91,17 +92,20 @@ fusion_ref_destruct( FusionEntry *entry,
      free_all_local( ref );
 }
 
-static int
-fusion_ref_print( FusionEntry *entry,
-                  void        *ctx,
-                  char        *buf )
+
+static void
+fusion_ref_print( FusionEntry     *entry,
+                  void            *ctx,
+                  struct seq_file *p )
 {
      FusionRef *ref = (FusionRef*) entry;
 
-     if (ref->locked)
-          return sprintf( buf, "%2d %2d (locked by %d)\n", ref->global, ref->local, ref->locked );
+     if (ref->locked) {
+          seq_printf( p, "%2d %2d (locked by %d)\n", ref->global, ref->local, ref->locked );
+          return;
+     }
 
-     return sprintf( buf, "%2d %2d\n", ref->global, ref->local );
+     seq_printf( p, "%2d %2d\n", ref->global, ref->local );
 }
 
 FUSION_ENTRY_CLASS( FusionRef, ref, NULL,
@@ -114,7 +118,7 @@ fusion_ref_init( FusionDev *dev )
 {
      fusion_entries_init( &dev->ref, &ref_class, dev );
 
-     create_proc_read_entry( "refs", 0, dev->proc_dir, fusion_entries_read_proc, &dev->ref );
+     fusion_entries_create_proc_entry( dev, "refs", &dev->ref );
 
      return 0;
 }

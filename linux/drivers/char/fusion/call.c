@@ -45,13 +45,8 @@ typedef struct {
 } FusionCallExecution;
 
 typedef struct {
-     FusionLink         link;
+     FusionEntry        entry;
 
-     struct semaphore   lock;
-
-     int                id;        /* call id */
-
-     int                pid;       /* owner pid */
      int                fusion_id; /* owner fusion id */
 
      void              *handler;
@@ -65,11 +60,13 @@ typedef struct {
      unsigned int       serial;
 } FusionCall;
 
-/******************************************************************************/
+/* collection, required for 1-param-only passing */
+struct fusion_construct_ctx {
+     int            fusion_id;
+     FusionCallNew *call_new;
+};
 
-static int  lookup_call (FusionDev *dev, int id, FusionCall **ret_call);
-static int  lock_call   (FusionDev *dev, int id, FusionCall **ret_call);
-static void unlock_call (FusionCall *call);
+/******************************************************************************/
 
 static FusionCallExecution *add_execution       (FusionCall          *call,
                                                  Fusionee            *caller,
@@ -82,65 +79,70 @@ static void                 free_all_executions (FusionCall          *call);
 /******************************************************************************/
 
 static int
-fusion_call_read_proc (char *buf, char **start, off_t offset,
-                       int len, int *eof, void *private)
+fusion_call_construct( FusionEntry *entry,
+                       void        *ctx,
+                       void        *create_ctx )
 {
-     FusionLink *l, *e;
-     FusionDev  *dev     = private;
-     int         written = 0;
+     FusionCall *call = (FusionCall*) entry;
+     
+     struct fusion_construct_ctx *cc = (struct fusion_construct_ctx*) create_ctx;
 
-     if (down_interruptible (&dev->call.lock))
-          return -EINTR;
+     call->fusion_id = cc->fusion_id;
+     call->handler   = cc->call_new->handler;
+     call->ctx       = cc->call_new->ctx;
 
-     fusion_list_foreach (l, dev->call.list) {
-          bool        idle = true;
-          FusionCall *call = (FusionCall*) l;
+     cc->call_new->call_id = entry->id;
 
-          if (call->executions)
-               idle = ((FusionCallExecution*) call->executions)->executed;
-
-          written += sprintf(buf+written,
-                             "(%5d) 0x%08x (%d calls) %s",
-                             call->pid, call->id, call->count,
-                             idle ? "idle" : "executing");
-
-          fusion_list_foreach (e, call->executions) {
-               FusionCallExecution *exec = (FusionCallExecution *) e;
-
-               written += sprintf(buf+written, "  [0x%08lx]", exec->caller ? fusionee_id( exec->caller ) : 0);
-          }
-
-          written += sprintf(buf+written, "\n");
-
-          if (written < offset) {
-               offset -= written;
-               written = 0;
-          }
-
-          if (written >= len)
-               break;
-     }
-
-     up (&dev->call.lock);
-
-     *start = buf + offset;
-     written -= offset;
-     if (written > len) {
-          *eof = 0;
-          return len;
-     }
-
-     *eof = 1;
-     return(written<0) ? 0 : written;
+     return 0;
 }
+
+
+static void
+fusion_call_destruct( FusionEntry *entry,
+                      void        *ctx )
+{
+     FusionCall *call = (FusionCall*) entry;
+
+     free_all_executions (call);
+}
+
+static void
+fusion_call_print( FusionEntry     *entry,
+                   void            *ctx,
+                   struct seq_file *p )
+{
+     FusionLink *e;
+     bool        idle = true;
+     FusionCall *call = (FusionCall*) entry;
+
+     if (call->executions)
+          idle = ((FusionCallExecution*) call->executions)->executed;
+
+     seq_printf( p, "(%5d) 0x%08x (%d calls) %s",
+                    call->entry.pid, call->entry.id, call->count,
+                    idle ? "idle" : "executing");
+
+     fusion_list_foreach (e, call->executions) {
+          FusionCallExecution *exec = (FusionCallExecution *) e;
+
+          seq_printf( p, "  [0x%08lx]", exec->caller ? fusionee_id( exec->caller ) : 0);
+     }
+
+     seq_printf( p, "\n" );
+}
+
+
+FUSION_ENTRY_CLASS( FusionCall, call, fusion_call_construct,
+                    fusion_call_destruct, fusion_call_print )
+
+/******************************************************************************/
 
 int
 fusion_call_init (FusionDev *dev)
 {
-     create_proc_read_entry("calls", 0, dev->proc_dir,
-                            fusion_call_read_proc, dev);
+     fusion_entries_init( &dev->call, &call_class, dev );
 
-     init_MUTEX(&dev->call.lock);
+     fusion_entries_create_proc_entry( dev, "calls", &dev->call );
 
      return 0;
 }
@@ -148,25 +150,9 @@ fusion_call_init (FusionDev *dev)
 void
 fusion_call_deinit (FusionDev *dev)
 {
-     FusionLink *l;
-
-     down (&dev->call.lock);
-
      remove_proc_entry ("calls", dev->proc_dir);
 
-     l = dev->call.list;
-     while (l) {
-          FusionLink *next = l->next;
-          FusionCall *call = (FusionCall *) l;
-
-          free_all_executions (call);
-
-          kfree (call);
-
-          l = next;
-     }
-
-     up (&dev->call.lock);
+     fusion_entries_deinit( &dev->call );
 }
 
 /******************************************************************************/
@@ -174,32 +160,14 @@ fusion_call_deinit (FusionDev *dev)
 int
 fusion_call_new (FusionDev *dev, int fusion_id, FusionCallNew *call_new)
 {
-     FusionCall *call;
+     int         id;
+     int         ret;
 
-     call = kmalloc (sizeof(FusionCall), GFP_KERNEL);
-     if (!call)
-          return -ENOMEM;
-
-     memset (call, 0, sizeof(FusionCall));
-
-     if (down_interruptible (&dev->call.lock)) {
-          kfree (call);
-          return -EINTR;
-     }
-
-     call->id        = ++dev->call.ids;
-     call->pid       = current->pid;
-     call->fusion_id = fusion_id;
-     call->handler   = call_new->handler;
-     call->ctx       = call_new->ctx;
-
-     init_MUTEX (&call->lock);
-
-     fusion_list_prepend (&dev->call.list, &call->link);
-
-     up (&dev->call.lock);
-
-     call_new->call_id = call->id;
+     struct fusion_construct_ctx cc = { fusion_id, call_new };
+     
+     ret = fusion_entry_create( &dev->call, &id, &cc );
+     if( ret )
+          return ret;
 
      return 0;
 }
@@ -214,7 +182,7 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
      unsigned int         serial;
 
      /* Lookup and lock call. */
-     ret = lock_call (dev, execute->call_id, &call);
+     ret = fusion_call_lock( &dev->call, execute->call_id, false, &call );
      if (ret)
           return ret;
 
@@ -226,10 +194,11 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
      if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
           execution = add_execution (call, fusionee, execute, serial);
           if (!execution) {
-               unlock_call (call);
+               fusion_call_unlock (call);
                return -ENOMEM;
           }
      }
+
 
      /* Fill call message. */
      message.handler  = call->handler;
@@ -244,13 +213,13 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
 
      /* Put message into queue of callee. */
      ret = fusionee_send_message (dev, fusionee, call->fusion_id, FMT_CALL,
-                                  call->id, 0, sizeof(message), &message, NULL, NULL, 1);
+                                  call->entry.id, 0, sizeof(message), &message, NULL, NULL, 1);
      if (ret) {
           if (execution) {
                remove_execution (call, execution);
                kfree (execution);
           }
-          unlock_call (call);
+          fusion_call_unlock( call );
           return ret;
      }
 
@@ -262,7 +231,7 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
           fusion_skirmish_transfer_all( dev, call->fusion_id, fusionee_id( fusionee ), current->pid );
 
           /* Unlock call and wait for execution result. TODO: add timeout? */
-          fusion_sleep_on( &execution->wait, &call->lock, 0 );
+          fusion_sleep_on( &execution->wait, &call->entry.lock, 0 );
 
           if (signal_pending(current)) {
                /* Indicate that a signal was received and execution won't be freed by caller. */
@@ -281,7 +250,7 @@ fusion_call_execute (FusionDev *dev, Fusionee *fusionee, FusionCallExecute *exec
      }
      else
           /* Unlock call. */
-          unlock_call( call );
+          fusion_call_unlock( call );
 
      return 0;
 }
@@ -297,7 +266,7 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
           return -EOPNOTSUPP;
 
      /* Lookup and lock call. */
-     ret = lock_call (dev, call_ret->call_id, &call);
+     ret = fusion_call_lock (&dev->call, call_ret->call_id, false, &call);
      if (ret)
           return ret;
 
@@ -324,7 +293,7 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
                /* Remove and free execution. */
                remove_execution( call, execution );
                kfree( execution );
-               unlock_call( call );
+               fusion_call_unlock( call );
                return -EIDRM;
           }
 
@@ -342,13 +311,17 @@ fusion_call_return (FusionDev *dev, int fusion_id, FusionCallReturn *call_ret)
           wake_up_interruptible( &execution->wait );
 
           /* Unlock call. */
-          unlock_call (call);
+          fusion_call_unlock( call );
 
           return 0;
      }
 
      /* Unlock call. */
-     unlock_call (call);
+     fusion_call_unlock( call );
+
+     /* DirectFB 1.0.x does not handle one-way-calls properly */
+     if (dev->api.major <= 3)
+          return 0;
 
      return -ENOMSG;
 }
@@ -366,48 +339,28 @@ fusion_call_destroy (FusionDev *dev, int fusion_id, int call_id)
           if (ret)
                return ret;
 
-          /* Lookup call only, list still locked. */
-          ret = lookup_call( dev, call_id, &call );
+          ret = fusion_call_lock (&dev->call, call_id, false, &call);
           if (ret)
                return ret;
 
           /* Check if we own the call. */
           if (call->fusion_id != fusion_id) {
-               up (&dev->call.lock);
+               fusion_call_unlock( call );
                return -EIO;
-          }
-
-          /* Lock the call, too. */
-          if (down_interruptible (&call->lock)) {
-               up (&dev->call.lock);
-               return -EINTR;
           }
 
           /* If an execution is pending... */
           execution = (FusionCallExecution *) call->executions;
           if (execution) {
-               /* Unlock the list. */
-               up (&dev->call.lock);
-
                /* Unlock call and wait for execution. TODO: add timeout? */
-               fusion_sleep_on( &execution->wait, &call->lock, 0 );
+               fusion_sleep_on( &execution->wait, &call->entry.lock, 0 );
 
                if (signal_pending(current))
                     return -EINTR;
           }
      } while (execution);
 
-
-
-     fusion_list_remove (&dev->call.list, &call->link);
-
-     free_all_executions (call);
-
-     up (&dev->call.lock);
-
-     up (&call->lock);
-
-     kfree (call);
+     fusion_entry_destroy_locked( call->entry.entries, &call->entry );
 
      return 0;
 }
@@ -425,19 +378,12 @@ fusion_call_destroy_all (FusionDev *dev, int fusion_id)
           FusionLink *next = l->next;
           FusionCall *call = (FusionCall *) l;
 
-          down (&call->lock);
+          down (&call->entry.lock);
 
-          if (call->fusion_id == fusion_id) {
-               free_all_executions (call);
-
-               fusion_list_remove (&dev->call.list, &call->link);
-
-               up (&call->lock);
-
-               kfree (call);
-          }
+          if (call->fusion_id == fusion_id)
+               fusion_entry_destroy_locked( call->entry.entries, &call->entry );
           else
-               up (&call->lock);
+               up (&call->entry.lock);
 
           l = next;
      }
@@ -445,61 +391,9 @@ fusion_call_destroy_all (FusionDev *dev, int fusion_id)
      up (&dev->call.lock);
 }
 
+
 /******************************************************************************/
 
-static int
-lookup_call (FusionDev *dev, int id, FusionCall **ret_call)
-{
-     FusionLink *l;
-
-     if (down_interruptible (&dev->call.lock))
-          return -EINTR;
-
-     fusion_list_foreach (l, dev->call.list) {
-          FusionCall *call = (FusionCall *) l;
-
-          if (call->id == id) {
-               *ret_call = call;
-               return 0;
-          }
-     }
-
-     up (&dev->call.lock);
-
-     return -EINVAL;
-}
-
-static int
-lock_call (FusionDev *dev, int id, FusionCall **ret_call)
-{
-     int         ret;
-     FusionCall *call;
-
-     ret = lookup_call (dev, id, &call);
-     if (ret)
-          return ret;
-
-     if (call) {
-          fusion_list_move_to_front (&dev->call.list, &call->link);
-
-          if (down_interruptible (&call->lock)) {
-               up (&dev->call.lock);
-               return -EINTR;
-          }
-
-          up (&dev->call.lock);
-     }
-
-     *ret_call = call;
-
-     return 0;
-}
-
-static void
-unlock_call (FusionCall *call)
-{
-     up (&call->lock);
-}
 
 static FusionCallExecution *
 add_execution (FusionCall        *call,
@@ -518,7 +412,7 @@ add_execution (FusionCall        *call,
      memset (execution, 0, sizeof(FusionCallExecution));
 
      execution->caller  = caller;
-     execution->call_id = call->id;
+     execution->call_id = call->entry.id;
      execution->serial  = serial;
 
      init_waitqueue_head (&execution->wait);

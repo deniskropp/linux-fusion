@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/smp_lock.h>
 #include <linux/sched.h>
+#include <linux/proc_fs.h>
 
 #ifndef yield
 #define yield schedule
@@ -49,20 +50,21 @@ typedef struct {
      int                 count;    /* lock counter */
 } FusionProperty;
 
-static int
-fusion_property_print( FusionEntry *entry,
-                       void        *ctx,
-                       char        *buf )
+static void
+fusion_property_print( FusionEntry     *entry,
+                       void            *ctx,
+                       struct seq_file *p )
 {
      FusionProperty *property = (FusionProperty*) entry;
 
      if (property->state != FUSION_PROPERTY_AVAILABLE) {
-          return sprintf( buf, "%s by 0x%08x (%d) %dx\n",
-                          property->state == FUSION_PROPERTY_LEASED ? "leased" : "purchased",
-                          property->fusion_id, property->lock_pid, property->count );
+          seq_printf( p, "%s by 0x%08x (%d) %dx\n",
+                      property->state == FUSION_PROPERTY_LEASED ? "leased" : "purchased",
+                      property->fusion_id, property->lock_pid, property->count );
+          return;
      }
 
-     return sprintf( buf, "\n" );
+     seq_printf( p, "\n" );
 }
 
 FUSION_ENTRY_CLASS( FusionProperty, property, NULL, NULL, fusion_property_print )
@@ -74,8 +76,7 @@ fusion_property_init( FusionDev *dev )
 {
      fusion_entries_init( &dev->properties, &property_class, dev );
 
-     create_proc_read_entry( "properties", 0, dev->proc_dir,
-                             fusion_entries_read_proc, &dev->properties );
+     fusion_entries_create_proc_entry( dev, "properties", &dev->properties );
 
      return 0;
 }

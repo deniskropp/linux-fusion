@@ -16,6 +16,7 @@
 #define __FUSION__ENTRIES_H__
 
 #include <linux/mutex.h>
+#include <linux/seq_file.h>
 
 #include "types.h"
 #include "list.h"
@@ -29,7 +30,7 @@ typedef const struct {
 
      int  (*Init)   ( FusionEntry *entry, void *ctx, void *create_ctx );
      void (*Destroy)( FusionEntry *entry, void *ctx );
-     int  (*Print)  ( FusionEntry *entry, void *ctx, char *buf );
+     void (*Print)  ( FusionEntry *entry, void *ctx, struct seq_file *p );
 } FusionEntryClass;
 
 
@@ -74,9 +75,7 @@ void fusion_entries_deinit( FusionEntries    *entries );
 
 /* '/proc' support */
 
-int  fusion_entries_read_proc( char *buf, char **start, off_t offset,
-                               int len, int *eof, void *private );
-
+void fusion_entries_create_proc_entry( FusionDev *dev, const char *name, FusionEntries *data );
 
 /* Create & Destroy */
 

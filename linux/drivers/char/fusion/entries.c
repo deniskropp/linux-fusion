@@ -28,6 +28,7 @@
 #include "fusiondev.h"
 #include "entries.h"
 
+struct timeval now;
 
 void
 fusion_entries_init( FusionEntries    *entries,
@@ -70,81 +71,137 @@ fusion_entries_deinit( FusionEntries *entries )
      up( &entries->lock );
 }
 
-int
-fusion_entries_read_proc(char *buf, char **start, off_t offset,
-                         int len, int *eof, void *private)
+/* reading PROC entries */
+
+static void *fusion_entries_seq_start(struct seq_file *f, loff_t *pos)
 {
+     int i = *pos;
+
      FusionEntry      *entry;
+     FusionEntries    *entries;
      FusionEntryClass *class;
-     FusionEntries    *entries = private;
-     int               written = 0;
-     struct timeval    now;
+
+     entries = f->private;
+     entry   = (void*)(entries->list);
+     
+     while(i && entry) {
+          entry = (void*)(entry->link.next);
+          i--;
+     }
 
      FUSION_ASSERT( entries != NULL );
      FUSION_ASSERT( entries->class != NULL );
 
-     class = entries->class;
-
-     if (!class->Print)
-          return -ENOTSUPP;
-
      if (down_interruptible (&entries->lock))
-          return -EINTR;
+          return NULL;
+
+     class = entries->class;
+     if (!class->Print)
+          return NULL;
 
      do_gettimeofday( &now );
 
-     fusion_list_foreach (entry, entries->list) {
-          if (entry->last_lock.tv_sec) {
-               int diff = ((now.tv_sec  - entry->last_lock.tv_sec) * 1000 +
-                           (now.tv_usec - entry->last_lock.tv_usec) / 1000);
-
-               if (diff < 1000) {
-                    written += sprintf( buf + written, "%3d  ms  ", diff );
-               }
-               else if (diff < 1000000) {
-                    written += sprintf( buf + written, "%3d.%d s  ",
-                                        diff / 1000, (diff % 1000) / 100 );
-               }
-               else {
-                    diff = ( now.tv_sec  - entry->last_lock.tv_sec +
-                            (now.tv_usec - entry->last_lock.tv_usec) / 1000000);
-
-                    written += sprintf( buf + written, "%3d.%d h  ",
-                                        diff / 3600, (diff % 3600) / 360 );
-               }
-          }
-          else
-               written += sprintf( buf + written, "  -.-    " );
-
-
-          written += sprintf( buf + written, "(%5d) 0x%08x  ", entry->pid, entry->id );
-
-          written += sprintf( buf + written, "%-24s  ", entry->name[0] ? entry->name : "" );
-
-          written += class->Print( entry, entries->ctx, buf + written );
-
-          if (written < offset) {
-               offset -= written;
-               written = 0;
-          }
-
-          if (written >= len)
-               break;
-     }
-
-     up (&entries->lock);
-
-     *start = buf + offset;
-     written -= offset;
-     if (written > len) {
-          *eof = 0;
-          return len;
-     }
-
-     *eof = 1;
-
-     return (written<0) ? 0 : written;
+     return entry;
 }
+
+static void *fusion_entries_seq_next(struct seq_file *f, void *v, loff_t *pos)
+{
+     FusionEntry *entry = v;
+
+     (*pos)++;
+     return entry->link.next;
+}
+
+static void fusion_entries_seq_stop(struct seq_file *f, void *v)
+{
+     FusionEntries *entries;
+
+     entries = f->private;
+     (void)v;
+ 
+     up (&entries->lock);
+}
+
+int
+fusion_entries_show(struct seq_file *p, void *v)
+{
+     FusionEntry      *entry;
+     FusionEntryClass *class;
+
+     entry = v;
+
+     class = entry->entries->class;
+
+     if (entry->last_lock.tv_sec) {
+          int diff = ((now.tv_sec  - entry->last_lock.tv_sec) * 1000 +
+                      (now.tv_usec - entry->last_lock.tv_usec) / 1000);
+
+          if (diff < 1000) {
+               seq_printf( p, "%3d  ms  ", diff );
+          }
+          else if (diff < 1000000) {
+               seq_printf( p, "%3d.%d s  ", diff / 1000, (diff % 1000) / 100 );
+          }
+          else {
+               diff = ( now.tv_sec  - entry->last_lock.tv_sec +
+                       (now.tv_usec - entry->last_lock.tv_usec) / 1000000);
+
+               seq_printf( p, "%3d.%d h  ", diff / 3600, (diff % 3600) / 360 );
+          }
+     }
+     else
+          seq_printf( p, "  -.-    " );
+
+
+     seq_printf( p, "(%5d) 0x%08x  ", entry->pid, entry->id );
+     seq_printf( p, "%-24s  ", entry->name[0] ? entry->name : "" );
+
+     class->Print( entry, entry->entries->ctx, p );
+
+     return 0;
+}
+
+static const struct seq_operations fusion_entries_seq_ops = {
+     .start = fusion_entries_seq_start,
+     .next  = fusion_entries_seq_next,
+     .stop  = fusion_entries_seq_stop,
+     .show  = fusion_entries_show
+};
+
+static int fusion_entries_open(struct inode *inode, struct file *file)
+{
+        struct seq_file *sf;
+        int ret;
+
+        ret = seq_open(file, &fusion_entries_seq_ops);
+        if (ret < 0)
+                return ret;
+
+        sf = file->private_data;
+        sf->private = PDE(inode)->data;
+
+        return 0;
+}
+
+static const struct file_operations proc_fusion_entries_operations = {
+     .open     = fusion_entries_open,
+     .read     = seq_read,
+     .llseek   = seq_lseek,
+     .release  = seq_release,
+};
+
+void fusion_entries_create_proc_entry( FusionDev *dev, const char *name, FusionEntries *data )
+{
+     struct proc_dir_entry *pde;
+
+     pde = create_proc_entry( name, 0, dev->proc_dir );
+     if (pde) {
+          pde->proc_fops = &proc_fusion_entries_operations;
+          pde->data      = data;
+     }
+}
+
+
 
 int
 fusion_entry_create( FusionEntries *entries,

@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/smp_lock.h>
 #include <linux/sched.h>
+#include <linux/proc_fs.h>
 
 #include <linux/fusion.h>
 
@@ -87,12 +88,11 @@ skirmish_signal_handler( void *ctx )
 
 /******************************************************************************/
 
-static int
-fusion_skirmish_print( FusionEntry *entry,
-                       void        *ctx,
-                       char        *buf )
+static void
+fusion_skirmish_print( FusionEntry     *entry,
+                       void            *ctx,
+                       struct seq_file *p )
 {
-     int             written  = 0;
      FusionSkirmish *skirmish = (FusionSkirmish*) entry;
 
 #ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
@@ -105,11 +105,11 @@ fusion_skirmish_print( FusionEntry *entry,
           }
      }
 
-     written += sprintf( buf + written, "[%2d]%s", n, skirmish->outer ? "." : " " );
+     seq_printf( p, "[%2d]%s", n, skirmish->outer ? "." : " " );
 
      for (i=0, n=0; i<MAX_PRE_ACQUISITIONS; i++) {
           if (skirmish->pre_acquis[i]) {
-               written += sprintf( buf + written, "%s%02x", n ? "," : "", skirmish->pre_acquis[i] - 1 );
+               seq_printf( p, "%s%02x", n ? "," : "", skirmish->pre_acquis[i] - 1 );
 
                n++;
           }
@@ -118,16 +118,17 @@ fusion_skirmish_print( FusionEntry *entry,
 
      if (skirmish->lock_fid) {
           if (skirmish->entry.waiters)
-               return sprintf( buf + written, " - %dx [0x%08x] (%d)  %d WAITING\n",
-                               skirmish->lock_count, skirmish->lock_fid,
-                               skirmish->lock_pid, skirmish->entry.waiters ) + written;
+               seq_printf( p, " - %dx [0x%08x] (%d)  %d WAITING\n",
+                           skirmish->lock_count, skirmish->lock_fid,
+                           skirmish->lock_pid, skirmish->entry.waiters );
           else
-               return sprintf( buf + written, " - %dx [0x%08x] (%d)\n",
-                               skirmish->lock_count, skirmish->lock_fid,
-                               skirmish->lock_pid ) + written;
+               seq_printf( p, " - %dx [0x%08x] (%d)\n",
+                           skirmish->lock_count, skirmish->lock_fid,
+                           skirmish->lock_pid );
+          return;
      }
 
-     return sprintf( buf + written, "\n" ) + written;
+     seq_printf( p, "\n" );
 }
 
 FUSION_ENTRY_CLASS( FusionSkirmish, skirmish, NULL, NULL, fusion_skirmish_print )
@@ -139,8 +140,7 @@ fusion_skirmish_init (FusionDev *dev)
 {
      fusion_entries_init( &dev->skirmish, &skirmish_class, dev );
 
-     create_proc_read_entry( "skirmishs", 0, dev->proc_dir,
-                             fusion_entries_read_proc, &dev->skirmish );
+     fusion_entries_create_proc_entry( dev, "skirmishs", &dev->skirmish );
 
      sigemptyset( &m_sigmask );
      sigaddset( &m_sigmask, SIGSTOP );

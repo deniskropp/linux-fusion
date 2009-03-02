@@ -60,18 +60,13 @@ struct __Fusion_FusionDev {
      } stat;
 
      struct {
-          int                ids;
-          FusionLink        *list;
-          struct semaphore   lock;
-     } call;
-
-     struct {
           int                last_id;
           FusionLink        *list;
           struct semaphore   lock;
           wait_queue_head_t  wait;
      } fusionee;
 
+     FusionEntries  call;
      FusionEntries  properties;
      FusionEntries  reactor;
      FusionEntries  ref;

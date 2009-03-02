@@ -21,6 +21,7 @@
 #include <linux/smp_lock.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
+#include <linux/proc_fs.h>
 
 #include <linux/fusion.h>
 
@@ -154,10 +155,10 @@ fusion_shmpool_destruct( FusionEntry *entry,
      up( &addr_lock );
 }
 
-static int
-fusion_shmpool_print( FusionEntry *entry,
-                      void        *ctx,
-                      char        *buf )
+static void
+fusion_shmpool_print( FusionEntry     *entry,
+                      void            *ctx,
+                      struct seq_file *p )
 {
      int            num     = 0;
      FusionSHMPool *shmpool = (FusionSHMPool*) entry;
@@ -167,9 +168,9 @@ fusion_shmpool_print( FusionEntry *entry,
           num++;
      }
 
-     return sprintf( buf, "0x%p [0x%x] - 0x%x, %dx dispatch, %d nodes\n",
-                     shmpool->addr_base, shmpool->max_size, shmpool->size,
-                     shmpool->dispatch_count, num );
+     seq_printf( p, "0x%p [0x%x] - 0x%x, %dx dispatch, %d nodes\n",
+                 shmpool->addr_base, shmpool->max_size, shmpool->size,
+                 shmpool->dispatch_count, num );
 }
 
 
@@ -183,8 +184,7 @@ fusion_shmpool_init (FusionDev *dev)
 {
      fusion_entries_init( &dev->shmpool, &shmpool_class, dev );
 
-     create_proc_read_entry( "shmpools", 0, dev->proc_dir,
-                             fusion_entries_read_proc, &dev->shmpool );
+     fusion_entries_create_proc_entry( dev, "shmpools", &dev->shmpool );
 
      return 0;
 }
