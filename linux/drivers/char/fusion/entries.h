@@ -21,92 +21,77 @@
 #include "types.h"
 #include "list.h"
 
-
 typedef struct __FD_FusionEntry FusionEntry;
 
-
 typedef const struct {
-     int object_size;
+	int object_size;
 
-     int  (*Init)   ( FusionEntry *entry, void *ctx, void *create_ctx );
-     void (*Destroy)( FusionEntry *entry, void *ctx );
-     void (*Print)  ( FusionEntry *entry, void *ctx, struct seq_file *p );
+	int (*Init)     (FusionEntry * entry, void *ctx, void *create_ctx);
+	void (*Destroy) (FusionEntry * entry, void *ctx);
+	void (*Print)   (FusionEntry * entry, void *ctx, struct seq_file * p);
 } FusionEntryClass;
 
-
 typedef struct {
-     FusionEntryClass  *class;
-     void              *ctx;
+	FusionEntryClass *class;
+	void *ctx;
 
-     FusionLink        *list;
-     int                ids;
-     struct semaphore   lock;
+	FusionLink *list;
+	int ids;
+	struct semaphore lock;
 } FusionEntries;
 
-
 struct __FD_FusionEntry {
-     FusionLink         link;
+	FusionLink link;
 
-     FusionEntries     *entries;
+	FusionEntries *entries;
 
-     int                id;
-     pid_t              pid;
+	int id;
+	pid_t pid;
 
-     pid_t              lock_pid;
+	pid_t lock_pid;
 
-     struct semaphore   lock;
-     wait_queue_head_t  wait;
-     int                waiters;
+	struct semaphore lock;
+	wait_queue_head_t wait;
+	int waiters;
 
-     struct timeval     last_lock;
+	struct timeval last_lock;
 
-     char               name[FUSION_ENTRY_INFO_NAME_LENGTH];
+	char name[FUSION_ENTRY_INFO_NAME_LENGTH];
 };
-
 
 /* Entries Init & DeInit */
 
-void fusion_entries_init  ( FusionEntries    *entries,
-                            FusionEntryClass *class,
-                            void             *ctx );
+void fusion_entries_init(FusionEntries * entries,
+			 FusionEntryClass * class, void *ctx);
 
-void fusion_entries_deinit( FusionEntries    *entries );
-
+void fusion_entries_deinit(FusionEntries * entries);
 
 /* '/proc' support */
 
-void fusion_entries_create_proc_entry( FusionDev *dev, const char *name, FusionEntries *data );
+void fusion_entries_create_proc_entry(FusionDev * dev, const char *name,
+				      FusionEntries * data);
 
 /* Create & Destroy */
 
-int  fusion_entry_create        ( FusionEntries  *entries,
-                                  int            *ret_id,
-                                  void           *create_ctx );
+int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx);
 
-int  fusion_entry_destroy       ( FusionEntries  *entries,
-                                  int             id );
+int fusion_entry_destroy(FusionEntries * entries, int id);
 
-void fusion_entry_destroy_locked( FusionEntries  *entries,
-                                  FusionEntry    *entry );
+void fusion_entry_destroy_locked(FusionEntries * entries, FusionEntry * entry);
 
 /* Information */
 
-int  fusion_entry_set_info( FusionEntries          *entries,
-                            const FusionEntryInfo  *info );
+int fusion_entry_set_info(FusionEntries * entries,
+			  const FusionEntryInfo * info);
 
-int  fusion_entry_get_info( FusionEntries          *entries,
-                            FusionEntryInfo        *info );
-
+int fusion_entry_get_info(FusionEntries * entries, FusionEntryInfo * info);
 
 /* Lock & Unlock */
 
-int  fusion_entry_lock    ( FusionEntries    *entries,
-                            int               id,
-                            bool              keep_entries_lock,
-                            FusionEntry     **ret_entry );
+int fusion_entry_lock(FusionEntries * entries,
+		      int id, bool keep_entries_lock, FusionEntry ** ret_entry);
 
-void fusion_entry_unlock  ( FusionEntry      *entry );
-
+void fusion_entry_unlock(FusionEntry * entry);
 
 /** Wait & Notify **/
 
@@ -124,17 +109,14 @@ void fusion_entry_unlock  ( FusionEntry      *entry );
  *   -ETIMEDOUT  Timeout occured.
  *   -EINTR      A signal has been received.
  */
-int  fusion_entry_wait    ( FusionEntry      *entry,
-                            long             *timeout );
+int fusion_entry_wait(FusionEntry * entry, long *timeout);
 
 /*
  * Wake up one or all processes waiting for the entry to be notified.
  *
  * The entry has to be locked prior to calling this function.
  */
-void fusion_entry_notify  ( FusionEntry      *entry,
-                            bool              all );
-
+void fusion_entry_notify(FusionEntry * entry, bool all);
 
 #define FUSION_ENTRY_CLASS( Type, name, init_func, destroy_func, print_func )   \
                                                                                 \
@@ -175,6 +157,5 @@ void fusion_entry_notify  ( FusionEntry      *entry,
      {                                                                          \
           fusion_entry_notify( (FusionEntry*) name, all );                      \
      }
-
 
 #endif

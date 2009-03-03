@@ -16,14 +16,13 @@
 #define __FUSION__LIST_H__
 
 typedef struct _FusionLink {
-     struct _FusionLink *next;
-     struct _FusionLink *prev;
+	struct _FusionLink *next;
+	struct _FusionLink *prev;
 } FusionLink;
 
-void fusion_list_prepend       (FusionLink **list, FusionLink *link);
-void fusion_list_remove        (FusionLink **list, FusionLink *link);
-void fusion_list_move_to_front (FusionLink **list, FusionLink *link);
-
+void fusion_list_prepend(FusionLink ** list, FusionLink * link);
+void fusion_list_remove(FusionLink ** list, FusionLink * link);
+void fusion_list_move_to_front(FusionLink ** list, FusionLink * link);
 
 #define fusion_list_foreach(elem, list)                     \
      for (elem = (void*)(list);                             \
@@ -36,4 +35,3 @@ void fusion_list_move_to_front (FusionLink **list, FusionLink *link);
           elem = (void*)(temp), temp = ((elem) ? (void*)(((FusionLink*)(elem))->next) : NULL))
 
 #endif /* __FUSION__LIST_H__ */
-

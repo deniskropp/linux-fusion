@@ -1,3 +1,17 @@
+/*
+ *	Fusion Kernel Module
+ *
+ *	(c) Copyright 2002  Convergence GmbH
+ *
+ *      Written by Denis Oliver Kropp <dok@directfb.org>
+ *
+ *
+ *	This program is free software; you can redistribute it and/or
+ *	modify it under the terms of the GNU General Public License
+ *	as published by the Free Software Foundation; either version
+ *	2 of the License, or (at your option) any later version.
+ */
+
 #ifndef __LINUX__FUSION_H__
 #define __LINUX__FUSION_H__
 
@@ -21,7 +35,7 @@
  */
 typedef unsigned long FusionID;
 
-#define FUSION_ID_MASTER      1         /* This is the fusion id of the master (first process). */
+#define FUSION_ID_MASTER     1	/* This is the fusion id of the master (first process). */
 
 /*
  * Entering a world
@@ -29,79 +43,79 @@ typedef unsigned long FusionID;
  * supported are API 3.x for DirectFB 1.0.x, API 4.x for DirectFB 1.1.x, and API 8.x for DirectFB 1.2.x and beyond.
  */
 typedef struct {
-     struct {
-          int            major;
-          int            minor;
-     } api;
+	struct {
+		int major;
+		int minor;
+	} api;
 
-     FusionID            fusion_id;     /* Returns the fusion id of the entering process. */
+	FusionID fusion_id;	/* Returns the fusion id of the entering process. */
 } FusionEnter;
 
 /*
  * Forking in world
  */
 typedef struct {
-     FusionID            fusion_id;     /* Returns the fusion id of the new (forked) fusionee. */
+	FusionID fusion_id;	/* Returns the fusion id of the new (forked) fusionee. */
 } FusionFork;
 
 /*
  * Sending a message
  */
 typedef struct {
-     FusionID            fusion_id;     /* recipient */
+	FusionID fusion_id;	/* recipient */
 
-     int                 msg_id;        /* optional message identifier */
-     int                 msg_channel;   /* optional channel number */
-     int                 msg_size;      /* message size, must be greater than zero */
-     const void         *msg_data;      /* message data, must not be NULL */
+	int msg_id;		/* optional message identifier */
+	int msg_channel;	/* optional channel number */
+	int msg_size;		/* message size, must be greater than zero */
+	const void *msg_data;	/* message data, must not be NULL */
 } FusionSendMessage;
 
 /*
  * Receiving a message
  */
 typedef enum {
-     FMT_SEND,                          /* msg_id is an optional custom id */
-     FMT_CALL,                          /* msg_id is the call id */
-     FMT_REACTOR,                       /* msg_id is the reactor id */
-     FMT_SHMPOOL                        /* msg_id is the pool id */
+	FMT_SEND,		/* msg_id is an optional custom id */
+	FMT_CALL,		/* msg_id is the call id */
+	FMT_REACTOR,		/* msg_id is the reactor id */
+	FMT_SHMPOOL		/* msg_id is the pool id */
 } FusionMessageType;
 
 typedef struct {
-     FusionMessageType   msg_type;      /* type (origin) of message */
+	FusionMessageType msg_type;	/* type (origin) of message */
 
-     int                 msg_id;        /* message id (custom id or call/reactor/pool id) */
-     int                 msg_size;      /* size of the following message data */
-     int                 msg_channel;   /* optional or reactor channel */
+	int msg_id;		/* message id (custom id or call/reactor/pool id) */
+	int msg_size;		/* size of the following message data */
+	int msg_channel;	/* optional or reactor channel */
 
-     /* message data follows */
+	/* message data follows */
 } FusionReadMessage;
 
 /*
  * Dispatching a message via a reactor
  */
 typedef struct {
-     int                 reactor_id;    /* id of target reactor */
-     int                 channel;       /* optional reactor channel (0-1023) */
-     int                 self;          /* send to ourself if attached */
+	int reactor_id;		/* id of target reactor */
+	int channel;		/* optional reactor channel (0-1023) */
+	int self;		/* send to ourself if attached */
 
-     int                 msg_size;      /* message size, must be greater than zero */
-     const void         *msg_data;      /* message data, must not be NULL */
+	int msg_size;		/* message size, must be greater than zero */
+	const void *msg_data;	/* message data, must not be NULL */
 } FusionReactorDispatch;
 
 /*
  * Attaching to a reactor
  */
 typedef struct {
-     int                 reactor_id;
-     int                 channel;
+	int reactor_id;
+	int channel;
 } FusionReactorAttach;
 
 /*
  * Detaching from a reactor
  */
 typedef struct {
-     int                 reactor_id;
-     int                 channel;
+	int reactor_id;
+	int channel;
 } FusionReactorDetach;
 
 /*
@@ -110,58 +124,58 @@ typedef struct {
  * The call_arg will be set to the channel number
  */
 typedef struct {
-     int                 reactor_id;
+	int reactor_id;
 
-     int                 call_id;       /* id of the call to execute when a message has been
-                                           processed by all recipients of the dispatch */
-     int                *call_ptr;      /* optional call parameter, e.g. the pointer of a user
-                                           space resource associated with that reference */
+	int call_id;		/* id of the call to execute when a message has been
+				   processed by all recipients of the dispatch */
+	int *call_ptr;		/* optional call parameter, e.g. the pointer of a user
+				   space resource associated with that reference */
 } FusionReactorSetCallback;
 
 /*
  * Calling (synchronous RPC)
  */
 typedef struct {
-     int                 call_id;       /* new call id returned */
+	int call_id;		/* new call id returned */
 
-     void               *handler;       /* function pointer of handler to install */
-     void               *ctx;           /* optional handler context */
+	void *handler;		/* function pointer of handler to install */
+	void *ctx;		/* optional handler context */
 } FusionCallNew;
 
 typedef enum {
-     FCEF_NONE   = 0x00000000,
-     FCEF_ONEWAY = 0x00000001,
-     FCEF_ALL    = 0x00000001
+	FCEF_NONE   = 0x00000000,
+	FCEF_ONEWAY = 0x00000001,
+	FCEF_ALL    = 0x00000001
 } FusionCallExecFlags;
 
 typedef struct {
-     int                 ret_val;       /* return value of the call */
+	int ret_val;		/* return value of the call */
 
-     int                 call_id;       /* id of the requested call, each call has a fixed owner */
+	int call_id;		/* id of the requested call, each call has a fixed owner */
 
-     int                 call_arg;      /* optional int argument */
-     void               *call_ptr;      /* optional pointer argument (shared memory) */
+	int call_arg;		/* optional int argument */
+	void *call_ptr;		/* optional pointer argument (shared memory) */
 
-     FusionCallExecFlags flags;         /* execution flags */
+	FusionCallExecFlags flags;	/* execution flags */
 } FusionCallExecute;
 
 typedef struct {
-     int                 call_id;       /* id of currently executing call */
+	int call_id;		/* id of currently executing call */
 
-     int                 val;           /* value to return */
+	int val;		/* value to return */
 
-     unsigned int        serial;        
+	unsigned int serial;
 } FusionCallReturn;
 
 typedef struct {
-     void               *handler;       /* function pointer of handler to call */
-     void               *ctx;           /* optional handler context */
+	void *handler;		/* function pointer of handler to call */
+	void *ctx;		/* optional handler context */
 
-     int                 caller;        /* fusion id of the caller or zero if called from Fusion */
-     int                 call_arg;      /* optional call parameter */
-     void               *call_ptr;      /* optional call parameter */
+	int caller;		/* fusion id of the caller or zero if called from Fusion */
+	int call_arg;		/* optional call parameter */
+	void *call_ptr;		/* optional call parameter */
 
-     unsigned int        serial;        /* serial number of call, used for return, zero if nothing shall be returned */
+	unsigned int serial;	/* serial number of call, used for return, zero if nothing shall be returned */
 } FusionCallMessage;
 
 /*
@@ -174,92 +188,89 @@ typedef struct {
  *
  */
 typedef struct {
-     int                 id;            /* id of the reference to watch */
+	int id;			/* id of the reference to watch */
 
-     int                 call_id;       /* id of the call to execute */
-     int                 call_arg;      /* optional call parameter, e.g. the id of a user
-                                           space resource associated with that reference */
+	int call_id;		/* id of the call to execute */
+	int call_arg;		/* optional call parameter, e.g. the id of a user
+				   space resource associated with that reference */
 } FusionRefWatch;
 
 /*
  * Inheriting local count from other reference
  */
 typedef struct {
-     int                 id;            /* own reference id */
-     int                 from;          /* id of the reference to inherit from */
+	int id;			/* own reference id */
+	int from;		/* id of the reference to inherit from */
 } FusionRefInherit;
 
 /*
  * Killing other fusionees (experimental)
  */
 typedef struct {
-     FusionID            fusion_id;     /* fusionee to kill, zero means all but ourself */
-     int                 signal;        /* signal to be delivered, e.g. SIGTERM */
-     int                 timeout_ms;    /* -1 means no timeout, 0 means infinite, otherwise the
-                                           max. time to wait until the fusionee(s) terminated */
+	FusionID fusion_id;	/* fusionee to kill, zero means all but ourself */
+	int signal;		/* signal to be delivered, e.g. SIGTERM */
+	int timeout_ms;		/* -1 means no timeout, 0 means infinite, otherwise the
+				   max. time to wait until the fusionee(s) terminated */
 } FusionKill;
 
 /*
  * Wait for a skirmish notification
  */
 typedef struct {
-     int                 id;            /* skirmish id */
-     unsigned int        timeout;       /* timeout in ms (0 = unlimited) */
+	int id;			/* skirmish id */
+	unsigned int timeout;	/* timeout in ms (0 = unlimited) */
 
-     unsigned int        lock_count;    /* MUST be set to zero, MUST NOT be reset when the system call is resumed. */
-     unsigned int        notify_count;  /* MUST NOT be reset when the system call is resumed after a signal. */
+	unsigned int lock_count;	/* MUST be set to zero, MUST NOT be reset when the system call is resumed. */
+	unsigned int notify_count;	/* MUST NOT be reset when the system call is resumed after a signal. */
 } FusionSkirmishWait;
-
 
 /*
  * Shared memory pools
  */
 typedef struct {
-     int                 max_size;      /* Maximum size that this pool will be allowed to grow to. */
+	int max_size;		/* Maximum size that this pool will be allowed to grow to. */
 
-     int                 pool_id;       /* Returns the new pool id. */
-     void               *addr_base;     /* Returns the base of the reserved virtual memory address space. */
+	int pool_id;		/* Returns the new pool id. */
+	void *addr_base;	/* Returns the base of the reserved virtual memory address space. */
 } FusionSHMPoolNew;
 
 typedef struct {
-     int                 pool_id;       /* The id of the pool to attach to. */
+	int pool_id;		/* The id of the pool to attach to. */
 
-     void               *addr_base;     /* Returns the base of the reserved virtual memory address space. */
-     int                 size;          /* Returns the current size of the pool. */
+	void *addr_base;	/* Returns the base of the reserved virtual memory address space. */
+	int size;		/* Returns the current size of the pool. */
 } FusionSHMPoolAttach;
 
 typedef struct {
-     int                 pool_id;       /* The id of the pool to notify. */
+	int pool_id;		/* The id of the pool to notify. */
 
-     int                 size;          /* New size of the pool. */
+	int size;		/* New size of the pool. */
 } FusionSHMPoolDispatch;
 
 typedef enum {
-     FSMT_REMAP,                        /* Remap the pool due to a change of its size. */
-     FSMT_UNMAP                         /* Unmap the pool due to its destruction. */
+	FSMT_REMAP,		/* Remap the pool due to a change of its size. */
+	FSMT_UNMAP		/* Unmap the pool due to its destruction. */
 } FusionSHMPoolMessageType;
 
 typedef struct {
-     FusionSHMPoolMessageType type;     /* Type of the message. */
+	FusionSHMPoolMessageType type;	/* Type of the message. */
 
-     int                      size;     /* New size of the pool, if type is FSMT_REMAP. */
+	int size;		/* New size of the pool, if type is FSMT_REMAP. */
 } FusionSHMPoolMessage;
-
 
 /*
  * Fusion types
  */
 typedef enum {
-     FT_LOUNGE,
-     FT_MESSAGING,
-     FT_CALL,
-     FT_REF,
-     FT_SKIRMISH,
-     FT_PROPERTY,
-     FT_REACTOR,
-     FT_SHMPOOL
+	FT_LOUNGE,
+	FT_MESSAGING,
+	FT_CALL,
+	FT_REF,
+	FT_SKIRMISH,
+	FT_PROPERTY,
+	FT_REACTOR,
+	FT_SHMPOOL
 } FusionType;
-
 
 /*
  * Set attributes like 'name' for an entry of the specified type.
@@ -267,13 +278,11 @@ typedef enum {
 #define FUSION_ENTRY_INFO_NAME_LENGTH   24
 
 typedef struct {
-     FusionType          type;
-     int                 id;
+	FusionType type;
+	int id;
 
-     char                name[FUSION_ENTRY_INFO_NAME_LENGTH];
+	char name[FUSION_ENTRY_INFO_NAME_LENGTH];
 } FusionEntryInfo;
-
-
 
 #define FUSION_ENTER                         _IOR(FT_LOUNGE,    0x00, FusionEnter)
 #define FUSION_UNBLOCK                       _IO (FT_LOUNGE,    0x01)
@@ -334,4 +343,3 @@ typedef struct {
 #define FUSION_SHMPOOL_DESTROY               _IOW(FT_SHMPOOL,   0x04, int)
 
 #endif
-

@@ -35,307 +35,297 @@
 #include "property.h"
 
 typedef enum {
-     FUSION_PROPERTY_AVAILABLE = 0,
-     FUSION_PROPERTY_LEASED,
-     FUSION_PROPERTY_PURCHASED
+	FUSION_PROPERTY_AVAILABLE = 0,
+	FUSION_PROPERTY_LEASED,
+	FUSION_PROPERTY_PURCHASED
 } FusionPropertyState;
 
 typedef struct {
-     FusionEntry         entry;
+	FusionEntry entry;
 
-     FusionPropertyState state;
-     int                 fusion_id; /* non-zero if leased/purchased */
-     unsigned long       purchase_stamp;
-     int                 lock_pid;
-     int                 count;    /* lock counter */
+	FusionPropertyState state;
+	int fusion_id;		/* non-zero if leased/purchased */
+	unsigned long purchase_stamp;
+	int lock_pid;
+	int count;		/* lock counter */
 } FusionProperty;
 
 static void
-fusion_property_print( FusionEntry     *entry,
-                       void            *ctx,
-                       struct seq_file *p )
+fusion_property_print(FusionEntry * entry, void *ctx, struct seq_file *p)
 {
-     FusionProperty *property = (FusionProperty*) entry;
+	FusionProperty *property = (FusionProperty *) entry;
 
-     if (property->state != FUSION_PROPERTY_AVAILABLE) {
-          seq_printf( p, "%s by 0x%08x (%d) %dx\n",
-                      property->state == FUSION_PROPERTY_LEASED ? "leased" : "purchased",
-                      property->fusion_id, property->lock_pid, property->count );
-          return;
-     }
+	if (property->state != FUSION_PROPERTY_AVAILABLE) {
+		seq_printf(p, "%s by 0x%08x (%d) %dx\n",
+			   property->state ==
+			   FUSION_PROPERTY_LEASED ? "leased" : "purchased",
+			   property->fusion_id, property->lock_pid,
+			   property->count);
+		return;
+	}
 
-     seq_printf( p, "\n" );
+	seq_printf(p, "\n");
 }
 
-FUSION_ENTRY_CLASS( FusionProperty, property, NULL, NULL, fusion_property_print )
+FUSION_ENTRY_CLASS(FusionProperty, property, NULL, NULL, fusion_property_print)
 
 /******************************************************************************/
-
-int
-fusion_property_init( FusionDev *dev )
+int fusion_property_init(FusionDev * dev)
 {
-     fusion_entries_init( &dev->properties, &property_class, dev );
+	fusion_entries_init(&dev->properties, &property_class, dev);
 
-     fusion_entries_create_proc_entry( dev, "properties", &dev->properties );
+	fusion_entries_create_proc_entry(dev, "properties", &dev->properties);
 
-     return 0;
+	return 0;
 }
 
-void
-fusion_property_deinit( FusionDev *dev )
+void fusion_property_deinit(FusionDev * dev)
 {
-     remove_proc_entry( "properties", dev->proc_dir );
+	remove_proc_entry("properties", dev->proc_dir);
 
-     fusion_entries_deinit( &dev->properties );
+	fusion_entries_deinit(&dev->properties);
 }
 
 /******************************************************************************/
 
-int
-fusion_property_new( FusionDev *dev, int *ret_id )
+int fusion_property_new(FusionDev * dev, int *ret_id)
 {
-     return fusion_entry_create( &dev->properties, ret_id, NULL );
+	return fusion_entry_create(&dev->properties, ret_id, NULL);
 }
 
-int
-fusion_property_lease( FusionDev *dev, int id, int fusion_id )
+int fusion_property_lease(FusionDev * dev, int id, int fusion_id)
 {
-     int             ret;
-     FusionProperty *property;
-     long            timeout = -1;
+	int ret;
+	FusionProperty *property;
+	long timeout = -1;
 
-     dev->stat.property_lease_purchase++;
+	dev->stat.property_lease_purchase++;
 
-     ret = fusion_property_lock( &dev->properties, id, false, &property );
-     if (ret)
-          return ret;
+	ret = fusion_property_lock(&dev->properties, id, false, &property);
+	if (ret)
+		return ret;
 
-     while (true) {
-          switch (property->state) {
-               case FUSION_PROPERTY_AVAILABLE:
-                    property->state     = FUSION_PROPERTY_LEASED;
-                    property->fusion_id = fusion_id;
-                    property->lock_pid  = current->pid;
-                    property->count     = 1;
+	while (true) {
+		switch (property->state) {
+		case FUSION_PROPERTY_AVAILABLE:
+			property->state = FUSION_PROPERTY_LEASED;
+			property->fusion_id = fusion_id;
+			property->lock_pid = current->pid;
+			property->count = 1;
 
-                    fusion_property_unlock( property );
-                    return 0;
+			fusion_property_unlock(property);
+			return 0;
 
-               case FUSION_PROPERTY_LEASED:
-                    if (property->lock_pid == current->pid) {
-                         property->count++;
+		case FUSION_PROPERTY_LEASED:
+			if (property->lock_pid == current->pid) {
+				property->count++;
 
-                         fusion_property_unlock( property );
-                         return 0;
-                    }
+				fusion_property_unlock(property);
+				return 0;
+			}
 
-                    ret = fusion_property_wait( property, NULL );
-                    if (ret)
-                         return ret;
+			ret = fusion_property_wait(property, NULL);
+			if (ret)
+				return ret;
 
-                    break;
+			break;
 
-               case FUSION_PROPERTY_PURCHASED:
-                    if (property->lock_pid == current->pid) {
-                         fusion_property_unlock( property );
-                         return -EIO;
-                    }
+		case FUSION_PROPERTY_PURCHASED:
+			if (property->lock_pid == current->pid) {
+				fusion_property_unlock(property);
+				return -EIO;
+			}
 
-                    if (timeout == -1) {
-                         if (jiffies - property->purchase_stamp > HZ / 10) {
-                              fusion_property_unlock( property );
-                              return -EAGAIN;
-                         }
+			if (timeout == -1) {
+				if (jiffies - property->purchase_stamp >
+				    HZ / 10) {
+					fusion_property_unlock(property);
+					return -EAGAIN;
+				}
 
-                         timeout = HZ / 10;
-                    }
+				timeout = HZ / 10;
+			}
 
-                    ret = fusion_property_wait( property, &timeout );
-                    if (ret)
-                         return ret;
+			ret = fusion_property_wait(property, &timeout);
+			if (ret)
+				return ret;
 
-                    break;
+			break;
 
-               default:
-                    BUG();
-          }
-     }
+		default:
+			BUG();
+		}
+	}
 
-     BUG();
+	BUG();
 
-     /* won't reach this */
-     return -1;
+	/* won't reach this */
+	return -1;
 }
 
-int
-fusion_property_purchase( FusionDev *dev, int id, int fusion_id )
+int fusion_property_purchase(FusionDev * dev, int id, int fusion_id)
 {
-     int             ret;
-     FusionProperty *property;
-     signed long     timeout = -1;
+	int ret;
+	FusionProperty *property;
+	signed long timeout = -1;
 
-     dev->stat.property_lease_purchase++;
+	dev->stat.property_lease_purchase++;
 
-     ret = fusion_property_lock( &dev->properties, id, false, &property );
-     if (ret)
-          return ret;
+	ret = fusion_property_lock(&dev->properties, id, false, &property);
+	if (ret)
+		return ret;
 
-     while (true) {
-          switch (property->state) {
-               case FUSION_PROPERTY_AVAILABLE:
-                    property->state          = FUSION_PROPERTY_PURCHASED;
-                    property->fusion_id      = fusion_id;
-                    property->purchase_stamp = jiffies;
-                    property->lock_pid       = current->pid;
-                    property->count          = 1;
+	while (true) {
+		switch (property->state) {
+		case FUSION_PROPERTY_AVAILABLE:
+			property->state = FUSION_PROPERTY_PURCHASED;
+			property->fusion_id = fusion_id;
+			property->purchase_stamp = jiffies;
+			property->lock_pid = current->pid;
+			property->count = 1;
 
-                    fusion_property_notify( property, true );
+			fusion_property_notify(property, true);
 
-                    fusion_property_unlock( property );
-                    return 0;
+			fusion_property_unlock(property);
+			return 0;
 
-               case FUSION_PROPERTY_LEASED:
-                    if (property->lock_pid == current->pid) {
-                         fusion_property_unlock( property );
-                         return -EIO;
-                    }
+		case FUSION_PROPERTY_LEASED:
+			if (property->lock_pid == current->pid) {
+				fusion_property_unlock(property);
+				return -EIO;
+			}
 
-                    ret = fusion_property_wait( property, NULL );
-                    if (ret)
-                         return ret;
+			ret = fusion_property_wait(property, NULL);
+			if (ret)
+				return ret;
 
-                    break;
+			break;
 
-               case FUSION_PROPERTY_PURCHASED:
-                    if (property->lock_pid == current->pid) {
-                         property->count++;
+		case FUSION_PROPERTY_PURCHASED:
+			if (property->lock_pid == current->pid) {
+				property->count++;
 
-                         fusion_property_unlock( property );
-                         return 0;
-                    }
+				fusion_property_unlock(property);
+				return 0;
+			}
 
-                    if (timeout == -1) {
-                         if (jiffies - property->purchase_stamp > HZ) {
-                              fusion_property_unlock( property );
-                              return -EAGAIN;
-                         }
+			if (timeout == -1) {
+				if (jiffies - property->purchase_stamp > HZ) {
+					fusion_property_unlock(property);
+					return -EAGAIN;
+				}
 
-                         timeout = HZ;
-                    }
+				timeout = HZ;
+			}
 
-                    ret = fusion_property_wait( property, &timeout );
-                    if (ret)
-                         return ret;
+			ret = fusion_property_wait(property, &timeout);
+			if (ret)
+				return ret;
 
-                    break;
+			break;
 
-               default:
-                    BUG();
-          }
-     }
+		default:
+			BUG();
+		}
+	}
 
-     BUG();
+	BUG();
 
-     /* won't reach this */
-     return -1;
+	/* won't reach this */
+	return -1;
 }
 
-int
-fusion_property_cede( FusionDev *dev, int id, int fusion_id )
+int fusion_property_cede(FusionDev * dev, int id, int fusion_id)
 {
-     int             ret;
-     FusionProperty *property;
-     bool            purchased;
+	int ret;
+	FusionProperty *property;
+	bool purchased;
 
-     dev->stat.property_cede++;
+	dev->stat.property_cede++;
 
-     ret = fusion_property_lock( &dev->properties, id, false, &property );
-     if (ret)
-          return ret;
+	ret = fusion_property_lock(&dev->properties, id, false, &property);
+	if (ret)
+		return ret;
 
-     if (property->lock_pid != current->pid) {
-          fusion_property_unlock( property );
-          return -EIO;
-     }
+	if (property->lock_pid != current->pid) {
+		fusion_property_unlock(property);
+		return -EIO;
+	}
 
-     if (--property->count) {
-          fusion_property_unlock( property );
-          return 0;
-     }
+	if (--property->count) {
+		fusion_property_unlock(property);
+		return 0;
+	}
 
-     purchased = (property->state == FUSION_PROPERTY_PURCHASED);
+	purchased = (property->state == FUSION_PROPERTY_PURCHASED);
 
-     property->state     = FUSION_PROPERTY_AVAILABLE;
-     property->fusion_id = 0;
-     property->lock_pid  = 0;
+	property->state = FUSION_PROPERTY_AVAILABLE;
+	property->fusion_id = 0;
+	property->lock_pid = 0;
 
-     fusion_property_notify( property, true );
+	fusion_property_notify(property, true);
 
-     fusion_property_unlock( property );
+	fusion_property_unlock(property);
 
-     if (purchased)
-          yield();
+	if (purchased)
+		yield();
 
-     return 0;
+	return 0;
 }
 
-int
-fusion_property_holdup( FusionDev *dev, int id, Fusionee *fusionee )
+int fusion_property_holdup(FusionDev * dev, int id, Fusionee * fusionee)
 {
-     int             ret;
-     FusionProperty *property;
-     FusionID        fusion_id = fusionee_id( fusionee );
+	int ret;
+	FusionProperty *property;
+	FusionID fusion_id = fusionee_id(fusionee);
 
-     if (fusion_id > 1)
-          return -EPERM;
+	if (fusion_id > 1)
+		return -EPERM;
 
-     ret = fusion_property_lock( &dev->properties, id, false, &property );
-     if (ret)
-          return ret;
+	ret = fusion_property_lock(&dev->properties, id, false, &property);
+	if (ret)
+		return ret;
 
-     if (property->state == FUSION_PROPERTY_PURCHASED) {
-          if (property->fusion_id == fusion_id) {
-               fusion_property_unlock( property );
-               return -EIO;
-          }
+	if (property->state == FUSION_PROPERTY_PURCHASED) {
+		if (property->fusion_id == fusion_id) {
+			fusion_property_unlock(property);
+			return -EIO;
+		}
 
-          fusionee_kill( dev, fusionee, property->fusion_id, SIGKILL, -1 );
-     }
+		fusionee_kill(dev, fusionee, property->fusion_id, SIGKILL, -1);
+	}
 
-     fusion_property_unlock( property );
+	fusion_property_unlock(property);
 
-     return 0;
+	return 0;
 }
 
-int
-fusion_property_destroy( FusionDev *dev, int id )
+int fusion_property_destroy(FusionDev * dev, int id)
 {
-     return fusion_entry_destroy( &dev->properties, id );
+	return fusion_entry_destroy(&dev->properties, id);
 }
 
-void
-fusion_property_cede_all( FusionDev *dev, int fusion_id )
+void fusion_property_cede_all(FusionDev * dev, int fusion_id)
 {
-     FusionLink *l;
+	FusionLink *l;
 
-     down( &dev->properties.lock );
+	down(&dev->properties.lock);
 
-     fusion_list_foreach (l, dev->properties.list) {
-          FusionProperty *property = (FusionProperty *) l;
+	fusion_list_foreach(l, dev->properties.list) {
+		FusionProperty *property = (FusionProperty *) l;
 
-          down( &property->entry.lock );
+		down(&property->entry.lock);
 
-          if (property->fusion_id == fusion_id) {
-               property->state     = FUSION_PROPERTY_AVAILABLE;
-               property->fusion_id = 0;
-               property->lock_pid  = 0;
+		if (property->fusion_id == fusion_id) {
+			property->state = FUSION_PROPERTY_AVAILABLE;
+			property->fusion_id = 0;
+			property->lock_pid = 0;
 
-               wake_up_interruptible_all (&property->entry.wait);
-          }
+			wake_up_interruptible_all(&property->entry.wait);
+		}
 
-          up( &property->entry.lock );
-     }
+		up(&property->entry.lock);
+	}
 
-     up( &dev->properties.lock );
+	up(&dev->properties.lock);
 }
-

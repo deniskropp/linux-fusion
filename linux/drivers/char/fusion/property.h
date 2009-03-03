@@ -18,41 +18,27 @@
 #include "fusiondev.h"
 #include "types.h"
 
-
 /* module init/cleanup */
 
-int  fusion_property_init   (FusionDev *dev);
-void fusion_property_deinit (FusionDev *dev);
-
+int fusion_property_init(FusionDev * dev);
+void fusion_property_deinit(FusionDev * dev);
 
 /* public API */
 
-int fusion_property_new      (FusionDev *dev,
-                              int       *ret_id);
+int fusion_property_new(FusionDev * dev, int *ret_id);
 
-int fusion_property_lease    (FusionDev *dev,
-                              int        id,
-                              int        fusion_id);
+int fusion_property_lease(FusionDev * dev, int id, int fusion_id);
 
-int fusion_property_purchase (FusionDev *dev,
-                              int        id,
-                              int        fusion_id);
+int fusion_property_purchase(FusionDev * dev, int id, int fusion_id);
 
-int fusion_property_cede     (FusionDev *dev,
-                              int        id,
-                              int        fusion_id);
+int fusion_property_cede(FusionDev * dev, int id, int fusion_id);
 
-int fusion_property_holdup   (FusionDev *dev,
-                              int        id,
-                              Fusionee  *fusionee);
+int fusion_property_holdup(FusionDev * dev, int id, Fusionee * fusionee);
 
-int fusion_property_destroy  (FusionDev *dev,
-                              int        id);
-
+int fusion_property_destroy(FusionDev * dev, int id);
 
 /* internal functions */
 
-void fusion_property_cede_all (FusionDev *dev,
-                               int        fusion_id);
+void fusion_property_cede_all(FusionDev * dev, int fusion_id);
 
 #endif

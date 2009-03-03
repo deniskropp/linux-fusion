@@ -18,62 +18,38 @@
 #include "fusiondev.h"
 #include "types.h"
 
-
 /* module init/cleanup */
 
-int  fusion_ref_init   (FusionDev *dev);
-void fusion_ref_deinit (FusionDev *dev);
-
+int fusion_ref_init(FusionDev * dev);
+void fusion_ref_deinit(FusionDev * dev);
 
 /* public API */
 
-int fusion_ref_new          (FusionDev      *dev,
-                             int            *id);
+int fusion_ref_new(FusionDev * dev, int *id);
 
-int fusion_ref_up           (FusionDev      *dev,
-                             int             id,
-                             FusionID        fusion_id);
+int fusion_ref_up(FusionDev * dev, int id, FusionID fusion_id);
 
-int fusion_ref_down         (FusionDev      *dev,
-                             int             id,
-                             FusionID        fusion_id);
+int fusion_ref_down(FusionDev * dev, int id, FusionID fusion_id);
 
-int fusion_ref_zero_lock    (FusionDev      *dev,
-                             int             id,
-                             FusionID        fusion_id);
+int fusion_ref_zero_lock(FusionDev * dev, int id, FusionID fusion_id);
 
-int fusion_ref_zero_trylock (FusionDev      *dev,
-                             int             id,
-                             FusionID        fusion_id);
+int fusion_ref_zero_trylock(FusionDev * dev, int id, FusionID fusion_id);
 
-int fusion_ref_zero_unlock  (FusionDev      *dev,
-                             int             id,
-                             FusionID        fusion_id);
+int fusion_ref_zero_unlock(FusionDev * dev, int id, FusionID fusion_id);
 
-int fusion_ref_stat         (FusionDev      *dev,
-                             int             id,
-                             int            *refs);
+int fusion_ref_stat(FusionDev * dev, int id, int *refs);
 
-int fusion_ref_watch        (FusionDev      *dev,
-                             int             id,
-                             int             call_id,
-                             int             call_arg);
+int fusion_ref_watch(FusionDev * dev, int id, int call_id, int call_arg);
 
-int fusion_ref_inherit      (FusionDev      *dev,
-                             int             id,
-                             int             from);
+int fusion_ref_inherit(FusionDev * dev, int id, int from);
 
-int fusion_ref_destroy      (FusionDev      *dev,
-                             int             id);
-
+int fusion_ref_destroy(FusionDev * dev, int id);
 
 /* internal functions */
 
-void fusion_ref_clear_all_local (FusionDev *dev,
-                                 FusionID   fusion_id);
+void fusion_ref_clear_all_local(FusionDev * dev, FusionID fusion_id);
 
-int  fusion_ref_fork_all_local  (FusionDev *dev,
-                                 FusionID   fusion_id,
-                                 FusionID   from_id);
+int fusion_ref_fork_all_local(FusionDev * dev,
+			      FusionID fusion_id, FusionID from_id);
 
 #endif

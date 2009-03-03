@@ -12,8 +12,8 @@
  *	2 of the License, or (at your option) any later version.
  */
 
-#ifndef __FUSIONDEV_H__
-#define __FUSIONDEV_H__
+#ifndef __FUSION__FUSIONDEV_H__
+#define __FUSION__FUSIONDEV_H__
 
 #include <linux/proc_fs.h>
 
@@ -24,62 +24,61 @@
 #define FUSION_ASSUME(exp)    do { if (!(exp)) printk( KERN_ERR "fusiondev: assumption '" #exp "' failed!\n" ); } while (0)
 
 struct __Fusion_FusionDev {
-     int                    refs;
-     int                    index;
-     struct {
-          int               major;
-          int               minor;
-     } api;
+	int refs;
+	int index;
+	struct {
+		int major;
+		int minor;
+	} api;
 
-     struct semaphore       enter_lock;
-     int                    enter_ok;
-     wait_queue_head_t      enter_wait;
+	struct semaphore enter_lock;
+	int enter_ok;
+	wait_queue_head_t enter_wait;
 
-     unsigned long          shared_area;
+	unsigned long shared_area;
 
-     struct proc_dir_entry *proc_dir;
+	struct proc_dir_entry *proc_dir;
 
-     struct {
-          int property_lease_purchase;
-          int property_cede;
+	struct {
+		int property_lease_purchase;
+		int property_cede;
 
-          int reactor_attach;
-          int reactor_detach;
-          int reactor_dispatch;
+		int reactor_attach;
+		int reactor_detach;
+		int reactor_dispatch;
 
-          int ref_up;
-          int ref_down;
+		int ref_up;
+		int ref_down;
 
-          int skirmish_prevail_swoop;
-          int skirmish_dismiss;
-          int skirmish_wait;
-          int skirmish_notify;
+		int skirmish_prevail_swoop;
+		int skirmish_dismiss;
+		int skirmish_wait;
+		int skirmish_notify;
 
-          int shmpool_attach;
-          int shmpool_detach;
-     } stat;
+		int shmpool_attach;
+		int shmpool_detach;
+	} stat;
 
-     struct {
-          int                last_id;
-          FusionLink        *list;
-          struct semaphore   lock;
-          wait_queue_head_t  wait;
-     } fusionee;
+	struct {
+		int last_id;
+		FusionLink *list;
+		struct semaphore lock;
+		wait_queue_head_t wait;
+	} fusionee;
 
-     FusionEntries  call;
-     FusionEntries  properties;
-     FusionEntries  reactor;
-     FusionEntries  ref;
-     FusionEntries  shmpool;
-     FusionEntries  skirmish;
+	FusionEntries call;
+	FusionEntries properties;
+	FusionEntries reactor;
+	FusionEntries ref;
+	FusionEntries shmpool;
+	FusionEntries skirmish;
 };
 
 /*
  * Special version of interruptible_sleep_on() that unlocks the mutex
  * after adding the entry to the queue (just before schedule).
  */
-void fusion_sleep_on (wait_queue_head_t *q,
-                      struct semaphore  *lock,
-                      signed long       *timeout_ms);
+void fusion_sleep_on(wait_queue_head_t * q,
+		     struct semaphore *lock, signed long *timeout_ms);
 
 #endif

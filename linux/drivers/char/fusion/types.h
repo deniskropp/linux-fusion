@@ -11,7 +11,7 @@
  *	as published by the Free Software Foundation; either version
  *	2 of the License, or (at your option) any later version.
  */
- 
+
 #ifndef __FUSION__TYPES_H__
 #define __FUSION__TYPES_H__
 
@@ -19,18 +19,15 @@
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 19)
 typedef enum {
-  false = 0,
-  true  = !false
+	false = 0,
+	true = !false
 } bool;
 #endif
 
 typedef struct __Fusion_FusionDev FusionDev;
-typedef struct __Fusion_Fusionee  Fusionee;
+typedef struct __Fusion_Fusionee Fusionee;
 
-
-typedef void (*MessageCallback)( FusionDev *dev,
-                                 int        msg_id,
-                                 void      *ctx,
-                                 int        param );
+typedef void (*MessageCallback) (FusionDev * dev,
+				 int msg_id, void *ctx, int param);
 
 #endif
