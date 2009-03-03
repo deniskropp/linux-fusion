@@ -18,19 +18,18 @@
 #include "fusiondev.h"
 #include "types.h"
 
-#if (sizeof(void*) == 8)
-#define FUSION_SHM_BASE    0x523000010000	/* virtual base address */
-#define FUSION_SHM_SIZE    0x000FFFFEF000	/* size of virtual address space */
-#else
-
 #ifdef __mips__
-#define FUSION_SHM_BASE    0x50010000	/* virtual base address */
+#define FUSION_SHM_BASE_32	0x50010000	/* virtual base address */
 #else
-#define FUSION_SHM_BASE    0x20010000	/* virtual base address */
+#define FUSION_SHM_BASE_32	0x20010000	/* virtual base address */
 #endif
+#define FUSION_SHM_SIZE_32	0x1FFEF000	/* size of virtual address space */
 
-#define FUSION_SHM_SIZE    0x1FFEF000	/* size of virtual address space */
-#endif
+#define FUSION_SHM_BASE_64	0x523000010000	/* virtual base address */
+#define FUSION_SHM_SIZE_64	0x000FFFFEF000	/* size of virtual address space */
+
+#define FUSION_SHM_BASE (sizeof(void*)==4 ? (FUSION_SHM_BASE_32) : (FUSION_SHM_BASE_64))
+#define FUSION_SHM_SIZE (sizeof(void*)==4 ? (FUSION_SHM_SIZE_32) : (FUSION_SHM_SIZE_64))
 
 /* module init/cleanup */
 
