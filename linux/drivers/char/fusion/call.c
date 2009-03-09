@@ -112,9 +112,8 @@ fusion_call_print(FusionEntry * entry, void *ctx, struct seq_file *p)
 	if (call->executions)
 		idle = ((FusionCallExecution *) call->executions)->executed;
 
-	seq_printf(p, "(%5d) 0x%08x (%d calls) %s",
-		   call->entry.pid, call->entry.id, call->count,
-		   idle ? "idle" : "executing");
+	seq_printf(p, "(%d calls) %s",
+		   call->count, idle ? "idle" : "executing");
 
 	fusion_list_foreach(e, call->executions) {
 		FusionCallExecution *exec = (FusionCallExecution *) e;
@@ -255,7 +254,7 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
 	FusionLink *l;
 	FusionCall *call;
 
-	if (!call_ret->serial)
+	if ( (dev->api.major >= 4) && (call_ret->serial == 0) )
 		return -EOPNOTSUPP;
 
 	/* Lookup and lock call. */
