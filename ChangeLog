@@ -1,3 +1,73 @@
+commit 6bbcaec59842c010034e6931a4c7f0e584079168
+Author: Niels Roest <niels@directfb.org>
+Date:   Thu Mar 12 20:42:28 2009 +0100
+
+    [doc] Add API doc fusion.pdf. Rename fusion.texi to libfusion.texi.
+
+commit 1261554d83945fc69c8e2701d3da35563f082e63
+Author: Niels Roest <niels@directfb.org>
+Date:   Thu Mar 12 20:00:44 2009 +0100
+
+    [api] upgrade provided API to 8.1.0
+
+commit 85770dfb2368d4450e05348d4e6a3e011c47c75f
+Author: Niels Roest <niels@directfb.org>
+Date:   Mon Mar 9 14:59:33 2009 +0100
+
+    [API] call_return: check serial only for API >= 4.0
+    (and: remove /proc/fusion/0/call duplicates)
+
+commit d4e69697d57beea233267db7f9976e34039c1acc
+Author: Niels Roest <niels@directfb.org>
+Date:   Tue Mar 3 19:58:19 2009 +0100
+
+    [32/64bit] make macros less arch-dependent
+
+commit b12d9159b94ec45b28857e39b011822cab2eb9f8
+Author: Niels Roest <niels@directfb.org>
+Date:   Tue Mar 3 19:03:37 2009 +0100
+
+    [formatting] Lindent to match Linux kernel style
+
+commit e1b9ae9723753c621c54ce94b2e06bab2d3d1fe5
+Author: Niels Roest <niels@directfb.org>
+Date:   Mon Mar 2 21:21:10 2009 +0100
+
+    rewrite towards mainlining
+    
+    all: use seq_file for safe /proc output
+    call: use FusionEntry to align with other fusion objects
+    call: fix for bug in DirectFB 1.0.x when using one-way calls
+
+commit 45c17fe5daa80900b0b3eafe8a1e6ab561dfe2a2
+Author: Niels Roest <niels@directfb.org>
+Date:   Fri Feb 27 16:37:35 2009 +0100
+
+    [API] preliminary support for API 3.x, 4.x and 8.x
+    
+    3.x for DirectFB 1.0
+    4.x for DirectFB 1.1
+    8.x for DirectFB 1.2 and later
+    
+    In Fusion Enter the master passes the requested APIs,
+    the slaves have to match (allowed is smaller minor).
+    
+    For 1.0 compatibility, the macros FUSION_API_MAJOR
+    and _MINOR default to API 3.3.
+
+commit 5f69dd97bc1c73935f8bd5da6ce1800c7a8e6be6
+Author: Niels Roest <niels@directfb.org>
+Date:   Fri Feb 6 15:56:32 2009 +0100
+
+    [release] linux-fusion 8.0.3
+    
+    fixes for 2.6.27 kernel
+    call: fixed possible deadlock at shutdown
+    call: extra checks for call with/without return:
+      Return EOPNOTSUP if FUSION_CALL_RETURN is attempted with a zero serial
+      Return ENOMSG if serial number has not been found
+    fusionee: Flush previous messages before waiting for new ones which only applies to the unused blocking mode
+
 commit 9ef27337f4ab671b6d863beb5f3ea493eb5332fa
 Author: Niels Roest <niels@directfb.org>
 Date:   Mon Jan 19 16:30:58 2009 +0100
