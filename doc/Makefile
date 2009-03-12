@@ -1,15 +1,29 @@
-all: fusion.ps
+all: libfusion.ps fusion.pdf
 
-fusion.ps: fusion.dvi
-	dvips fusion.dvi
-
-fusion.dvi: fusion.texi
-	texi2dvi fusion.texi
+# common
 
 clean:
-	rm -f fusion.aux fusion.cp fusion.fn fusion.fns fusion.ky fusion.log fusion.pg fusion.toc fusion.tp fusion.vr
+	rm -rf libfusion.t2d
 
 extra-clean: clean
-	rm -f fusion.dvi fusion.ps
+	rm -f libfusion.dvi libfusion.ps fusion.pdf
 
 .PHONY: clean extra-clean
+
+# for libfusion
+
+libfusion.ps: libfusion.dvi
+	dvips libfusion.dvi
+
+libfusion.dvi: libfusion.texi
+	texi2dvi --tidy libfusion.texi
+
+# for fusion.tmpl
+
+%.xml: %.tmpl
+	#./docproc doc $< >$@
+	cp $< $@
+
+%.pdf : %.xml
+	db2pdf -o $(dir $@) $<
+
