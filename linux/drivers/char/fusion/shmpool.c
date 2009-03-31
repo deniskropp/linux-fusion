@@ -32,7 +32,7 @@
 
 typedef struct {
 	FusionLink link;
-	unsigned long next_base;
+	void *next_base;
 } AddrEntry;
 
 typedef struct {
@@ -73,11 +73,11 @@ static void free_all_nodes(FusionSHMPool * shmpool);
 
 static DECLARE_MUTEX(addr_lock);
 static FusionLink *addr_entries;
-static unsigned long addr_base = FUSION_SHM_BASE;
+static void *addr_base = FUSION_SHM_BASE;
 
 /******************************************************************************/
 
-static AddrEntry *add_addr_entry(unsigned long next_base)
+static AddrEntry *add_addr_entry(void *next_base)
 {
 	AddrEntry *entry = kmalloc(sizeof(AddrEntry), GFP_KERNEL);
 
@@ -107,11 +107,10 @@ fusion_shmpool_construct(FusionEntry * entry, void *ctx, void *create_ctx)
 	}
 
 	shmpool->max_size = poolnew->max_size;
-	shmpool->addr_base = poolnew->addr_base = (void *)addr_base;
+	shmpool->addr_base = poolnew->addr_base = addr_base;
 
-	addr_base =
-	    (addr_base + PAGE_ALIGN(poolnew->max_size) + PAGE_SIZE +
-	     0xffff) & ~0xffff;
+	addr_base += PAGE_ALIGN(poolnew->max_size) + PAGE_SIZE;
+	addr_base = (void*)((unsigned long)(addr_base + 0xffff) & ~0xffff);
 
 	shmpool->addr_entry = add_addr_entry(addr_base);
 

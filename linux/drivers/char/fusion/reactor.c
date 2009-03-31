@@ -332,8 +332,8 @@ fusion_reactor_dispatch(FusionDev * dev, int id, int channel,
 		dispatch->call_arg = channel;
 
 		if (!reactor->call_ptr && msg_size == sizeof(ptr) &&
-		    (unsigned long)ptr >= FUSION_SHM_BASE &&
-		    (unsigned long)ptr < (FUSION_SHM_BASE + FUSION_SHM_SIZE))
+		    ptr >= FUSION_SHM_BASE &&
+		    ptr < (FUSION_SHM_BASE + FUSION_SHM_SIZE))
 			dispatch->call_ptr = ptr;
 		else
 			dispatch->call_ptr = reactor->call_ptr;
