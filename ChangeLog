@@ -1,3 +1,24 @@
+commit 383d2e6325ab9f00259f54a84c50f0956c7bee3d
+Author: Niels Roest <niels@directfb.org>
+Date:   Tue Mar 31 12:22:39 2009 +0200
+
+    [shm] 32-bit changes; changed address from ulong to pointer
+
+commit 83b2354860febdcb470267045faebbf1c4b2cdb5
+Author: Niels Roest <niels@directfb.org>
+Date:   Thu Mar 12 20:53:08 2009 +0100
+
+    [release] linux-fusion 8.1.0
+    
+    hybrid fusion: support for API 3.x, 4.x and 8.x simultaneously.
+    Primarily, FusionEnter now accepts more inputs.
+    FUSION_API_MAJOR/MINOR is now fixed on API 3.3,
+    so user space apps that require 4.x or 8.x should specify the
+    required version instead of using the FUSION_API_... defines.
+    /proc filesystem: improve safety by using seq_file instead of sprintf.
+    formatting: now uses Linux kernel formatting rules.
+    documentation: add API/ioctl interface docs.
+
 commit 6bbcaec59842c010034e6931a4c7f0e584079168
 Author: Niels Roest <niels@directfb.org>
 Date:   Thu Mar 12 20:42:28 2009 +0100
