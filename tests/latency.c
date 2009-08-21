@@ -123,7 +123,9 @@ main (int argc, char *argv[])
   FusionEnter enter = {{ FUSION_API_MAJOR, FUSION_API_MINOR }};
 
   /* Open the Fusion Kernel Device. */
-  fd = open ("/dev/fusion/0", O_RDWR);
+  fd = open ("/dev/fusion0", O_RDWR);
+  if (fd < 0)
+    fd = open ("/dev/fusion/0", O_RDWR);
   if (fd < 0)
     {
       perror ("opening /dev/fusion failed");

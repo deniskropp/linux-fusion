@@ -159,6 +159,8 @@ main (int argc, char *argv[])
   /* Open the Fusion Kernel Device. */
   fd = open ("/dev/fusion0", O_RDWR | O_EXCL);
   if (fd < 0)
+    fd = open ("/dev/fusion/0", O_RDWR | O_EXCL);
+  if (fd < 0)
     {
       perror ("opening /dev/fusion failed");
       return -1;
