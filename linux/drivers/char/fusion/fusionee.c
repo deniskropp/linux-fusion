@@ -294,10 +294,7 @@ fusionee_send_message(FusionDev * dev,
 	if (ret)
 		return ret;
 
-	if (down_interruptible(&fusionee->lock)) {
-		up(&dev->fusionee.lock);
-		return -EINTR;
-	}
+	down(&fusionee->lock);
 
 	if (sender && sender != fusionee) {
 		if (down_interruptible(&sender->lock)) {
@@ -703,8 +700,7 @@ lookup_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
 {
 	FusionLink *l;
 
-	if (down_interruptible(&dev->fusionee.lock))
-		return -EINTR;
+	down(&dev->fusionee.lock);
 
 	fusion_list_foreach(l, dev->fusionee.list) {
 		Fusionee *fusionee = (Fusionee *) l;
