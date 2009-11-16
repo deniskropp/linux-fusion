@@ -18,8 +18,10 @@
 #include "fusiondev.h"
 #include "types.h"
 
-#ifdef __mips__
+#if defined(__mips__)
 #define FUSION_SHM_BASE_32	0x50010000	/* virtual base address */
+#elif defined(CONFIG_CPU_SH4)
+#define FUSION_SHM_BASE_32	0x30010000	/* virtual base address */
 #else
 #define FUSION_SHM_BASE_32	0x20010000	/* virtual base address */
 #endif
