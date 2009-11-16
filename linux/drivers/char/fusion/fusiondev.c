@@ -65,6 +65,8 @@ MODULE_AUTHOR("Denis Oliver Kropp <dok@directfb.org>");
 
 struct proc_dir_entry *proc_fusion_dir;
 
+static int fusion_major = FUSION_MAJOR;
+
 #define NUM_MINORS 8
 
 static FusionDev *fusion_devs[NUM_MINORS] = { 0 };
@@ -1117,10 +1119,16 @@ static int __init register_devices(void)
 {
 	int i;
 
-	if (register_chrdev(FUSION_MAJOR, "fusion", &fusion_fops)) {
-		printk(KERN_ERR "fusion: unable to get major %d\n",
-		       FUSION_MAJOR);
-		return -EIO;
+	fusion_major = FUSION_MAJOR;
+
+	if (register_chrdev(fusion_major, "fusion", &fusion_fops)) {
+		fusion_major = register_chrdev(0, "fusion", &fusion_fops);
+		if (fusion_major <= 0) {
+			printk (KERN_ERR "fusion: unable to register fusion device\n");
+			return -EIO;
+		}
+		printk(KERN_ERR "fusion: unable to register major %d. "
+		                "Registered %d instead\n", FUSION_MAJOR, fusion_major);
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
@@ -1129,7 +1137,7 @@ static int __init register_devices(void)
 	fusion_class = class_simple_create(THIS_MODULE, "fusion");
 #endif
 	if (IS_ERR(fusion_class)) {
-		unregister_chrdev(FUSION_MAJOR, "fusion");
+		unregister_chrdev(fusion_major, "fusion");
 		return PTR_ERR(fusion_class);
 	}
 #endif
@@ -1142,27 +1150,27 @@ static int __init register_devices(void)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
 		device_create(fusion_class,
 			      NULL,
-			      MKDEV(FUSION_MAJOR, i), NULL, "fusion%d", i);
+			      MKDEV(fusion_major, i), NULL, "fusion%d", i);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
 		device_create(fusion_class,
-			      NULL, MKDEV(FUSION_MAJOR, i), "fusion%d", i);
+			      NULL, MKDEV(fusion_major, i), "fusion%d", i);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 15)
 		class_device_create(fusion_class,
 				    NULL,
-				    MKDEV(FUSION_MAJOR, i),
+				    MKDEV(fusion_major, i),
 				    NULL, "fusion%d", i);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
 		class_device_create(fusion_class,
-				    MKDEV(FUSION_MAJOR, i),
+				    MKDEV(fusion_major, i),
 				    NULL, "fusion%d", i);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
 		class_simple_device_add(fusion_class,
-					MKDEV(FUSION_MAJOR, i),
+					MKDEV(fusion_major, i),
 					NULL, "fusion%d", i);
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 18)
-		devfs_mk_cdev(MKDEV(FUSION_MAJOR, i),
+		devfs_mk_cdev(MKDEV(fusion_major, i),
 			      S_IFCHR | S_IRUSR | S_IWUSR, "fusion/%d", i);
 #endif
 	}
@@ -1175,9 +1183,9 @@ static int __init register_devices(void)
 	int i;
 	char buf[16];
 
-	if (devfs_register_chrdev(FUSION_MAJOR, "fusion", &fusion_fops)) {
+	if (devfs_register_chrdev(fusion_major, "fusion", &fusion_fops)) {
 		printk(KERN_ERR "fusion: unable to get major %d\n",
-		       FUSION_MAJOR);
+		       fusion_major);
 		return -EIO;
 	}
 
@@ -1185,7 +1193,7 @@ static int __init register_devices(void)
 		snprintf(buf, 16, "fusion/%d", i);
 
 		devfs_handles[i] = devfs_register(NULL, buf, DEVFS_FL_DEFAULT,
-						  FUSION_MAJOR, i,
+						  fusion_major, i,
 						  S_IFCHR | S_IRUSR | S_IWUSR,
 						  &fusion_fops, NULL);
 	}
@@ -1214,16 +1222,16 @@ static void __exit deregister_devices(void)
 {
 	int i;
 
-	unregister_chrdev(FUSION_MAJOR, "fusion");
+	unregister_chrdev(fusion_major, "fusion");
 
 	for (i = 0; i < NUM_MINORS; i++) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 2)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)
-		device_destroy(fusion_class, MKDEV(FUSION_MAJOR, i));
+		device_destroy(fusion_class, MKDEV(fusion_major, i));
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
-		class_device_destroy(fusion_class, MKDEV(FUSION_MAJOR, i));
+		class_device_destroy(fusion_class, MKDEV(fusion_major, i));
 #else
-		class_simple_device_remove(MKDEV(FUSION_MAJOR, i));
+		class_simple_device_remove(MKDEV(fusion_major, i));
 #endif
 #endif
 
@@ -1249,7 +1257,7 @@ static void __exit deregister_devices(void)
 {
 	int i;
 
-	devfs_unregister_chrdev(FUSION_MAJOR, "fusion");
+	devfs_unregister_chrdev(fusion_major, "fusion");
 
 	for (i = 0; i < NUM_MINORS; i++)
 		devfs_unregister(devfs_handles[i]);
