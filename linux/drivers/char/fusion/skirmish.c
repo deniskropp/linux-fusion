@@ -678,8 +678,7 @@ fusion_skirmish_transfer_all(FusionDev * dev,
 
 		down(&skirmish->entry.lock);
 
-		if (skirmish->lock_pid == from_pid) {
-			FUSION_ASSERT(skirmish->transfer_to == 0);
+		if ( (skirmish->lock_pid == from_pid) && (skirmish->transfer_to == 0) ) {
 			FUSION_ASSERT(skirmish->transfer_from == 0);
 			FUSION_ASSERT(skirmish->transfer_from_pid == 0);
 			FUSION_ASSERT(skirmish->transfer_count == 0);
