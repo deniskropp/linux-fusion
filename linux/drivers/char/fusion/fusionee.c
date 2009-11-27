@@ -56,7 +56,8 @@ struct __Fusion_Fusionee {
 	int rcv_total;		/* Total number of messages received. */
 	int snd_total;		/* Total number of messages sent. */
 
-	wait_queue_head_t wait;
+	wait_queue_head_t wait_receive;
+	wait_queue_head_t wait_process;
 
 	bool force_slave;
 
@@ -196,7 +197,8 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 
 	init_MUTEX(&fusionee->lock);
 
-	init_waitqueue_head(&fusionee->wait);
+	init_waitqueue_head(&fusionee->wait_receive);
+	init_waitqueue_head(&fusionee->wait_process);
 
 	fusion_list_prepend(&dev->fusionee.list, &fusionee->link);
 
@@ -340,7 +342,7 @@ fusionee_send_message(FusionDev * dev,
 	if (sender)
 		sender->snd_total++;
 
-	wake_up_interruptible_all(&fusionee->wait);
+	wake_up_interruptible_all(&fusionee->wait_receive);
 
 	if (sender && sender != fusionee)
 		unlock_fusionee(sender);
@@ -369,7 +371,7 @@ fusionee_get_messages(FusionDev * dev,
 
 	fusion_fifo_reset(&fusionee->prev_msgs);
 
-	wake_up_interruptible_all(&fusionee->wait);
+	wake_up_interruptible_all(&fusionee->wait_process);
 
 	while (!fusionee->messages.count) {
 		if (!block) {
@@ -382,7 +384,7 @@ fusionee_get_messages(FusionDev * dev,
 			unlock_fusionee(fusionee);
 			flush_messages(dev, &prev_msgs);
 		} else {
-			fusion_sleep_on(&fusionee->wait, &fusionee->lock, 0);
+			fusion_sleep_on(&fusionee->wait_receive, &fusionee->lock, 0);
 
 			if (signal_pending(current))
 				return -EINTR;
@@ -491,7 +493,7 @@ fusionee_wait_processing(FusionDev * dev,
 			FUSION_ASSUME(fusionee->dispatcher_pid != current->pid);
 
 		/* Otherwise unlock and wait. */
-		fusion_sleep_on(&fusionee->wait, &fusionee->lock, 0);
+		fusion_sleep_on(&fusionee->wait_process, &fusionee->lock, 0);
 
 		if (signal_pending(current))
 			return -EINTR;
@@ -522,9 +524,9 @@ fusionee_poll(FusionDev * dev,
 
 	flush_messages(dev, &prev_msgs);
 
-	wake_up_all(&fusionee->wait);
+	wake_up_all(&fusionee->wait_process);
 
-	poll_wait(file, &fusionee->wait, wait);
+	poll_wait(file, &fusionee->wait_receive, wait);
 
 	ret = lock_fusionee(dev, id, &fusionee);
 	if (ret)
