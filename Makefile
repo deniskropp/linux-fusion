@@ -1,25 +1,29 @@
-KERNEL_VERSION  ?= $(shell uname -r)
-KERNEL_MODLIB   ?= /lib/modules/$(KERNEL_VERSION)
-KERNEL_BUILD    ?= $(SYSROOT)$(KERNEL_MODLIB)/build
-KERNEL_SOURCE   ?= $(SYSROOT)$(KERNEL_MODLIB)/source
+# for native builds:
+# make modules modules_install
+# make KERNELDIR=<not currently running kernel's build tree> modules modules_install
+# make KERNEL_VERSION=<uname -r of the not currently running kernel> modules modules_install
+#
+# for cross builds, using standard kernel make environment, i.e.
+# make KERNELDIR=<linux build tree> INSTALL_MOD_PATH=<target root fs> modules modules_install
 
-ifeq ($(shell test -L $(KERNEL_BUILD) && echo yes),yes)
-  KERNEL_BUILD := $(SYSROOT)$(shell readlink $(KERNEL_BUILD))
+KERNEL_VERSION   ?= $(shell uname -r)
+INSTALL_MOD_PATH ?= /
+KERNELDIR        ?= $(INSTALL_MOD_PATH)/lib/modules/$(KERNEL_VERSION)/build
+
+KERNEL_BUILD  = $(KERNELDIR)
+KERNEL_SOURCE = $(shell grep ^KERNELSRC $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 6)
+ifneq ($(KERNEL_SOURCE), )
+  K_VERSION    = $(shell grep '^VERSION =' $(KERNEL_SOURCE)/Makefile | cut -d ' ' -f 3)
+  K_PATCHLEVEL = $(shell grep '^PATCHLEVEL =' $(KERNEL_SOURCE)/Makefile | cut -d ' ' -f 3)
+  K_SUBLEVEL   = $(shell grep '^SUBLEVEL =' $(KERNEL_SOURCE)/Makefile | cut -d ' ' -f 3)
+else
+  K_VERSION    = $(shell grep '^VERSION =' $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 3)
+  K_PATCHLEVEL = $(shell grep '^PATCHLEVEL =' $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 3)
+  K_SUBLEVEL   = $(shell grep '^SUBLEVEL =' $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 3)
 endif
 
-ifeq ($(shell test -L $(KERNEL_SOURCE) && echo yes),yes)
-  KERNEL_SOURCE := $(SYSROOT)$(shell readlink $(KERNEL_SOURCE))
-endif
-
-K_VERSION    := $(shell echo $(KERNEL_VERSION) | cut -d . -f 1)
-K_PATCHLEVEL := $(shell echo $(KERNEL_VERSION) | cut -d . -f 2)
-K_SUBLEVEL   := $(shell echo $(KERNEL_VERSION) | cut -d . -f 3 | cut -d '-' -f 1)
-
-
-DESTDIR ?= $(SYSROOT)
-
-
-SUB = linux/drivers/char/fusion
+SUB    = linux/drivers/char/fusion
+SUBMOD = drivers/char/fusion
 
 export CONFIG_FUSION_DEVICE=m
 
@@ -38,39 +42,47 @@ endif
 
 check-version = $(shell expr \( $(K_VERSION) \* 65536 + $(K_PATCHLEVEL) \* 256 + $(K_SUBLEVEL) \) \>= \( $(1) \* 65536 + $(2) \* 256 + $(3) \))
 
-.PHONY: all install clean
+.PHONY: all modules modules_install install clean
 
-all:
+all: modules
+install: modules_install headers_install
+
+modules:
 	rm -f $(SUB)/Makefile
 	ln -s Makefile-2.$(K_PATCHLEVEL) $(SUB)/Makefile
+	echo kernel is in $(KERNEL_SOURCE) and version is $(K_SUBLEVEL)
 ifeq ($(call check-version,2,6,24),1)
 	$(MAKE) -C $(KERNEL_BUILD) \
 		KCPPFLAGS="$(CPPFLAGS) -I`pwd`/linux/include" \
 		SUBDIRS=`pwd`/$(SUB) modules
 else
 	$(MAKE) -C $(KERNEL_BUILD) \
-		CPPFLAGS="$(CPPFLAGS) -D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_BUILD)/include -I$(KERNEL_SOURCE)/include $(AUTOCONF_H)" \
+		CPPFLAGS="$(CPPFLAGS) -D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_BUILD)/include -I$(KERNEL_BUILD)/include2 -I$(KERNEL_SOURCE)/include $(AUTOCONF_H)" \
 		SUBDIRS=`pwd`/$(SUB) modules
 endif
 
-install: all
-	install -d $(DESTDIR)/usr/include/linux
-	install -m 644 linux/include/linux/fusion.h $(DESTDIR)/usr/include/linux
-
-	install -d $(DESTDIR)$(KERNEL_MODLIB)/drivers/char/fusion
-
+modules_install: modules
 ifeq ($(K_PATCHLEVEL),4)
-	install -m 644 $(SUB)/fusion.o $(DESTDIR)$(KERNEL_MODLIB)/drivers/char/fusion
-	rm -f $(DESTDIR)$(KERNEL_MODLIB)/fusion.o
+	install -d $(INSTALL_MOD_PATH)/lib/modules/$(KERNEL_VERSION)/drivers/char/fusion
+	install -m 644 $(SUB)/fusion.o $(INSTALL_MOD_PATH)/lib/modules/$(KERNEL_VERSION)/drivers/char/fusion
+	rm -f $(INSTALL_MOD_PATH)/lib/modules/$(KERNEL_VERSION)/fusion.o
+	/sbin/depmod -ae -b $(INSTALL_MOD_PATH) $(KERNEL_VERSION)
 else
-	install -m 644 $(SUB)/fusion.ko $(DESTDIR)$(KERNEL_MODLIB)/drivers/char/fusion
-	rm -f $(DESTDIR)$(KERNEL_MODLIB)/fusion.ko
-endif
-ifneq ($(strip $(DESTDIR)),)
-	/sbin/depmod -ae -b $(DESTDIR) $(KERNEL_VERSION)
+ifeq ($(call check-version,2,6,24),1)
+	$(MAKE) -C $(KERNEL_BUILD) \
+		KCPPFLAGS="$(CPPFLAGS) -I`pwd`/linux/include" \
+		INSTALL_MOD_DIR="$(SUBMOD)" \
+		SUBDIRS=`pwd`/$(SUB) modules_install
 else
-	/sbin/depmod -ae $(KERNEL_VERSION)
+	$(MAKE) -C $(KERNEL_BUILD) \
+		CPPFLAGS="$(CPPFLAGS) -D__KERNEL__ -I`pwd`/linux/include -I$(KERNEL_BUILD)/include -I$(KERNEL_BUILD)/include2 -I$(KERNEL_SOURCE)/include $(AUTOCONF_H)" \
+		SUBDIRS=`pwd`/$(SUB) modules_install
 endif
+endif
+
+headers_install:
+	install -d $(INSTALL_MOD_PATH)/usr/include/linux
+	install -m 644 linux/include/linux/fusion.h $(INSTALL_MOD_PATH)/usr/include/linux
 
 
 
