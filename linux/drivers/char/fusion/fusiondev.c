@@ -31,6 +31,7 @@
 
 #include <linux/proc_fs.h>
 #include <linux/poll.h>
+#include <linux/sched.h>
 #include <linux/init.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
