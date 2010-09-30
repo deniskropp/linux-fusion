@@ -562,11 +562,12 @@ fusionee_kill(FusionDev * dev,
 			if (f != fusionee && (!target || target == f->id)) {
 				struct task_struct *p;
 
-#ifdef rcu_read_lock
+#if defined(CONFIG_TREE_RCU) || defined(CONFIG_TREE_PREEMPT_RCU) || defined(CONFIG_TINY_RCU) || defined(rcu_read_lock)
 				rcu_read_lock();
 #else
 				read_lock(&tasklist_lock);
 #endif
+
 #ifdef for_each_task		/* 2.4 */
 				for_each_task(p) {
 #else /* for >= 2.6.0 & redhat WS EL3 w/ 2.4 kernel */
@@ -582,7 +583,7 @@ fusionee_kill(FusionDev * dev,
 					}
 				}
 
-#ifdef rcu_read_unlock
+#if defined(CONFIG_TREE_RCU) || defined(CONFIG_TREE_PREEMPT_RCU) || defined(CONFIG_TINY_RCU) || defined(rcu_read_unlock)
 				rcu_read_unlock();
 #else
 				read_unlock(&tasklist_lock);
