@@ -42,30 +42,6 @@
 #define DEBUG(x...)  do {} while (0)
 #endif
 
-struct __Fusion_Fusionee {
-	FusionLink link;
-
-	struct semaphore lock;
-
-	FusionID id;
-	int pid;
-
-	FusionFifo messages;
-	FusionFifo prev_msgs;
-
-	int rcv_total;		/* Total number of messages received. */
-	int snd_total;		/* Total number of messages sent. */
-
-	wait_queue_head_t wait_receive;
-	wait_queue_head_t wait_process;
-
-	bool force_slave;
-
-	struct mm_struct *mm;
-
-	pid_t dispatcher_pid;
-};
-
 typedef struct {
 	FusionLink link;
 
@@ -203,6 +179,8 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 	fusion_list_prepend(&dev->fusionee.list, &fusionee->link);
 
 	up(&dev->fusionee.lock);
+
+	fusionee->fusion_dev = dev;
 
 	*ret_fusionee = fusionee;
 

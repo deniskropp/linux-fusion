@@ -1029,12 +1029,17 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
 	return -ENOSYS;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
+static long
+fusion_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+#else
 static int
 fusion_ioctl(struct inode *inode, struct file *file,
 	     unsigned int cmd, unsigned long arg)
+#endif
 {
 	Fusionee *fusionee = file->private_data;
-	FusionDev *dev = fusion_devs[iminor(inode)];
+	FusionDev *dev = fusionee->fusion_dev;
 
 	DEBUG("fusion_ioctl (0x%08x)\n", cmd);
 
@@ -1109,7 +1114,11 @@ static struct file_operations fusion_fops = {
 	.release = fusion_release,
 	.read = fusion_read,
 	.poll = fusion_poll,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
+	.unlocked_ioctl = fusion_ioctl,
+#else
 	.ioctl = fusion_ioctl,
+#endif
 	.mmap = fusion_mmap
 };
 

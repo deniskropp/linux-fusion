@@ -19,7 +19,36 @@
 #include <linux/fusion.h>
 
 #include "fusiondev.h"
+#include "fifo.h"
 #include "types.h"
+
+
+struct __Fusion_Fusionee {
+	FusionLink link;
+
+	struct semaphore lock;
+
+	FusionID id;
+	int pid;
+
+	FusionFifo messages;
+	FusionFifo prev_msgs;
+
+	int rcv_total;		/* Total number of messages received. */
+	int snd_total;		/* Total number of messages sent. */
+
+	wait_queue_head_t wait_receive;
+	wait_queue_head_t wait_process;
+
+	bool force_slave;
+
+	struct mm_struct *mm;
+
+	pid_t dispatcher_pid;
+
+	FusionDev *fusion_dev;
+};
+
 
 /* module init/cleanup */
 
