@@ -52,6 +52,13 @@ struct __FUSION_FusionSkirmish {
 	FusionID transfer_from;
 	int transfer_from_pid;
 	int transfer_count;
+	unsigned int transfer_serial;
+
+	FusionID transfer2_to;
+	FusionID transfer2_from;
+	int transfer2_from_pid;
+	int transfer2_count;
+	unsigned int transfer2_serial;
 
 #ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
 	int pre_acquis[MAX_PRE_ACQUISITIONS];
@@ -69,6 +76,82 @@ struct __FUSION_FusionSkirmish {
 static unsigned int m_pidlocks[PID_MAX_DEFAULT + 1];	/* FIXME: find cleaner, but still fast method */
 static sigset_t m_sigmask;
 
+
+static void
+print_skirmish_internal( FusionSkirmish* skirmish, const char* pHeader )
+{
+	FusionEntry *entry;
+	char p[16];
+	struct timeval now;
+	static int kaboemcount = 100;
+
+	do_gettimeofday(&now);
+
+	entry = &skirmish->entry;
+
+	if (entry->last_lock.tv_sec) {
+		int diff = ((now.tv_sec - entry->last_lock.tv_sec) * 1000 +
+                    (now.tv_usec - entry->last_lock.tv_usec) / 1000);
+
+		if (diff < 1000) {
+			sprintf(p, "%3d  ms  ", diff);
+		} else if (diff < 1000000) {
+			sprintf(p, "%3d.%d s  ", diff / 1000,
+				   (diff % 1000) / 100);
+		} else {
+			diff = (now.tv_sec - entry->last_lock.tv_sec +
+				(now.tv_usec -
+				 entry->last_lock.tv_usec) / 1000000);
+
+			sprintf(p, "%3d.%d h  ", diff / 3600,
+				   (diff % 3600) / 360);
+		}
+	} else
+		sprintf(p, "  -.-    ");
+
+
+	printk( "%s %s %-3ld.%03ld %d %-18s [1] t:%ld f:%ld fpid:%-4d c:%d s:%d [2] t:%ld f:%ld fpid:%-4d c:%d s:%d - c:%d f:%d p:%-4d w:%d\n",
+		   pHeader ? pHeader : " ",
+		   p,
+		   entry->last_lock.tv_sec,
+		   (entry->last_lock.tv_usec)/1000000    ,
+		   entry->id,
+		   entry->name[0] ? entry->name : "???",
+
+		   skirmish->transfer_to,
+		   skirmish->transfer_from,
+		   skirmish->transfer_from_pid,
+		   skirmish->transfer_count,
+		   skirmish->transfer_serial,
+
+		   skirmish->transfer2_to,
+		   skirmish->transfer2_from,
+		   skirmish->transfer2_from_pid,
+		   skirmish->transfer2_count,
+		   skirmish->transfer2_serial,
+
+		   skirmish->lock_count,
+		   skirmish->lock_fid,
+		   skirmish->lock_pid,
+		   skirmish->entry.waiters
+		   );
+
+	if( kaboemcount <= 0 ) {
+		printk( KERN_EMERG "boem !\n" );
+		kill_pgrp(task_pgrp(current), SIGSEGV, 1);
+		while(1) {
+			yield();
+		}
+	}
+}
+
+static void
+print_skirmish( FusionSkirmish* skirmish )
+{
+	print_skirmish_internal( skirmish, KERN_EMERG " skirmish" );
+}
+
+
 #ifdef FUSION_BLOCK_SIGNALS
 static int skirmish_signal_handler(void *ctx)
 {
@@ -77,7 +160,7 @@ static int skirmish_signal_handler(void *ctx)
 		return 1;
 	}
 
-	printk(KERN_DEBUG "FusionSkirmish: Blocking signal for process %d!\n",
+	printk(KERN_EMERG "FusionSkirmish: Blocking signal for process %d!\n",
 	       current->pid);
 
 	return 0;
@@ -111,20 +194,24 @@ fusion_skirmish_print(FusionEntry * entry, void *ctx, struct seq_file *p)
 		}
 	}
 #endif
-
-	if (skirmish->lock_fid) {
-		if (skirmish->entry.waiters)
-			seq_printf(p, " - %dx [0x%08x] (%d)  %d WAITING\n",
-				   skirmish->lock_count, skirmish->lock_fid,
-				   skirmish->lock_pid, skirmish->entry.waiters);
-		else
-			seq_printf(p, " - %dx [0x%08x] (%d)\n",
-				   skirmish->lock_count, skirmish->lock_fid,
-				   skirmish->lock_pid);
-		return;
-	}
-
-	seq_printf(p, "\n");
+	seq_printf(p, "[1] t:%ld, f:%ld, fpid:%d, c:%d s:%d, [2] t:%ld, f:%ld, fpid:%d, c:%d, s:%d",
+				skirmish->transfer_to,
+				skirmish->transfer_from,
+				skirmish->transfer_from_pid,
+				skirmish->transfer_count,
+				skirmish->transfer_serial,
+				skirmish->transfer2_to,
+				skirmish->transfer2_from,
+				skirmish->transfer2_from_pid,
+				skirmish->transfer2_count,
+				skirmish->transfer2_serial
+				);
+	seq_printf(p, ", c:%d, f:0x%08x, p:%d, waiters:%d\n",
+				skirmish->lock_count,
+				skirmish->lock_fid,
+				skirmish->lock_pid,
+				skirmish->entry.waiters
+				);
 }
 
 FUSION_ENTRY_CLASS(FusionSkirmish, skirmish, NULL, NULL, fusion_skirmish_print)
@@ -245,11 +332,14 @@ int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id)
 
 	up(&dev->skirmish.lock);
 
-	while (skirmish->lock_pid || (skirmish->transfer_to != 0 &&
-				      fusionee_dispatcher_pid(dev,
-							      skirmish->
-							      transfer_to) !=
-				      current->pid)) {
+
+     while (   skirmish->lock_pid
+            || (    (skirmish->transfer2_to == 0)
+                 &&  skirmish->transfer_to
+                 && (fusionee_dispatcher_pid(dev, skirmish-> transfer_to) != current->pid))
+            || (     skirmish->transfer2_to
+                 && (fusionee_dispatcher_pid(dev, skirmish-> transfer2_to) != current->pid)) )
+     {
 		ret = fusion_skirmish_wait(skirmish, NULL);
 		if (ret)
 			return ret;
@@ -283,11 +373,13 @@ int fusion_skirmish_swoop(FusionDev * dev, int id, int fusion_id)
 
 	dev->stat.skirmish_prevail_swoop++;
 
-	if (skirmish->lock_fid || (skirmish->transfer_to != 0 &&
-				   fusionee_dispatcher_pid(dev,
-							   skirmish->
-							   transfer_to) !=
-				   current->pid)) {
+     if (   skirmish->lock_fid
+         || (    (skirmish->transfer2_to == 0)
+              &&  skirmish->transfer_to
+              && (fusionee_dispatcher_pid(dev, skirmish->transfer_to) != current->pid))
+         || (     skirmish->transfer2_to
+              && (fusionee_dispatcher_pid(dev, skirmish-> transfer2_to) != current->pid)) )
+     {
 		if (skirmish->lock_pid == current->pid) {
 			skirmish->lock_count++;
 			skirmish->lock_total++;
@@ -614,11 +706,27 @@ void fusion_skirmish_dismiss_all(FusionDev * dev, int fusion_id)
 			wake_up_interruptible_all(&skirmish->entry.wait);
 		}
 
+		if (skirmish->transfer2_from == fusion_id) {
+			skirmish->transfer2_to       = 0;
+			skirmish->transfer2_from     = 0;
+			skirmish->transfer2_from_pid = 0;
+			skirmish->transfer2_count    = 0;
+
+			wake_up_interruptible_all(&skirmish->entry.wait);
+		}
+
 		if (skirmish->transfer_from == fusion_id) {
-			skirmish->transfer_to       = 0;
-			skirmish->transfer_from     = 0;
-			skirmish->transfer_from_pid = 0;
-			skirmish->transfer_count    = 0;
+			skirmish->transfer_to       = skirmish->transfer2_to;
+			skirmish->transfer_from     = skirmish->transfer2_from;
+			skirmish->transfer_from_pid = skirmish->transfer2_from_pid;
+			skirmish->transfer_count    = skirmish->transfer2_count;
+
+			if (skirmish->transfer2_to) {
+				skirmish->transfer2_to       = 0;
+				skirmish->transfer2_from     = 0;
+				skirmish->transfer2_from_pid = 0;
+				skirmish->transfer2_count    = 0;
+			}
 
 			wake_up_interruptible_all(&skirmish->entry.wait);
 		}
@@ -650,11 +758,27 @@ void fusion_skirmish_dismiss_all_from_pid(FusionDev * dev, int pid)
 			wake_up_interruptible_all(&skirmish->entry.wait);
 		}
 
+		if (skirmish->transfer2_from_pid == pid) {
+			skirmish->transfer2_to       = 0;
+			skirmish->transfer2_from     = 0;
+			skirmish->transfer2_from_pid = 0;
+			skirmish->transfer2_count    = 0;
+
+			wake_up_interruptible_all(&skirmish->entry.wait);
+		}
+
 		if (skirmish->transfer_from_pid == pid) {
-			skirmish->transfer_to       = 0;
-			skirmish->transfer_from     = 0;
-			skirmish->transfer_from_pid = 0;
-			skirmish->transfer_count    = 0;
+			skirmish->transfer_to       = skirmish->transfer2_to;
+			skirmish->transfer_from     = skirmish->transfer2_from;
+			skirmish->transfer_from_pid = skirmish->transfer2_from_pid;
+			skirmish->transfer_count    = skirmish->transfer2_count;
+
+			if (skirmish->transfer2_to) {
+				skirmish->transfer2_to       = 0;
+				skirmish->transfer2_from     = 0;
+				skirmish->transfer2_from_pid = 0;
+				skirmish->transfer2_count    = 0;
+			}
 
 			wake_up_interruptible_all(&skirmish->entry.wait);
 		}
@@ -667,7 +791,7 @@ void fusion_skirmish_dismiss_all_from_pid(FusionDev * dev, int pid)
 
 void
 fusion_skirmish_transfer_all(FusionDev * dev,
-			     FusionID to, FusionID from, int from_pid)
+                             FusionID to, FusionID from, int from_pid, unsigned int serial)
 {
 	FusionLink *l;
 
@@ -678,22 +802,42 @@ fusion_skirmish_transfer_all(FusionDev * dev,
 
 		down(&skirmish->entry.lock);
 
-		if ( (skirmish->lock_pid == from_pid) && (skirmish->transfer_to == 0) ) {
-			FUSION_ASSERT(skirmish->transfer_from == 0);
-			FUSION_ASSERT(skirmish->transfer_from_pid == 0);
-			FUSION_ASSERT(skirmish->transfer_count == 0);
-			FUSION_ASSERT(skirmish->lock_count > 0);
+		if (skirmish->lock_pid == from_pid) {
+			if (skirmish->transfer_to == 0) {
+				FUSION_ASSERT(skirmish->transfer_from == 0);
+				FUSION_ASSERT(skirmish->transfer_from_pid == 0);
+				FUSION_ASSERT(skirmish->transfer_count == 0);
+				FUSION_ASSERT(skirmish->lock_count > 0);
 
-			skirmish->transfer_to       = to;
-			skirmish->transfer_from     = from;
-			skirmish->transfer_from_pid = from_pid;
-			skirmish->transfer_count    = skirmish->lock_count;
+				skirmish->transfer_to       = to;
+				skirmish->transfer_from     = from;
+				skirmish->transfer_from_pid = from_pid;
+				skirmish->transfer_count    = skirmish->lock_count;
+				skirmish->transfer_serial   = serial;
 
-			skirmish->lock_fid   = 0;
-			skirmish->lock_pid   = 0;
-			skirmish->lock_count = 0;
+				skirmish->lock_fid   = 0;
+				skirmish->lock_pid   = 0;
+				skirmish->lock_count = 0;
 
-			wake_up_interruptible_all(&skirmish->entry.wait);
+				wake_up_interruptible_all(&skirmish->entry.wait);
+			} else if (skirmish->transfer2_to == 0) {
+				FUSION_ASSERT(skirmish->transfer2_from == 0);
+				FUSION_ASSERT(skirmish->transfer2_from_pid == 0);
+				FUSION_ASSERT(skirmish->transfer2_count == 0);
+				FUSION_ASSERT(skirmish->lock_count > 0);
+
+				skirmish->transfer2_to       = to;
+				skirmish->transfer2_from     = from;
+				skirmish->transfer2_from_pid = from_pid;
+				skirmish->transfer2_count    = skirmish->lock_count;
+				skirmish->transfer2_serial   = serial;
+
+				skirmish->lock_fid   = 0;
+				skirmish->lock_pid   = 0;
+				skirmish->lock_count = 0;
+
+				wake_up_interruptible_all(&skirmish->entry.wait);
+			}
 		}
 
 		up(&skirmish->entry.lock);
@@ -713,11 +857,17 @@ void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid)
 
 		down(&skirmish->entry.lock);
 
-		if (skirmish->transfer_from_pid == from_pid) {
+		if ((skirmish->transfer2_to == 0)
+			   &&  skirmish->transfer_to
+			   && (skirmish->transfer_from_pid == from_pid) )
+		{
 			FUSION_ASSERT(skirmish->transfer_to != 0);
 			FUSION_ASSERT(skirmish->transfer_from != 0);
 			FUSION_ASSERT(skirmish->transfer_count > 0);
-			FUSION_ASSUME(skirmish->lock_pid == 0);
+			if( skirmish->lock_pid != -1 ) {
+				print_skirmish( skirmish );
+			}
+			FUSION_ASSERT(skirmish->lock_pid == -1);
 
 			skirmish->lock_fid   = skirmish->transfer_from;
 			skirmish->lock_pid   = skirmish->transfer_from_pid;
@@ -727,6 +877,67 @@ void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid)
 			skirmish->transfer_from     = 0;
 			skirmish->transfer_from_pid = 0;
 			skirmish->transfer_count    = 0;
+		} else if (skirmish->transfer2_to
+					 && (skirmish->transfer2_from_pid == from_pid) ) {
+			FUSION_ASSERT(skirmish->transfer2_to != 0);
+			FUSION_ASSERT(skirmish->transfer2_from != 0);
+			FUSION_ASSERT(skirmish->transfer2_count > 0);
+			FUSION_ASSERT(skirmish->lock_pid == -1);
+
+			skirmish->lock_fid   = skirmish->transfer2_from;
+			skirmish->lock_pid   = skirmish->transfer2_from_pid;
+			skirmish->lock_count = skirmish->transfer2_count;
+
+			skirmish->transfer2_to       = 0;
+			skirmish->transfer2_from     = 0;
+			skirmish->transfer2_from_pid = 0;
+			skirmish->transfer2_count    = 0;
+		}
+		up(&skirmish->entry.lock);
+	}
+
+	up(&dev->skirmish.lock);
+}
+
+void fusion_skirmish_return_all(FusionDev * dev, int from_fusion_id, int to_pid, unsigned int serial)
+{
+	FusionLink *l;
+
+	down(&dev->skirmish.lock);
+
+	fusion_list_foreach(l, dev->skirmish.list) {
+		FusionSkirmish *skirmish = (FusionSkirmish *) l;
+
+		down(&skirmish->entry.lock);
+
+		if (skirmish->transfer2_to == 0) {
+			if (skirmish->transfer_to       == from_fusion_id &&
+			    skirmish->transfer_from_pid == to_pid         &&
+			    skirmish->transfer_serial   == serial            )
+			{
+				FUSION_ASSERT(skirmish->transfer_from != 0);
+				FUSION_ASSERT(skirmish->transfer_count > 0);
+				if( skirmish->lock_count != 0 ) {
+					print_skirmish( skirmish );
+				}
+				FUSION_ASSERT(skirmish->lock_count == 0);
+				FUSION_ASSERT(skirmish->lock_fid == 0);
+				FUSION_ASSERT(skirmish->lock_pid == 0);
+
+				skirmish->lock_pid = -1;
+			}
+		}
+		else if (skirmish->transfer2_from_pid == to_pid   &&
+			    skirmish->transfer2_to       == from_fusion_id &&
+			    skirmish->transfer2_serial   == serial            )
+		{
+			FUSION_ASSERT(skirmish->transfer2_from != 0);
+			FUSION_ASSERT(skirmish->transfer2_count > 0);
+			FUSION_ASSERT(skirmish->lock_count == 0);
+			FUSION_ASSERT(skirmish->lock_fid == 0);
+			FUSION_ASSERT(skirmish->lock_pid == 0);
+
+			skirmish->lock_pid = -1;
 		}
 
 		up(&skirmish->entry.lock);
@@ -734,3 +945,4 @@ void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid)
 
 	up(&dev->skirmish.lock);
 }
+

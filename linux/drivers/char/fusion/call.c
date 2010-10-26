@@ -42,6 +42,7 @@ typedef struct {
 
 	int call_id;
 	unsigned int serial;
+	int          caller_pid;
 } FusionCallExecution;
 
 typedef struct {
@@ -100,6 +101,31 @@ static void fusion_call_destruct(FusionEntry * entry, void *ctx)
 	FusionCall *call = (FusionCall *) entry;
 
 	free_all_executions(call);
+}
+
+__attribute__((unused))
+static void print_call( FusionCall* call )
+{
+	FusionEntry *entry;
+	FusionLink *e;
+
+	entry = &call->entry;
+
+	printk( KERN_CRIT "%-2d %s, fid:%d, %d calls)",
+		   entry->id,
+		   entry->name[0] ? entry->name : "???",
+		   call->fusion_id,
+		   call->count);
+
+	fusion_list_foreach(e, call->executions) {
+		FusionCallExecution *exec = (FusionCallExecution *) e;
+
+		printk( "/%lx:%s",
+			   exec->caller   ? fusionee_id(exec->caller) : -1,
+			   exec->executed ? "idle" : "busy" );
+	}
+
+	printk("\n");
 }
 
 static void
@@ -220,10 +246,12 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 	if (execution) {
 		/* Transfer held skirmishs (locks). */
 		fusion_skirmish_transfer_all(dev, call->fusion_id,
-					     fusionee_id(fusionee),
-					     current->pid);
+						fusionee_id(fusionee),
+						current->pid,
+						serial);
 
 		/* Unlock call and wait for execution result. TODO: add timeout? */
+
 		fusion_sleep_on(&execution->wait, &call->entry.lock, 0);
 
 		if (signal_pending(current)) {
@@ -299,6 +327,9 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
 
 		/* FIXME: Caller might still have received a signal since check above. */
 		FUSION_ASSERT(execution->caller != NULL);
+
+		/* Return skirmishs. */
+		fusion_skirmish_return_all(dev, fusion_id, execution->caller_pid, execution->serial);
 
 		/* Wake up caller. */
 		wake_up_interruptible(&execution->wait);
@@ -402,6 +433,7 @@ static FusionCallExecution *add_execution(FusionCall * call,
 	memset(execution, 0, sizeof(FusionCallExecution));
 
 	execution->caller = caller;
+	execution->caller_pid = current->pid;
 	execution->call_id = call->entry.id;
 	execution->serial = serial;
 
