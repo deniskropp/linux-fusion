@@ -708,10 +708,7 @@ static int lock_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
 
 	fusion_list_move_to_front(&dev->fusionee.list, &fusionee->link);
 
-	if (down_interruptible(&fusionee->lock)) {
-		up(&dev->fusionee.lock);
-		return -EINTR;
-	}
+	down(&fusionee->lock);
 
 	up(&dev->fusionee.lock);
 
