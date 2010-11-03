@@ -1024,6 +1024,12 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
 			return -EFAULT;
 
 		return fusion_shmpool_destroy(dev, id);
+
+	case _IOC_NR(FUSION_SHMPOOL_GET_BASE):
+		if (put_user((unsigned long)FUSION_SHM_BASE, (unsigned long *)arg))
+			return -EFAULT;
+
+		return 0;
 	}
 
 	return -ENOSYS;

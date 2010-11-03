@@ -19,16 +19,16 @@
 #include "types.h"
 
 #if defined(__mips__)
-#define FUSION_SHM_BASE_32	0x50010000	/* virtual base address */
+#define FUSION_SHM_BASE_32	0x50000000	/* virtual base address */
 #elif defined(CONFIG_CPU_SH4)
-#define FUSION_SHM_BASE_32	0x30010000	/* virtual base address */
+#define FUSION_SHM_BASE_32	0x30000000	/* virtual base address */
 #else
-#define FUSION_SHM_BASE_32	0x20010000	/* virtual base address */
+#define FUSION_SHM_BASE_32	0x20000000	/* virtual base address */
 #endif
-#define FUSION_SHM_SIZE_32	0x1FFEF000	/* size of virtual address space */
+#define FUSION_SHM_SIZE_32	0x20000000	/* size of virtual address space */
 
-#define FUSION_SHM_BASE_64	0x523000010000LL	/* virtual base address */
-#define FUSION_SHM_SIZE_64	0x000FFFFEF000LL	/* size of virtual address space */
+#define FUSION_SHM_BASE_64	0x523000000000LL	/* virtual base address */
+#define FUSION_SHM_SIZE_64	0x001000000000LL	/* size of virtual address space */
 
 #define FUSION_SHM_BASE ((void*)(sizeof(void*)==4 ? (FUSION_SHM_BASE_32) : (FUSION_SHM_BASE_64)))
 #define FUSION_SHM_SIZE (sizeof(void*)==4 ? (FUSION_SHM_SIZE_32) : (FUSION_SHM_SIZE_64))

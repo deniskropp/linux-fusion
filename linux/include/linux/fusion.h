@@ -19,7 +19,7 @@
 
 /* Fusion supports all API versions up to this version */
 #define FUSION_API_MAJOR_PROVIDED 8
-#define FUSION_API_MINOR_PROVIDED 1
+#define FUSION_API_MINOR_PROVIDED 2
 #define FUSION_API_MICRO_PROVIDED 0
 
 /*
@@ -346,5 +346,6 @@ typedef struct {
 #define FUSION_SHMPOOL_DETACH                _IOW(FT_SHMPOOL,   0x02, int)
 #define FUSION_SHMPOOL_DISPATCH              _IOW(FT_SHMPOOL,   0x03, FusionSHMPoolDispatch)
 #define FUSION_SHMPOOL_DESTROY               _IOW(FT_SHMPOOL,   0x04, int)
+#define FUSION_SHMPOOL_GET_BASE              _IOR(FT_SHMPOOL,   0x05, unsigned long)
 
 #endif

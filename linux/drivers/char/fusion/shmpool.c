@@ -73,7 +73,7 @@ static void free_all_nodes(FusionSHMPool * shmpool);
 
 static DECLARE_MUTEX(addr_lock);
 static FusionLink *addr_entries;
-static void *addr_base = FUSION_SHM_BASE;
+static void *addr_base = FUSION_SHM_BASE + 0x80000;
 
 /******************************************************************************/
 
@@ -134,7 +134,7 @@ static void fusion_shmpool_destruct(FusionEntry * entry, void *ctx)
 	 * free trailing address space
 	 */
 
-	addr_base = FUSION_SHM_BASE;
+	addr_base = FUSION_SHM_BASE + 0x80000;
 
 	fusion_list_foreach(addr_entry, addr_entries) {
 		if (addr_entry->next_base > addr_base)
