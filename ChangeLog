@@ -1,3 +1,119 @@
+commit 868a1d4fffc05270c41fe0a6a06a9de0e3d4e5b1
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Nov 3 18:10:25 2010 +0100
+
+    shm: Added FUSION_SHMPOOL_GET_BASE ioctl and moved bases to start of window.
+
+commit 74b75814d33602310a24b4f2d31794cb0a1e4c9f
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Oct 27 00:18:32 2010 +0200
+
+    skirmish: allow second transfer, return based on serial
+
+commit 172540dcfd69cfe3776a752e38edb9db035fecd5
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Oct 26 18:44:48 2010 +0200
+
+    make: copy the Makefile-<version> instead of linking it
+
+commit 9897744c84d1b797ee8d168ea30f2bab25ad673a
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Oct 26 18:44:16 2010 +0200
+
+    fusionee: convert down_interruptible to down in lock_fusionee
+
+commit 027794275e77550cdf7d3386444bee2165588962
+Author: Denis Oliver Kropp <dok@localhost.(none)>
+Date:   Sun Oct 3 12:23:11 2010 +0200
+
+    build fix for 2.6.36 (new ioctl signature), adds FusionDev * to Fusionee structure (now public)
+
+commit 98e05da7c8605a33781a0564a3c99e7084f14b9e
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Thu Sep 30 18:14:15 2010 +0200
+
+    In recent 2.6 kernels rcu_read_lock() and rcu_read_unlock() are no longer
+    macros but static inline functions, changed the way of checking for them.
+    This should fix "fusion: Unknown symbol tasklist_lock" while loading the
+    fusion module.
+
+commit af15f7396d96c5d7079ca75703ccb128065a5196
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Sun Mar 28 01:28:34 2010 +0100
+
+    fusiondev: Include <linux/sched.h>
+
+commit ffb7c3c1c14751b57cfb98c4f17023bf8b977fac
+Author: Niels Roest <niels@directfb.org>
+Date:   Thu Dec 10 18:01:53 2009 +0100
+
+    a much nicer Makefile
+    
+    to easily allow (cross-) compilation against any kernel, using
+    standard kernel make variables KERNELDIR= and INSTALL_MOD_PATH=
+    
+    Signed-off-by: André Draszik <git@andred.net>
+    Signed-off-by: André Draszik <andre.draszik@st.com>
+
+commit 9c33dee2269a892f9e0f5ec91661cfc540375bea
+Author: Niels Roest <niels@directfb.org>
+Date:   Tue Dec 8 21:32:13 2009 +0100
+
+    doc: tiny typo
+
+commit 72b19e1b63e05ebce40d49e674225c37a9b5e190
+Author: Denis Oliver Kropp <dok@cyto.(none)>
+Date:   Fri Nov 27 19:29:13 2009 +0100
+
+    fusionee: Split up wait queue into two, one for waiting for messages to be received and one for waiting for messages to be processed.
+
+commit caf4df71d2bbb26944c6afbe39912ee0a1c2537a
+Author: Niels Roest <niels@directfb.org>
+Date:   Mon Nov 23 14:03:25 2009 +0100
+
+    skirmish: fix for transferring transferred skirmishes
+    
+    This behaviour was initially asserted on, but it is now
+    simply disallowed to transfer transferred skirmishes,
+    since the ASSERT will hit in some cases in normal circumstances.
+
+commit a32de7e9d4e68304159ff144a71ee26b18d6cd41
+Author: Niels Roest <niels@directfb.org>
+Date:   Mon Nov 16 19:31:46 2009 +0100
+
+    registering: allow dynamic major (fallback if static major is taken)
+
+commit 132f32158a10597aad4d60c909fff410b896c672
+Author: Niels Roest <niels@directfb.org>
+Date:   Mon Nov 16 19:02:57 2009 +0100
+
+    sh4: clashing address ranges. Fixed by adding SH4-constant.
+
+commit 064de2bca3e1f47a3f04191baab1903ef296264a
+Author: Niels Roest <niels@directfb.org>
+Date:   Mon Nov 16 19:01:03 2009 +0100
+
+    bug - spurious message disappearance fixed
+    
+    Observed when killing an application and sending
+    a message at the same time: the interruptability of the sending
+    permitted the message to get "lost". Fixed by making this
+    transition uninterruptable.
+
+commit 14e4b7a8898e191b485aa80156218fb8e9ca9f62
+Author: Niels Roest <niels@directfb.org>
+Date:   Fri Aug 21 17:30:36 2009 +0200
+
+    [tests] allow /dev/fusion0 and /dev/fusion/0 (depends on kernel version)
+
+commit 4d7ba471222b1b6714e55f18a7b7aa6e2f59a352
+Author: Niels Roest <niels@directfb.org>
+Date:   Tue Mar 31 14:38:59 2009 +0200
+
+    [release] linux-fusion 8.1.1
+    
+    Small fix for 32bit CPUs
+
 commit 383d2e6325ab9f00259f54a84c50f0956c7bee3d
 Author: Niels Roest <niels@directfb.org>
 Date:   Tue Mar 31 12:22:39 2009 +0200
@@ -102,7 +218,7 @@ Date:   Tue Jan 13 18:57:02 2009 +0100
     [call] fixes forever-wait in ioctl shutdown + small fix for interrupted shutdown
 
 commit 28550540dfc76601288b8ec06403a036e0e6f46e
-Merge: 4319618... db9bfae...
+Merge: 4319618 db9bfae
 Author: Denis Oliver Kropp <dok@cyto.(none)>
 Date:   Sat Oct 18 03:14:45 2008 +0200
 
@@ -143,7 +259,7 @@ Date:   Mon Sep 29 12:20:22 2008 +0200
     Updated ChangeLog
 
 commit 174daaf1df8a693101be64a941188c5f23e14f54
-Merge: 566a807... d61ea53...
+Merge: 566a807 d61ea53
 Author: Denis Oliver Kropp <dok@cyto.(none)>
 Date:   Mon Sep 29 12:20:06 2008 +0200
 
@@ -289,7 +405,7 @@ Date:   Sat Jan 26 07:47:09 2008 +0100
     ignore
 
 commit 0f3a13ced72bd467ae68de06e8d74e6926a2c7d0
-Merge: 0ed6741... a3de178...
+Merge: 0ed6741 a3de178
 Author: Denis Oliver Kropp <dok@shizo.directfb.home>
 Date:   Sat Jan 26 05:15:51 2008 +0100
 
@@ -386,7 +502,7 @@ Date:   Sun Aug 12 23:25:50 2007 +0200
     Change maximum number of pre-acquisitions to remember from 32 to 256.
 
 commit 8316621e8657423fc98ef82df123a89be462b701
-Merge: 0d36d9a... 559d701...
+Merge: 0d36d9a 559d701
 Author: Denis Oliver Kropp <dok@shizo.zion.home>
 Date:   Sun Aug 12 16:46:46 2007 +0200
 
