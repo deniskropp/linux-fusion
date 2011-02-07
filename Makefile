@@ -11,7 +11,12 @@ INSTALL_MOD_PATH ?= /
 KERNELDIR        ?= $(INSTALL_MOD_PATH)/lib/modules/$(KERNEL_VERSION)/build
 
 KERNEL_BUILD  = $(KERNELDIR)
+# works for 2.6.23
 KERNEL_SOURCE = $(shell grep ^KERNELSRC $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 6)
+ifeq ($(KERNEL_SOURCE), )
+  # works for 2.6.32
+  KERNEL_SOURCE = $(shell grep '^MAKEARGS := -C ' $(KERNEL_BUILD)/Makefile | cut -d ' ' -f 4)
+endif
 ifneq ($(KERNEL_SOURCE), )
   K_VERSION    = $(shell grep '^VERSION =' $(KERNEL_SOURCE)/Makefile | cut -d ' ' -f 3)
   K_PATCHLEVEL = $(shell grep '^PATCHLEVEL =' $(KERNEL_SOURCE)/Makefile | cut -d ' ' -f 3)
@@ -87,6 +92,10 @@ headers_install:
 
 
 clean:
-	find $(SUB) -name *.o -o -name *.ko -o -name .*.o.cmd -o \
-		-name fusion.mod.* -o -name .fusion.* | xargs rm -f
+	find $(SUB) \( -name .git -prune \
+		-o -name *.o -o -name *.ko -o -name .*.o.cmd \
+		-o -name fusion.mod.* -o -name .fusion.* \
+		-o -name Module.symvers -o -name modules.order \) \
+		-type f -print | xargs rm -f
+	find $(SUB) -name .tmp_versions -type d -print |  xargs rm -rf
 	rm -f $(SUB)/Makefile

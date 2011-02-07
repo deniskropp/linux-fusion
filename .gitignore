@@ -5,3 +5,4 @@
 *.o.cmd
 .tmp_versions
 Module.symvers
+modules.order
