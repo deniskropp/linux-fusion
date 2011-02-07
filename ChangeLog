@@ -1,3 +1,36 @@
+commit 2933dd9498a6eeca5e21fbc450f5456680510b34
+Merge: 22aa071 af22ee2
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Feb 7 14:25:33 2011 +0100
+
+    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+
+commit 22aa071b7649ec44238fd13c253464dacdb8d560
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Feb 7 14:25:11 2011 +0100
+
+    mutex: Change to sema_init etc.
+
+commit af22ee22881b7a27b8a6017be760be7bb34a2f3a
+Author: André Draszik <andre.draszik@st.com>
+Date:   Mon Dec 13 11:56:56 2010 +0000
+
+    gitignore
+
+commit dfea6f9bb86a87691c5f2eeeef5c847be8e0bbc0
+Author: André Draszik <andre.draszik@st.com>
+Date:   Mon Dec 13 11:55:58 2010 +0000
+
+    makefile: update buildrules for recent kernels
+    
+    Signed-off-by: André Draszik <andre.draszik@st.com>
+
+commit cf8edf42bf82dbbbd6e86f8b9d9a221e21ab610c
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Nov 16 12:03:48 2010 +0100
+
+    updated changelog
+
 commit 868a1d4fffc05270c41fe0a6a06a9de0e3d4e5b1
 Author: Denis Oliver Kropp <dok@directfb.org>
 Date:   Wed Nov 3 18:10:25 2010 +0100
