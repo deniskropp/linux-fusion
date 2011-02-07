@@ -71,7 +71,7 @@ static int fusion_major = FUSION_MAJOR;
 #define NUM_MINORS 8
 
 static FusionDev *fusion_devs[NUM_MINORS] = { 0 };
-static DECLARE_MUTEX(devs_lock);
+static struct semaphore devs_lock = __SEMAPHORE_INITIALIZER(devs_lock, 1);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0)
 static devfs_handle_t devfs_handles[NUM_MINORS];
@@ -194,7 +194,7 @@ static int fusiondev_init(FusionDev * dev)
 {
 	int ret;
 
-	init_MUTEX(&dev->enter_lock);
+	sema_init(&dev->enter_lock, 1);
 	init_waitqueue_head(&dev->enter_wait);
 
 	ret = fusionee_init(dev);

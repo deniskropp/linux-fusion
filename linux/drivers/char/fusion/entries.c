@@ -43,7 +43,7 @@ fusion_entries_init(FusionEntries * entries,
 	entries->class = class;
 	entries->ctx = ctx;
 
-	init_MUTEX(&entries->lock);
+	sema_init(&entries->lock, 1);
 }
 
 void fusion_entries_deinit(FusionEntries * entries)
@@ -225,7 +225,7 @@ int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx)
 	entry->id = ++entries->ids;
 	entry->pid = current->pid;
 
-	init_MUTEX(&entry->lock);
+	sema_init(&entry->lock, 1);
 
 	init_waitqueue_head(&entry->wait);
 

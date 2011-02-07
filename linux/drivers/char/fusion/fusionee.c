@@ -114,7 +114,7 @@ int fusionee_init(FusionDev * dev)
 {
 	init_waitqueue_head(&dev->fusionee.wait);
 
-	init_MUTEX(&dev->fusionee.lock);
+	sema_init(&dev->fusionee.lock, 1);
 
 	create_proc_read_entry("fusionees", 0, dev->proc_dir,
 			       fusionees_read_proc, dev);
@@ -171,7 +171,7 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 	fusionee->force_slave = force_slave;
 	fusionee->mm = current->mm;
 
-	init_MUTEX(&fusionee->lock);
+	sema_init(&fusionee->lock, 1);
 
 	init_waitqueue_head(&fusionee->wait_receive);
 	init_waitqueue_head(&fusionee->wait_process);

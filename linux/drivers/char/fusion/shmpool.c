@@ -71,7 +71,7 @@ static void free_all_nodes(FusionSHMPool * shmpool);
 
 /******************************************************************************/
 
-static DECLARE_MUTEX(addr_lock);
+static struct semaphore addr_lock = __SEMAPHORE_INITIALIZER(addr_lock, 1);
 static FusionLink *addr_entries;
 static void *addr_base = FUSION_SHM_BASE + 0x80000;
 
