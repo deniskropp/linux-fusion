@@ -72,7 +72,8 @@ int fusionee_send_message(FusionDev * dev,
 			  int msg_size,
 			  const void *msg_data,
 			  MessageCallback callback,
-			  void *callback_ctx, int callback_param);
+			  void *callback_ctx, int callback_param,
+			  const void *extra_data, unsigned int extra_size);
 
 int fusionee_get_messages(FusionDev * dev,
 			  Fusionee * fusionee,

@@ -564,7 +564,7 @@ messaging_ioctl(FusionDev * dev, Fusionee * fusionee,
 		return fusionee_send_message(dev, fusionee, send.fusion_id,
 					     FMT_SEND, send.msg_id,
 					     send.msg_channel, send.msg_size,
-					     send.msg_data, NULL, NULL, 0);
+					     send.msg_data, NULL, NULL, 0, NULL, 0);
 	}
 
 	return -ENOSYS;
@@ -578,6 +578,7 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
 	int ret;
 	FusionCallNew call;
 	FusionCallExecute execute;
+	FusionCallExecute2 execute2;
 	FusionCallReturn call_ret;
 	FusionID fusion_id = fusionee_id(fusionee);
 
@@ -621,6 +622,19 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
 			return -EFAULT;
 
 		return fusion_call_destroy(dev, fusion_id, id);
+
+	case _IOC_NR(FUSION_CALL_EXECUTE2):
+		if (copy_from_user
+		    (&execute2, (FusionCallExecute2 *) arg, sizeof(execute2)))
+			return -EFAULT;
+
+		ret = fusion_call_execute2(dev, fusionee, &execute2);
+		if (ret)
+			return ret;
+
+		if (put_user(execute2.ret_val, (int *)arg))
+			return -EFAULT;
+		return 0;
 	}
 
 	return -ENOSYS;

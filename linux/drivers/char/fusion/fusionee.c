@@ -261,14 +261,15 @@ fusionee_send_message(FusionDev * dev,
 		      int msg_size,
 		      const void *msg_data,
 		      MessageCallback callback,
-		      void *callback_ctx, int callback_param)
+		      void *callback_ctx, int callback_param,
+			 const void *extra_data, unsigned int extra_size )
 {
 	int ret;
 	Message *message;
 	Fusionee *fusionee;
 
-	DEBUG("fusionee_send_message (%d -> %d, type %d, id %d, size %d)\n",
-	      fusionee->id, recipient, msg_type, msg_id, msg_size);
+	DEBUG("fusionee_send_message (%d -> %d, type %d, id %d, size %d, extra %d)\n",
+	      fusionee->id, recipient, msg_type, msg_id, msg_size, extra_size);
 
 	ret = lookup_fusionee(dev, recipient, &fusionee);
 	if (ret)
@@ -286,7 +287,7 @@ fusionee_send_message(FusionDev * dev,
 
 	up(&dev->fusionee.lock);
 
-	message = kmalloc(sizeof(Message) + msg_size, GFP_KERNEL);
+	message = kmalloc(sizeof(Message) + msg_size + extra_size, GFP_KERNEL);
 	if (!message) {
 		if (sender && sender != fusionee)
 			unlock_fusionee(sender);
@@ -306,10 +307,21 @@ fusionee_send_message(FusionDev * dev,
 		return -EFAULT;
 	}
 
+	if (extra_data && extra_size) {
+		if (copy_from_user(message->data + msg_size, extra_data, extra_size)) {
+			kfree(message);
+			if (sender && sender != fusionee)
+				unlock_fusionee(sender);
+			unlock_fusionee(fusionee);
+			return -EFAULT;
+		}
+	}
+  
+
 	message->type		= msg_type;
 	message->id		= msg_id;
 	message->channel	= msg_channel;
-	message->size		= msg_size;
+	message->size		= msg_size + extra_size;
 	message->callback	= callback;
 	message->callback_ctx	= callback_ctx;
 	message->callback_param	= callback_param;

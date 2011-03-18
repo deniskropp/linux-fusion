@@ -291,7 +291,7 @@ fusion_shmpool_dispatch(FusionDev * dev,
 
 		fusionee_send_message(dev, fusionee, node->fusion_id,
 				      FMT_SHMPOOL, shmpool->entry.id, 0,
-				      sizeof(message), &message, NULL, NULL, 0);
+				      sizeof(message), &message, NULL, NULL, 0, NULL, 0);
 	}
 
 	fusion_shmpool_unlock(shmpool);

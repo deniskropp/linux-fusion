@@ -19,7 +19,7 @@
 
 /* Fusion supports all API versions up to this version */
 #define FUSION_API_MAJOR_PROVIDED 8
-#define FUSION_API_MINOR_PROVIDED 2
+#define FUSION_API_MINOR_PROVIDED 3
 #define FUSION_API_MICRO_PROVIDED 0
 
 /*
@@ -165,6 +165,18 @@ typedef struct {
 } FusionCallExecute;
 
 typedef struct {
+	int ret_val;		/* return value of the call */
+
+	int call_id;		/* id of the requested call, each call has a fixed owner */
+
+	int call_arg;		/* optional int argument */
+	void *ptr;		/* optional argument, data will be appended (copy) to message and passed to callee */
+     unsigned int length;
+
+	FusionCallExecFlags flags;	/* execution flags */
+} FusionCallExecute2;
+
+typedef struct {
 	int call_id;		/* id of currently executing call */
 
 	int val;		/* value to return */
@@ -304,6 +316,7 @@ typedef struct {
 #define FUSION_CALL_EXECUTE                  _IOW(FT_CALL,      0x01, FusionCallExecute)
 #define FUSION_CALL_RETURN                   _IOW(FT_CALL,      0x02, FusionCallReturn)
 #define FUSION_CALL_DESTROY                  _IOW(FT_CALL,      0x03, int)
+#define FUSION_CALL_EXECUTE2                 _IOW(FT_CALL,      0x04, FusionCallExecute2)
 
 #define FUSION_REF_NEW                       _IOW(FT_REF,       0x00, int)
 #define FUSION_REF_UP                        _IOW(FT_REF,       0x01, int)

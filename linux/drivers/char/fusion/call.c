@@ -71,7 +71,6 @@ struct fusion_construct_ctx {
 
 static FusionCallExecution *add_execution(FusionCall * call,
 					  Fusionee * caller,
-					  FusionCallExecute * execute,
 					  unsigned int serial);
 static void remove_execution(FusionCall * call,
 			     FusionCallExecution * execution);
@@ -209,7 +208,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 
 	/* Add execution to receive the result. */
 	if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
-		execution = add_execution(call, fusionee, execute, serial);
+		execution = add_execution(call, fusionee, serial);
 		if (!execution) {
 			fusion_call_unlock(call);
 			return -ENOMEM;
@@ -230,7 +229,94 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 	/* Put message into queue of callee. */
 	ret = fusionee_send_message(dev, fusionee, call->fusion_id, FMT_CALL,
 				    call->entry.id, 0, sizeof(message),
-				    &message, NULL, NULL, 1);
+				    &message, NULL, NULL, 1, NULL, 0);
+	if (ret) {
+		if (execution) {
+			remove_execution(call, execution);
+			kfree(execution);
+		}
+		fusion_call_unlock(call);
+		return ret;
+	}
+
+	call->count++;
+
+	/* When waiting for a result... */
+	if (execution) {
+		/* Transfer held skirmishs (locks). */
+		fusion_skirmish_transfer_all(dev, call->fusion_id,
+						fusionee_id(fusionee),
+						current->pid,
+						serial);
+
+		/* Unlock call and wait for execution result. TODO: add timeout? */
+
+		fusion_sleep_on(&execution->wait, &call->entry.lock, 0);
+
+		if (signal_pending(current)) {
+			/* Indicate that a signal was received and execution won't be freed by caller. */
+			execution->caller = NULL;
+			return -EINTR;
+		}
+
+		/* Return result to calling process. */
+		execute->ret_val = execution->ret_val;
+
+		/* Free execution, which has already been removed by callee. */
+		kfree(execution);
+
+		/* Reclaim skirmishs. */
+		fusion_skirmish_reclaim_all(dev, current->pid);
+	} else
+		/* Unlock call. */
+		fusion_call_unlock(call);
+
+	return 0;
+}
+
+int
+fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
+		    FusionCallExecute2 * execute)
+{
+	int ret;
+	FusionCall *call;
+	FusionCallExecution *execution = NULL;
+	FusionCallMessage message;
+	unsigned int serial;
+
+	/* Lookup and lock call. */
+	ret = fusion_call_lock(&dev->call, execute->call_id, false, &call);
+	if (ret)
+		return ret;
+
+	do {
+		serial = ++call->serial;
+	} while (!serial);
+
+	/* Add execution to receive the result. */
+	if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
+		execution = add_execution(call, fusionee, serial);
+		if (!execution) {
+			fusion_call_unlock(call);
+			return -ENOMEM;
+		}
+	}
+
+	/* Fill call message. */
+	message.handler = call->handler;
+	message.ctx = call->ctx;
+
+	message.caller = fusionee ? fusionee_id(fusionee) : 0;
+
+	message.call_arg = execute->call_arg;
+	message.call_ptr = NULL;
+
+	message.serial = execution ? serial : 0;
+
+	/* Put message into queue of callee. */
+	ret = fusionee_send_message(dev, fusionee, call->fusion_id, FMT_CALL,
+				    call->entry.id, 0, sizeof(FusionCallMessage),
+				    &message, NULL, NULL, 1, execute->ptr, execute->length);
 	if (ret) {
 		if (execution) {
 			remove_execution(call, execution);
@@ -419,7 +505,6 @@ void fusion_call_destroy_all(FusionDev * dev, int fusion_id)
 
 static FusionCallExecution *add_execution(FusionCall * call,
 					  Fusionee * caller,
-					  FusionCallExecute * execute,
 					  unsigned int serial)
 {
 	FusionCallExecution *execution;

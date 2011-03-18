@@ -359,14 +359,14 @@ fusion_reactor_dispatch(FusionDev * dev, int id, int channel,
 						  reactor->entry.id, channel,
 						  msg_size, msg_data,
 						  dispatch_callback, dispatch,
-						  reactor->entry.id);
+						  reactor->entry.id, NULL, 0);
 		} else
 			ret =
 			    fusionee_send_message(dev, fusionee,
 						  node->fusion_id, FMT_REACTOR,
 						  reactor->entry.id, channel,
 						  msg_size, msg_data, NULL,
-						  NULL, 0);
+						  NULL, 0, NULL, 0);
 	}
 
 	if (dispatch && !dispatch->count) {
