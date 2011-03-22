@@ -1,0 +1,13 @@
+# DKMS configuration for the linux-fusion kernel module.  -*- sh -*-
+
+# The version is replaced at build time by debian/rules.
+PACKAGE_NAME='linux-fusion'
+PACKAGE_VERSION="#MODULE_VERSION#"
+
+BUILT_MODULE_NAME[0]=fusion
+DEST_MODULE_LOCATION[0]="/kernel/drivers/char/"
+BUILT_MODULE_LOCATION[0]="linux/drivers/char/fusion"
+AUTOINSTALL=yes
+
+MAKE[0]="make KERNELDIR=${kernel_source_dir} BUILD_DIR=${dkms_tree}/${PACKAGE_NAME}/${PACKAGE_VERSION}/build"
+CLEAN="make KERNELDIR=${kernel_source_dir} BUILD_DIR=${dkms_tree}/${PACKAGE_NAME}/${PACKAGE_VERSION}/build clean"

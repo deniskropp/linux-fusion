@@ -1,0 +1,95 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+# Sample debian/rules that uses debhelper. 
+# This file was originally written by Joey Hess and Craig Small.
+# As a special exception, when this file is copied by dh-make into a
+# dh-make output file, you may use that output file without restriction.
+# This special exception was added by Craig Small in version 0.37 of dh-make.
+#
+# This version is for a hypothetical package that can build a kernel modules
+# architecture-dependant package via make-kpkg, as well as an
+# architecture-independent module source package, and other packages
+# either dep/indep for things like common files or userspace components
+# needed for the kernel modules.
+
+# Uncomment this to turn on verbose mode. 
+#export DH_VERBOSE=1
+
+# some default definitions, important!
+# 
+# Name of the source package
+dkmssource:=linux-fusion-dkms
+
+# The short upstream name, used for the module source directory
+sname:=linux-fusion
+
+version:= $(shell dpkg-parsechangelog | grep ^Version: | cut -d' ' -f2 \
+            | cut -d- -f1)
+
+
+k = $(shell echo $(KVERS) | grep -q ^2.6 && echo k)
+
+
+build:
+
+clean:
+	dh_testdir
+	dh_testroot
+
+	# Add here commands to clean up after the build process.
+	#
+	# clean can be run from module assistant or the original package rules file. 
+	
+	dh_clean
+
+install: DH_OPTIONS=
+install: build
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+	dh_installdocs
+
+#############################
+# setup linux-fusion-source #
+#############################
+	# Create the directories to install the source into
+	dh_installdirs -p$(dkmssource)  usr/src/$(sname)-$(version)
+
+	# Copy only the driver source to the proper location
+	cp -r linux Makefile  \
+		debian/$(dkmssource)/usr/src/$(sname)-$(version)
+	# Copy the needed debian/ pieces to the proper location
+
+	mkdir -p debian/$(dkmssource)/usr/share/doc/$(dkmssource)
+	cp debian/copyright debian/$(dkmssource)/usr/share/doc/$(dkmssource)
+
+	mkdir -p debian/$(dkmssource)/usr/include/linux
+	cp linux/include/linux/fusion.h debian/$(dkmssource)/usr/include/linux/
+	cp debian/copyright debian/$(dkmssource)/usr/share/doc/$(dkmssource)
+
+	dh_dkms -V
+	dh_install
+
+# Build architecture-independent files here.
+# Pass -i to all debhelper commands in this target to reduce clutter.
+binary-indep: build install
+	dh_testdir -i
+	dh_testroot -i
+	dh_installchangelogs  -i ChangeLog
+	dh_installman -i
+	dh_link -i
+	dh_compress -i
+	dh_fixperms -i
+	dh_installdeb -i
+	dh_installdeb -i
+	dh_gencontrol -i
+	dh_md5sums -i
+	dh_builddeb -i
+
+# Build architecture-dependent files here.
+binary-arch:
+
+binary: clean binary-indep
+
+.PHONY: build clean binary-indep binary-arch binary install kdist kdist_configure kdist_image kdist_clean

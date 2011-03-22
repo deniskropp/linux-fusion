@@ -1,0 +1,5 @@
+linux-fusion (8.3.0-1) unstable; urgency=low
+
+  * Initial package version
+
+ -- Andreas Shimokawa <andi@directfb.org>  Tue, 22 Mar 2011 13:02:48 +0200

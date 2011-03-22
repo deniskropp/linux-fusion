@@ -1,0 +1,19 @@
+Source: linux-fusion
+Section: kernel
+Priority: extra
+Maintainer: Andreas Shimokawa <andi@directfb.org>
+Uploaders: Andreas Shimokawa <andi@directfb.org>
+Dm-Upload-Allowed: yes
+Homepage: http://www.directfb.org/
+Standards-Version: 3.8.4
+Build-Depends: debhelper (>= 7), dkms (>= 2.1.1.1-2)
+Build-Depends-Indep: bzip2
+
+Package: linux-fusion-dkms
+Architecture: all
+Depends: ${misc:Depends}
+Description: DKMS Source for the linux-fusion kernel module
+ This package contains the source for the linux-fusion kernel modules,
+ packaged with approriate configuration for DKMS to build new modules
+ dynamically.
+ linux-fusion is required for DirectFB multi-application core
