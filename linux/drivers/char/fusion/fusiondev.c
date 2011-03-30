@@ -51,12 +51,6 @@
 #include "skirmish.h"
 #include "shmpool.h"
 
-#if 0
-#define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
-#else
-#define DEBUG(x...)  do {} while (0)
-#endif
-
 #ifndef FUSION_MAJOR
 #define FUSION_MAJOR 250
 #endif
@@ -278,7 +272,7 @@ static int fusion_open(struct inode *inode, struct file *file)
 	Fusionee *fusionee;
 	int minor = iminor(inode);
 
-	DEBUG("fusion_open( %p, %d )\n", file, atomic_read(&file->f_count));
+	FUSION_DEBUG("fusion_open( %p, %d )\n", file, atomic_read(&file->f_count));
 
 	if (down_interruptible(&devs_lock))
 		return -EINTR;
@@ -350,7 +344,7 @@ static int fusion_release(struct inode *inode, struct file *file)
 	int minor = iminor(inode);
 	Fusionee *fusionee = file->private_data;
 
-	DEBUG("fusion_release( %p, %d )\n", file, atomic_read(&file->f_count));
+	FUSION_DEBUG("fusion_release( %p, %d )\n", file, atomic_read(&file->f_count));
 
 	fusionee_destroy(fusion_devs[minor], fusionee);
 
@@ -383,7 +377,7 @@ fusion_flush(struct file *file)
 
 	(void)fusionee;
 
-	DEBUG("fusion_flush( %p, %d, 0x%08x %d )\n", file,
+	FUSION_DEBUG("fusion_flush( %p, %d, 0x%08x %d )\n", file,
 	      atomic_read(&file->f_count), fusionee_id(fusionee), current->pid);
 
 	if (current->flags & PF_EXITING)
@@ -398,7 +392,7 @@ fusion_read(struct file *file, char *buf, size_t count, loff_t * ppos)
 	Fusionee *fusionee = file->private_data;
 	FusionDev *dev = fusion_devs[iminor(file->f_dentry->d_inode)];
 
-	DEBUG("fusion_read( %p, %d, %d )\n", file, atomic_read(&file->f_count),
+	FUSION_DEBUG("fusion_read( %p, %d, %d )\n", file, atomic_read(&file->f_count),
 	      count);
 
 	return fusionee_get_messages(dev, fusionee, buf, count,
@@ -410,7 +404,7 @@ static unsigned int fusion_poll(struct file *file, poll_table * wait)
 	Fusionee *fusionee = file->private_data;
 	FusionDev *dev = fusion_devs[iminor(file->f_dentry->d_inode)];
 
-	DEBUG("fusion_poll( %p, %d )\n", file, atomic_read(&file->f_count));
+	FUSION_DEBUG("fusion_poll( %p, %d )\n", file, atomic_read(&file->f_count));
 
 	return fusionee_poll(dev, fusionee, file, wait);
 }
@@ -1061,7 +1055,7 @@ fusion_ioctl(struct inode *inode, struct file *file,
 	Fusionee *fusionee = file->private_data;
 	FusionDev *dev = fusionee->fusion_dev;
 
-	DEBUG("fusion_ioctl (0x%08x)\n", cmd);
+	FUSION_DEBUG("fusion_ioctl (0x%08x)\n", cmd);
 
 	switch (_IOC_TYPE(cmd)) {
 	case FT_LOUNGE:

@@ -36,12 +36,6 @@
 #include "skirmish.h"
 #include "shmpool.h"
 
-#if 0
-#define DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
-#else
-#define DEBUG(x...)  do {} while (0)
-#endif
-
 typedef struct {
 	FusionLink link;
 
@@ -268,12 +262,12 @@ fusionee_send_message(FusionDev * dev,
 	Message *message;
 	Fusionee *fusionee;
 
-	DEBUG("fusionee_send_message (%d -> %d, type %d, id %d, size %d, extra %d)\n",
-	      fusionee->id, recipient, msg_type, msg_id, msg_size, extra_size);
-
 	ret = lookup_fusionee(dev, recipient, &fusionee);
 	if (ret)
 		return ret;
+
+	FUSION_DEBUG("fusionee_send_message (%d -> %d, type %d, id %d, size %d, extra %d)\n",
+		 fusionee->id, recipient, msg_type, msg_id, msg_size, extra_size);
 
 	down(&fusionee->lock);
 

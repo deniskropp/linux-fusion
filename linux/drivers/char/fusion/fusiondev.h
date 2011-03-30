@@ -23,6 +23,12 @@
 #define FUSION_ASSERT(exp)    do { if (!(exp)) BUG(); } while (0)
 #define FUSION_ASSUME(exp)    do { if (!(exp)) printk( KERN_ERR "fusiondev: assumption '" #exp "' failed!\n" ); } while (0)
 
+#if 0
+#define FUSION_DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
+#else
+#define FUSION_DEBUG(x...)  do {} while (0)
+#endif
+
 struct __Fusion_FusionDev {
 	int refs;
 	int index;

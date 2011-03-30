@@ -155,6 +155,8 @@ print_skirmish( FusionSkirmish* skirmish )
 #ifdef FUSION_BLOCK_SIGNALS
 static int skirmish_signal_handler(void *ctx)
 {
+	FUSION_DEBUG("%s \n", __FUNCTION__);
+
 	if (current->pid <= PID_MAX_DEFAULT && !m_pidlocks[current->pid]) {
 		unblock_all_signals();
 		return 1;
@@ -219,6 +221,8 @@ FUSION_ENTRY_CLASS(FusionSkirmish, skirmish, NULL, NULL, fusion_skirmish_print)
 /******************************************************************************/
 int fusion_skirmish_init(FusionDev * dev)
 {
+	FUSION_DEBUG("%s \n", __FUNCTION__);
+
 	fusion_entries_init(&dev->skirmish, &skirmish_class, dev);
 
 	fusion_entries_create_proc_entry(dev, "skirmishs", &dev->skirmish);
@@ -234,6 +238,8 @@ int fusion_skirmish_init(FusionDev * dev)
 
 void fusion_skirmish_deinit(FusionDev * dev)
 {
+	FUSION_DEBUG("%s \n", __FUNCTION__);
+
 	remove_proc_entry("skirmishs", dev->proc_dir);
 
 	fusion_entries_deinit(&dev->skirmish);
@@ -256,6 +262,7 @@ int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id)
 	bool outer = true;
 #endif
 
+	FUSION_DEBUG("%s: id=%d, fusion_id=%d\n", __FUNCTION__, id, fusion_id);
 	dev->stat.skirmish_prevail_swoop++;
 
 	ret = fusion_skirmish_lock(&dev->skirmish, id, true, &skirmish);
@@ -367,6 +374,8 @@ int fusion_skirmish_swoop(FusionDev * dev, int id, int fusion_id)
 	int ret;
 	FusionSkirmish *skirmish;
 
+	FUSION_DEBUG("%s: id=%d, fusion_id=%d\n", __FUNCTION__, id, fusion_id);
+
 	ret = fusion_skirmish_lock(&dev->skirmish, id, false, &skirmish);
 	if (ret)
 		return ret;
@@ -436,6 +445,8 @@ int fusion_skirmish_dismiss(FusionDev * dev, int id, int fusion_id)
 	FusionSkirmish *skirmish;
 	unsigned long lock_jiffies = 0;
 
+	FUSION_DEBUG("%s: id=%d, fusion_id=%d\n", __FUNCTION__, id, fusion_id);
+
 	ret = fusion_skirmish_lock(&dev->skirmish, id, false, &skirmish);
 	if (ret)
 		return ret;
@@ -482,6 +493,8 @@ int fusion_skirmish_destroy(FusionDev * dev, int id)
 	FusionSkirmish *s;
 #endif
 
+	FUSION_DEBUG("%s: id=%d\n", __FUNCTION__, id);
+
 	ret = fusion_skirmish_lock(&dev->skirmish, id, true, &skirmish);
 	if (ret)
 		return ret;
@@ -517,6 +530,8 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
 {
 	int ret, ret2;
 	FusionSkirmish *skirmish;
+
+	FUSION_DEBUG("%s: fusion_id=%d\n", __FUNCTION__, fusion_id);
 
 	FUSION_SKIRMISH_LOG
 	    ("FusionSkirmish: %s( 0x%x, lock count %u, notify count %u, timeout %u ) called...\n",
@@ -665,6 +680,8 @@ int fusion_skirmish_notify_(FusionDev * dev, int id, FusionID fusion_id)
 	int ret;
 	FusionSkirmish *skirmish;
 
+	FUSION_DEBUG("%s: id=%d, fusion_id=%d\n", __FUNCTION__, id, fusion_id);
+
 	ret = fusion_skirmish_lock(&dev->skirmish, id, false, &skirmish);
 	if (ret)
 		return ret;
@@ -688,6 +705,8 @@ int fusion_skirmish_notify_(FusionDev * dev, int id, FusionID fusion_id)
 void fusion_skirmish_dismiss_all(FusionDev * dev, int fusion_id)
 {
 	FusionLink *l;
+
+	FUSION_DEBUG("%s: fusion_id=%d\n", __FUNCTION__, fusion_id);
 
 	down(&dev->skirmish.lock);
 
@@ -740,6 +759,8 @@ void fusion_skirmish_dismiss_all(FusionDev * dev, int fusion_id)
 void fusion_skirmish_dismiss_all_from_pid(FusionDev * dev, int pid)
 {
 	FusionLink *l;
+
+	FUSION_DEBUG("%s: pid=%d\n", __FUNCTION__, pid);
 
 	down(&dev->skirmish.lock);
 
@@ -794,6 +815,8 @@ fusion_skirmish_transfer_all(FusionDev * dev,
                              FusionID to, FusionID from, int from_pid, unsigned int serial)
 {
 	FusionLink *l;
+
+	FUSION_DEBUG("%s: to=%d, from=%d, from_pid=%d, serial=%d\n", __FUNCTION__, to, from, from_pid, serial );
 
 	down(&dev->skirmish.lock);
 
@@ -850,6 +873,8 @@ void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid)
 {
 	FusionLink *l;
 
+	FUSION_DEBUG("%s: from_pid=%d\n", __FUNCTION__, from_pid);
+
 	down(&dev->skirmish.lock);
 
 	fusion_list_foreach(l, dev->skirmish.list) {
@@ -902,6 +927,8 @@ void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid)
 void fusion_skirmish_return_all(FusionDev * dev, int from_fusion_id, int to_pid, unsigned int serial)
 {
 	FusionLink *l;
+
+	FUSION_DEBUG("%s: from_fusion_id=%d, to_pid=%d, serial=%d\n", __FUNCTION__, from_fusion_id, to_pid, serial);
 
 	down(&dev->skirmish.lock);
 
