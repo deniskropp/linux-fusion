@@ -410,7 +410,7 @@ static unsigned int fusion_poll(struct file *file, poll_table * wait)
 }
 
 static int
-lounge_ioctl(struct file *file, FusionDev * dev, Fusionee * fusionee,
+lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
 	     unsigned int cmd, unsigned long arg)
 {
 	int ret;
@@ -1052,38 +1052,43 @@ fusion_ioctl(struct inode *inode, struct file *file,
 	     unsigned int cmd, unsigned long arg)
 #endif
 {
-	Fusionee *fusionee = file->private_data;
-	FusionDev *dev = fusionee->fusion_dev;
+	int        ret		= -ENOSYS;
+	Fusionee  *fusionee = file->private_data;
+	FusionDev *dev      = fusionee->fusion_dev;
 
 	FUSION_DEBUG("fusion_ioctl (0x%08x)\n", cmd);
 
+	fusionee_ref( fusionee );
+
 	switch (_IOC_TYPE(cmd)) {
 	case FT_LOUNGE:
-		return lounge_ioctl(file, dev, fusionee, cmd, arg);
+		ret = lounge_ioctl(dev, fusionee, cmd, arg);
 
 	case FT_MESSAGING:
-		return messaging_ioctl(dev, fusionee, cmd, arg);
+		ret = messaging_ioctl(dev, fusionee, cmd, arg);
 
 	case FT_CALL:
-		return call_ioctl(dev, fusionee, cmd, arg);
+		ret = call_ioctl(dev, fusionee, cmd, arg);
 
 	case FT_REF:
-		return ref_ioctl(dev, fusionee, cmd, arg);
+		ret = ref_ioctl(dev, fusionee, cmd, arg);
 
 	case FT_SKIRMISH:
-		return skirmish_ioctl(dev, fusionee, cmd, arg);
+		ret = skirmish_ioctl(dev, fusionee, cmd, arg);
 
 	case FT_PROPERTY:
-		return property_ioctl(dev, fusionee, cmd, arg);
+		ret = property_ioctl(dev, fusionee, cmd, arg);
 
 	case FT_REACTOR:
-		return reactor_ioctl(dev, fusionee, cmd, arg);
+		ret = reactor_ioctl(dev, fusionee, cmd, arg);
 
 	case FT_SHMPOOL:
-		return shmpool_ioctl(dev, fusionee, cmd, arg);
+		ret = shmpool_ioctl(dev, fusionee, cmd, arg);
 	}
 
-	return -ENOSYS;
+	fusionee_unref( fusionee );
+
+	return ret;
 }
 
 static int fusion_mmap(struct file *file, struct vm_area_struct *vma)
