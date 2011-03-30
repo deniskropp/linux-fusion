@@ -284,10 +284,14 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 	FusionCallMessage message;
 	unsigned int serial;
 
+	FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
+
 	/* Lookup and lock call. */
 	ret = fusion_call_lock(&dev->call, execute->call_id, false, &call);
 	if (ret)
 		return ret;
+
+	FUSION_DEBUG( "  -> call %u '%s'\n", call->entry.id, call->entry.name );
 
 	do {
 		serial = ++call->serial;
@@ -300,6 +304,8 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 			fusion_call_unlock(call);
 			return -ENOMEM;
 		}
+
+		FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
 	}
 
 	/* Fill call message. */
@@ -313,11 +319,14 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 
 	message.serial = execution ? serial : 0;
 
+	FUSION_DEBUG( "  -> sending call message, caller %u\n", message.caller );
+
 	/* Put message into queue of callee. */
 	ret = fusionee_send_message(dev, fusionee, call->fusion_id, FMT_CALL,
 				    call->entry.id, 0, sizeof(FusionCallMessage),
 				    &message, NULL, NULL, 1, execute->ptr, execute->length);
 	if (ret) {
+		FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
 		if (execution) {
 			remove_execution(call, execution);
 			kfree(execution);
@@ -330,6 +339,8 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 
 	/* When waiting for a result... */
 	if (execution) {
+		FUSION_DEBUG( "  -> message sent, transfering all skirmishs...\n" );
+
 		/* Transfer held skirmishs (locks). */
 		fusion_skirmish_transfer_all(dev, call->fusion_id,
 						fusionee_id(fusionee),
@@ -338,9 +349,11 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 
 		/* Unlock call and wait for execution result. TODO: add timeout? */
 
+		FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
 		fusion_sleep_on(&execution->wait, &call->entry.lock, 0);
 
 		if (signal_pending(current)) {
+			FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
 			/* Indicate that a signal was received and execution won't be freed by caller. */
 			execution->caller = NULL;
 			return -EINTR;
@@ -352,11 +365,15 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 		/* Free execution, which has already been removed by callee. */
 		kfree(execution);
 
+		FUSION_DEBUG( "  -> woke up, ret val %u, reclaiming skirmishs...\n", execute->ret_val );
+
 		/* Reclaim skirmishs. */
 		fusion_skirmish_reclaim_all(dev, current->pid);
-	} else
+	} else {
+		FUSION_DEBUG( "  -> message sent, not waiting.\n" );
 		/* Unlock call. */
 		fusion_call_unlock(call);
+	}
 
 	return 0;
 }
