@@ -266,6 +266,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 		fusion_sleep_on(&execution->wait, &call->entry.lock, 0);
 
 		if (signal_pending(current)) {
+			FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
 			/* Indicate that a signal was received and execution won't be freed by caller. */
 			execution->caller = NULL;
 			return -EINTR;
