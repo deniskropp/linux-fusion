@@ -1,3 +1,101 @@
+commit 44d6dd0291b830a885e7bbb4fb581e7984f618f0
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Wed Mar 30 18:32:33 2011 +0200
+
+    Do not include smp_lock.h on newer kernels.
+    It is gone in 2.6.39 anyway and does not seem to be needed on recent kernels
+    either (tested back to 2.6.35)
+
+commit 12b2a097cf2eb48eee88bf88cd66c68e2a5e7556
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Wed Mar 30 17:53:40 2011 +0200
+
+    fix fusion_ioctl() (missing breaks)
+
+commit 560c78edd52ba41c7fbf53d12458378797d4a31b
+Merge: 7fe081d 1504ddd
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Wed Mar 30 17:20:59 2011 +0200
+
+    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+
+commit 7fe081d39f2a5d62efb4fd7fa6e6117ec5e816b5
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Wed Mar 30 17:20:29 2011 +0200
+
+    debian: increased package version for 8.3.0 release (soon)
+
+commit 1504ddd15027ab3c057005e509be16ab3d2a13a4
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Mar 30 17:18:52 2011 +0200
+
+    fusionee: Fix weird crashes by adding ref counting for fusionee struct memory.
+
+commit 933324431c3f34288a24fc92285ae7d410cf10fc
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Mar 30 16:13:39 2011 +0200
+
+    skirmish: Log lock_pid changes
+
+commit 44bb9073a9deb7274d815c3b941e66655da5db75
+Merge: 385db15 f142531
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Mar 30 15:45:53 2011 +0200
+
+    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+
+commit 385db15e4d0bcfd6734e2cddf095ae9e6c69ab52
+Merge: cc3fb93 ec2ef35
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Mar 30 15:33:21 2011 +0200
+
+    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+
+commit f142531b0dc74aa7ed1339f4ea4b6f6a2e5f565d
+Merge: cc3fb93 ec2ef35
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Mar 30 15:33:21 2011 +0200
+
+    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+
+commit cc3fb9311569b49a08a0b6b0b519bc5f0445f76d
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Mar 30 15:17:40 2011 +0200
+
+    call: add debug
+
+commit ec2ef3591b374e27bef6f55986bc28694cb616be
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Mar 30 15:17:40 2011 +0200
+
+    call: add debug
+
+commit 781ff05c954ecfdbf8b683b417643791d028b034
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Wed Mar 30 14:44:03 2011 +0200
+
+    added FUSION_DEBUG macro, and some debugging output. (all disabled by default)
+
+commit 405e6edab18483c0873fa4d926f5c02795f9b40b
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Mar 22 16:01:48 2011 +0100
+
+    fusion: debian dkms package
+
+commit b2766fa01a74a1266c2743d9ec96db138eb0947f
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Mar 18 13:56:16 2011 +0100
+
+    call: Add FusionCallExecute2 for sending calls with data as payload instead of shm pointer.
+    
+    This way calls can carry variable length data, but only in one direction so far.
+
+commit 5dd7867d0354b5f02d67c1bedd7bffe7025f7698
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Feb 7 15:44:40 2011 +0100
+
+    update changelog
+
 commit 2933dd9498a6eeca5e21fbc450f5456680510b34
 Merge: 22aa071 af22ee2
 Author: Denis Oliver Kropp <dok@directfb.org>
