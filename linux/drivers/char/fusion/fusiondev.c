@@ -1063,27 +1063,35 @@ fusion_ioctl(struct inode *inode, struct file *file,
 	switch (_IOC_TYPE(cmd)) {
 	case FT_LOUNGE:
 		ret = lounge_ioctl(dev, fusionee, cmd, arg);
+		break;
 
 	case FT_MESSAGING:
 		ret = messaging_ioctl(dev, fusionee, cmd, arg);
+		break;
 
 	case FT_CALL:
 		ret = call_ioctl(dev, fusionee, cmd, arg);
+		break;
 
 	case FT_REF:
 		ret = ref_ioctl(dev, fusionee, cmd, arg);
+		break;
 
 	case FT_SKIRMISH:
 		ret = skirmish_ioctl(dev, fusionee, cmd, arg);
+		break;
 
 	case FT_PROPERTY:
 		ret = property_ioctl(dev, fusionee, cmd, arg);
+		break;
 
 	case FT_REACTOR:
 		ret = reactor_ioctl(dev, fusionee, cmd, arg);
+		break;
 
 	case FT_SHMPOOL:
 		ret = shmpool_ioctl(dev, fusionee, cmd, arg);
+		break;
 	}
 
 	fusionee_unref( fusionee );
