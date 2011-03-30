@@ -161,6 +161,8 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 		return -EINTR;
 	}
 
+	fusionee->refs = 1;
+
 	fusionee->pid = current->pid;
 	fusionee->force_slave = force_slave;
 	fusionee->mm = current->mm;
@@ -609,10 +611,31 @@ fusionee_kill(FusionDev * dev,
 	return 0;
 }
 
+void fusionee_ref(Fusionee * fusionee)
+{
+	FUSION_ASSERT( fusionee != NULL );
+	FUSION_ASSERT( fusionee->refs > 0 );
+
+	fusionee->refs++;
+}
+
+void fusionee_unref(Fusionee * fusionee)
+{
+	FUSION_ASSERT( fusionee != NULL );
+	FUSION_ASSERT( fusionee->refs > 0 );
+
+	if (! --fusionee->refs)
+		kfree( fusionee );
+}
+
+
 void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 {
 	FusionFifo prev_msgs;
 	FusionFifo messages;
+
+	FUSION_ASSERT( fusionee != NULL );
+	FUSION_ASSERT( fusionee->refs > 0 );
 
 	/* Lock list. */
 	down(&dev->fusionee.lock);
@@ -648,7 +671,7 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 	flush_messages(dev, &messages);
 
 	/* Free fusionee data. */
-	kfree(fusionee);
+	fusionee_unref( fusionee );
 }
 
 FusionID fusionee_id(const Fusionee * fusionee)

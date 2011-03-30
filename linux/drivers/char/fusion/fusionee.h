@@ -26,6 +26,8 @@
 struct __Fusion_Fusionee {
 	FusionLink link;
 
+     int        refs;
+
 	struct semaphore lock;
 
 	FusionID id;
@@ -60,6 +62,9 @@ void fusionee_deinit(FusionDev * dev);
 int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee);
 
 int fusionee_enter(FusionDev * dev, FusionEnter * enter, Fusionee * fusionee);
+
+void fusionee_ref(Fusionee * fusionee);
+void fusionee_unref(Fusionee * fusionee);
 
 int fusionee_fork(FusionDev * dev, FusionFork * fork, Fusionee * fusionee);
 
