@@ -19,7 +19,10 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 35)
 #include <linux/smp_lock.h>
+#endif
 #include <linux/sched.h>
 #include <asm/uaccess.h>
 
