@@ -614,21 +614,33 @@ fusionee_kill(FusionDev * dev,
 	return 0;
 }
 
-void fusionee_ref(Fusionee * fusionee)
+void
+fusionee_ref( Fusionee * fusionee )
 {
 	FUSION_ASSERT( fusionee != NULL );
+
+	down( &fusionee->lock );
+
 	FUSION_ASSERT( fusionee->refs > 0 );
 
 	fusionee->refs++;
+
+	up( &fusionee->lock );
 }
 
-void fusionee_unref(Fusionee * fusionee)
+void
+fusionee_unref( Fusionee * fusionee )
 {
 	FUSION_ASSERT( fusionee != NULL );
+
+	down( &fusionee->lock );
+
 	FUSION_ASSERT( fusionee->refs > 0 );
 
-	if (! --fusionee->refs)
+	if (!--fusionee->refs)
 		kfree( fusionee );
+	else
+		up( &fusionee->lock );
 }
 
 
@@ -659,8 +671,9 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 	up(&dev->fusionee.lock);
 
 	/* Release locks, references, ... */
-	fusion_call_destroy_all(dev, fusionee->id);
 	fusion_skirmish_dismiss_all(dev, fusionee->id);
+	fusion_skirmish_return_all_from(dev, fusionee->id);
+	fusion_call_destroy_all(dev, fusionee->id);
 	fusion_reactor_detach_all(dev, fusionee->id);
 	fusion_property_cede_all(dev, fusionee->id);
 	fusion_ref_clear_all_local(dev, fusionee->id);

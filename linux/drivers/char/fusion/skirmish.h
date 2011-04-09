@@ -55,5 +55,6 @@ void fusion_skirmish_transfer_all(FusionDev * dev,
 void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid);
 
 void fusion_skirmish_return_all(FusionDev * dev, int from_fusion_id, int to_fusion_id, unsigned int serial);
+void fusion_skirmish_return_all_from(FusionDev * dev, int from_fusion_id);
 
 #endif

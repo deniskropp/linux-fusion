@@ -587,7 +587,8 @@ static void free_all_executions(FusionCall * call)
 		remove_execution(call, execution);
 
 		wake_up_interruptible_all(&execution->wait);
-
-		kfree(execution);
+		if(!execution->caller)
+			kfree(execution);
 	}
 }
+

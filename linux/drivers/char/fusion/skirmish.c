@@ -1002,3 +1002,52 @@ void fusion_skirmish_return_all(FusionDev * dev, int from_fusion_id, int to_pid,
 	up(&dev->skirmish.lock);
 }
 
+void fusion_skirmish_return_all_from(FusionDev * dev, int from_fusion_id)
+{
+	FusionLink *l;
+
+	FUSION_DEBUG("%s: from_fusion_id=%d\n", __FUNCTION__, from_fusion_id);
+
+	down(&dev->skirmish.lock);
+
+	fusion_list_foreach(l, dev->skirmish.list) {
+		FusionSkirmish *skirmish = (FusionSkirmish *) l;
+
+		down(&skirmish->entry.lock);
+
+		if (skirmish->transfer2_to == 0) {
+			if (skirmish->transfer_to == from_fusion_id)
+			{
+				FUSION_ASSERT(skirmish->transfer_from != 0);
+				FUSION_ASSERT(skirmish->transfer_count > 0);
+				if( skirmish->lock_count != 0 ) {
+					print_skirmish( skirmish );
+				}
+				FUSION_ASSERT(skirmish->lock_count == 0);
+				FUSION_ASSERT(skirmish->lock_fid == 0);
+				FUSION_ASSERT(skirmish->lock_pid == 0);
+
+				FUSION_DEBUG( "  -> lock_pid = -1\n" );
+
+				skirmish->lock_pid = -1;
+			}
+		}
+		else if (skirmish->transfer2_to == from_fusion_id)
+		{
+			FUSION_ASSERT(skirmish->transfer2_from != 0);
+			FUSION_ASSERT(skirmish->transfer2_count > 0);
+			FUSION_ASSERT(skirmish->lock_count == 0);
+			FUSION_ASSERT(skirmish->lock_fid == 0);
+			FUSION_ASSERT(skirmish->lock_pid == 0);
+
+			FUSION_DEBUG( "  -> lock_pid = -1\n" );
+
+			skirmish->lock_pid = -1;
+		}
+
+		up(&skirmish->entry.lock);
+	}
+
+	up(&dev->skirmish.lock);
+}
+
