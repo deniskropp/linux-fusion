@@ -1,3 +1,9 @@
+linux-fusion (8.3.1-1) unstable; urgency=high
+
+  * new upstream version (8.3.1)
+
+ -- Andreas Shimokawa <andi@directfb.org>  Sat, 09 Apr 2011 18:02:48 +0200
+
 linux-fusion (8.3.0-2) unstable; urgency=high
 
   * new upstream version (8.3.0 final)
