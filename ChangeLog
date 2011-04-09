@@ -1,3 +1,27 @@
+commit e4050a9e660c3fb7502e5c5fbfd14501afa95139
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Sat Apr 9 18:13:45 2011 +0200
+
+    debian: prepare for release
+
+commit 282d0d77617ab589282597ebc736e0b3d41b9dc4
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Sat Apr 9 18:04:56 2011 +0200
+
+    various bugfixes for process shutdown issues which led to kernel memory corruption
+    
+    - secure funionee reference counting with the fusionee semaphore
+    - add fusion_skirmish_return_all_from() to return all transferred skirmishs
+      back to the callers, otherwise the assertion in fusion_skirmish_reclaim_all()
+      failed.
+    - only free execution structure if caller is not signalled
+
+commit 17ccaf1bd993dcfe0ca344a88b648439d094fb3f
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Wed Mar 30 18:42:33 2011 +0200
+
+    update changelog
+
 commit 44d6dd0291b830a885e7bbb4fb581e7984f618f0
 Author: Andreas Shimokawa <andi@directfb.org>
 Date:   Wed Mar 30 18:32:33 2011 +0200
