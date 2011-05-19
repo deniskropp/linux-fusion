@@ -276,7 +276,7 @@ int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id)
 		skirmish->lock_count++;
 		skirmish->lock_total++;
 		fusion_skirmish_unlock(skirmish);
-		up(&dev->skirmish.lock);
+		spin_unlock(&dev->skirmish.lock);
 		return 0;
 	}
 #ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
@@ -340,7 +340,7 @@ int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id)
 	}
 #endif
 
-	up(&dev->skirmish.lock);
+	spin_unlock(&dev->skirmish.lock);
 
 
      while (   skirmish->lock_pid
@@ -518,7 +518,7 @@ int fusion_skirmish_destroy(FusionDev * dev, int id)
 	}
 #endif
 
-	up(&dev->skirmish.lock);
+	spin_unlock(&dev->skirmish.lock);
 
 #ifdef FUSION_BLOCK_SIGNALS
 	if (skirmish->lock_pid == current->pid &&
@@ -721,12 +721,12 @@ void fusion_skirmish_dismiss_all(FusionDev * dev, int fusion_id)
 
 	FUSION_DEBUG("%s: fusion_id=%d\n", __FUNCTION__, fusion_id);
 
-	down(&dev->skirmish.lock);
+	spin_lock(&dev->skirmish.lock);
 
 	fusion_list_foreach(l, dev->skirmish.list) {
 		FusionSkirmish *skirmish = (FusionSkirmish *) l;
 
-		down(&skirmish->entry.lock);
+		spin_lock(&skirmish->entry.lock);
 
 		if (skirmish->lock_fid == fusion_id) {
 			m_pidlocks[skirmish->lock_pid] = 0;
@@ -765,10 +765,10 @@ void fusion_skirmish_dismiss_all(FusionDev * dev, int fusion_id)
 			wake_up_interruptible_all(&skirmish->entry.wait);
 		}
 
-		up(&skirmish->entry.lock);
+		spin_unlock(&skirmish->entry.lock);
 	}
 
-	up(&dev->skirmish.lock);
+	spin_unlock(&dev->skirmish.lock);
 }
 
 void fusion_skirmish_dismiss_all_from_pid(FusionDev * dev, int pid)
@@ -777,14 +777,14 @@ void fusion_skirmish_dismiss_all_from_pid(FusionDev * dev, int pid)
 
 	FUSION_DEBUG("%s: pid=%d\n", __FUNCTION__, pid);
 
-	down(&dev->skirmish.lock);
+	spin_lock(&dev->skirmish.lock);
 
 	m_pidlocks[pid] = 0;
 
 	fusion_list_foreach(l, dev->skirmish.list) {
 		FusionSkirmish *skirmish = (FusionSkirmish *) l;
 
-		down(&skirmish->entry.lock);
+		spin_lock(&skirmish->entry.lock);
 
 		if (skirmish->lock_pid == pid) {
 			FUSION_DEBUG( "  -> lock_pid = 0\n" );
@@ -821,10 +821,10 @@ void fusion_skirmish_dismiss_all_from_pid(FusionDev * dev, int pid)
 			wake_up_interruptible_all(&skirmish->entry.wait);
 		}
 
-		up(&skirmish->entry.lock);
+		spin_unlock(&skirmish->entry.lock);
 	}
 
-	up(&dev->skirmish.lock);
+	spin_unlock(&dev->skirmish.lock);
 }
 
 void
@@ -835,12 +835,12 @@ fusion_skirmish_transfer_all(FusionDev * dev,
 
 	FUSION_DEBUG("%s: to=%d, from=%d, from_pid=%d, serial=%d\n", __FUNCTION__, to, from, from_pid, serial );
 
-	down(&dev->skirmish.lock);
+	spin_lock(&dev->skirmish.lock);
 
 	fusion_list_foreach(l, dev->skirmish.list) {
 		FusionSkirmish *skirmish = (FusionSkirmish *) l;
 
-		down(&skirmish->entry.lock);
+		spin_lock(&skirmish->entry.lock);
 
 		if (skirmish->lock_pid == from_pid) {
 			if (skirmish->transfer_to == 0) {
@@ -884,10 +884,10 @@ fusion_skirmish_transfer_all(FusionDev * dev,
 			}
 		}
 
-		up(&skirmish->entry.lock);
+		spin_unlock(&skirmish->entry.lock);
 	}
 
-	up(&dev->skirmish.lock);
+	spin_unlock(&dev->skirmish.lock);
 }
 
 void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid)
@@ -896,12 +896,12 @@ void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid)
 
 	FUSION_DEBUG("%s: from_pid=%d\n", __FUNCTION__, from_pid);
 
-	down(&dev->skirmish.lock);
+	spin_lock(&dev->skirmish.lock);
 
 	fusion_list_foreach(l, dev->skirmish.list) {
 		FusionSkirmish *skirmish = (FusionSkirmish *) l;
 
-		down(&skirmish->entry.lock);
+		spin_lock(&skirmish->entry.lock);
 
 		if ((skirmish->transfer2_to == 0)
 			   &&  skirmish->transfer_to
@@ -943,10 +943,10 @@ void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid)
 			skirmish->transfer2_from_pid = 0;
 			skirmish->transfer2_count    = 0;
 		}
-		up(&skirmish->entry.lock);
+		spin_unlock(&skirmish->entry.lock);
 	}
 
-	up(&dev->skirmish.lock);
+	spin_unlock(&dev->skirmish.lock);
 }
 
 void fusion_skirmish_return_all(FusionDev * dev, int from_fusion_id, int to_pid, unsigned int serial)
@@ -955,12 +955,12 @@ void fusion_skirmish_return_all(FusionDev * dev, int from_fusion_id, int to_pid,
 
 	FUSION_DEBUG("%s: from_fusion_id=%d, to_pid=%d, serial=%d\n", __FUNCTION__, from_fusion_id, to_pid, serial);
 
-	down(&dev->skirmish.lock);
+	spin_lock(&dev->skirmish.lock);
 
 	fusion_list_foreach(l, dev->skirmish.list) {
 		FusionSkirmish *skirmish = (FusionSkirmish *) l;
 
-		down(&skirmish->entry.lock);
+		spin_lock(&skirmish->entry.lock);
 
 		if (skirmish->transfer2_to == 0) {
 			if (skirmish->transfer_to       == from_fusion_id &&
@@ -996,10 +996,10 @@ void fusion_skirmish_return_all(FusionDev * dev, int from_fusion_id, int to_pid,
 			skirmish->lock_pid = -1;
 		}
 
-		up(&skirmish->entry.lock);
+		spin_unlock(&skirmish->entry.lock);
 	}
 
-	up(&dev->skirmish.lock);
+	spin_unlock(&dev->skirmish.lock);
 }
 
 void fusion_skirmish_return_all_from(FusionDev * dev, int from_fusion_id)
@@ -1008,12 +1008,12 @@ void fusion_skirmish_return_all_from(FusionDev * dev, int from_fusion_id)
 
 	FUSION_DEBUG("%s: from_fusion_id=%d\n", __FUNCTION__, from_fusion_id);
 
-	down(&dev->skirmish.lock);
+	spin_lock(&dev->skirmish.lock);
 
 	fusion_list_foreach(l, dev->skirmish.list) {
 		FusionSkirmish *skirmish = (FusionSkirmish *) l;
 
-		down(&skirmish->entry.lock);
+		spin_lock(&skirmish->entry.lock);
 
 		if (skirmish->transfer2_to == 0) {
 			if (skirmish->transfer_to == from_fusion_id)
@@ -1045,9 +1045,9 @@ void fusion_skirmish_return_all_from(FusionDev * dev, int from_fusion_id)
 			skirmish->lock_pid = -1;
 		}
 
-		up(&skirmish->entry.lock);
+		spin_unlock(&skirmish->entry.lock);
 	}
 
-	up(&dev->skirmish.lock);
+	spin_unlock(&dev->skirmish.lock);
 }
 

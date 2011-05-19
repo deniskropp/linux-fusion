@@ -230,7 +230,7 @@ fusion_reactor_detach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 	node = get_node(reactor, fusion_id);
 	if (!node || node->num_counts <= channel) {
 		fusion_reactor_unlock(reactor);
-		up(&dev->reactor.lock);
+		spin_unlock(&dev->reactor.lock);
 		return -EIO;
 	}
 
@@ -254,7 +254,7 @@ fusion_reactor_detach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 	else
 		fusion_reactor_unlock(reactor);
 
-	up(&dev->reactor.lock);
+	spin_unlock(&dev->reactor.lock);
 
 	return 0;
 }
@@ -265,13 +265,13 @@ static void dispatch_callback(FusionDev * dev, int id, void *ctx, int arg)
 	FusionReactor *reactor = NULL;
 	ReactorDispatch *dispatch = ctx;
 
-	down(&dev->reactor.lock);
+	spin_lock(&dev->reactor.lock);
 
 	fusion_list_foreach(l, dev->reactor.list) {
 		reactor = (FusionReactor *) l;
 
 		if (reactor->entry.id == id) {
-			down(&reactor->entry.lock);
+			spin_lock(&reactor->entry.lock);
 
 			if (!--dispatch->count) {
 				FusionCallExecute execute;
@@ -285,7 +285,7 @@ static void dispatch_callback(FusionDev * dev, int id, void *ctx, int arg)
 				kfree(dispatch);
 			}
 
-			up(&reactor->entry.lock);
+			spin_unlock(&reactor->entry.lock);
 
 			break;
 		}
@@ -296,7 +296,7 @@ static void dispatch_callback(FusionDev * dev, int id, void *ctx, int arg)
 			kfree(dispatch);
 	}
 
-	up(&dev->reactor.lock);
+	spin_unlock(&dev->reactor.lock);
 }
 
 int
@@ -424,7 +424,7 @@ int fusion_reactor_destroy(FusionDev * dev, int id)
 
 	if (reactor->destroyed) {
 		fusion_reactor_unlock(reactor);
-		up(&dev->reactor.lock);
+		spin_unlock(&dev->reactor.lock);
 		return -EIDRM;
 	}
 
@@ -435,7 +435,7 @@ int fusion_reactor_destroy(FusionDev * dev, int id)
 	else
 		fusion_reactor_unlock(reactor);
 
-	up(&dev->reactor.lock);
+	spin_unlock(&dev->reactor.lock);
 
 	return 0;
 }
@@ -444,13 +444,13 @@ void fusion_reactor_detach_all(FusionDev * dev, FusionID fusion_id)
 {
 	FusionLink *l, *n;
 
-	down(&dev->reactor.lock);
+	spin_lock(&dev->reactor.lock);
 
 	fusion_list_foreach_safe(l, n, dev->reactor.list) {
 		ReactorNode *node;
 		FusionReactor *reactor = (FusionReactor *) l;
 
-		down(&reactor->entry.lock);
+		spin_lock(&reactor->entry.lock);
 
 		fusion_list_foreach(node, reactor->nodes) {
 			if (node->fusion_id == fusion_id) {
@@ -466,10 +466,10 @@ void fusion_reactor_detach_all(FusionDev * dev, FusionID fusion_id)
 			fusion_entry_destroy_locked(&dev->reactor,
 						    &reactor->entry);
 		else
-			up(&reactor->entry.lock);
+			spin_unlock(&reactor->entry.lock);
 	}
 
-	up(&dev->reactor.lock);
+	spin_unlock(&dev->reactor.lock);
 }
 
 int
@@ -478,7 +478,7 @@ fusion_reactor_fork_all(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 	FusionLink *l;
 	int ret = 0;
 
-	down(&dev->reactor.lock);
+	spin_lock(&dev->reactor.lock);
 
 	fusion_list_foreach(l, dev->reactor.list) {
 		FusionReactor *reactor = (FusionReactor *) l;
@@ -488,7 +488,7 @@ fusion_reactor_fork_all(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 			break;
 	}
 
-	up(&dev->reactor.lock);
+	spin_unlock(&dev->reactor.lock);
 
 	return ret;
 }
@@ -500,7 +500,7 @@ fork_node(FusionReactor * reactor, FusionID fusion_id, FusionID from_id)
 {
 	ReactorNode *node;
 
-	down(&reactor->entry.lock);
+	spin_lock(&reactor->entry.lock);
 
 	fusion_list_foreach(node, reactor->nodes) {
 		if (node->fusion_id == from_id) {
@@ -508,7 +508,7 @@ fork_node(FusionReactor * reactor, FusionID fusion_id, FusionID from_id)
 
 			new_node = kmalloc(sizeof(ReactorNode), GFP_KERNEL);
 			if (!new_node) {
-				up(&reactor->entry.lock);
+				spin_unlock(&reactor->entry.lock);
 				return -ENOMEM;
 			}
 
@@ -516,7 +516,7 @@ fork_node(FusionReactor * reactor, FusionID fusion_id, FusionID from_id)
 			    kmalloc(sizeof(int) * node->num_counts, GFP_KERNEL);
 			if (!new_node->counts) {
 				kfree(new_node);
-				up(&reactor->entry.lock);
+				spin_unlock(&reactor->entry.lock);
 				return -ENOMEM;
 			}
 
@@ -532,7 +532,7 @@ fork_node(FusionReactor * reactor, FusionID fusion_id, FusionID from_id)
 		}
 	}
 
-	up(&reactor->entry.lock);
+	spin_unlock(&reactor->entry.lock);
 
 	return 0;
 }

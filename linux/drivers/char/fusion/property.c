@@ -312,12 +312,12 @@ void fusion_property_cede_all(FusionDev * dev, int fusion_id)
 {
 	FusionLink *l;
 
-	down(&dev->properties.lock);
+	spin_lock(&dev->properties.lock);
 
 	fusion_list_foreach(l, dev->properties.list) {
 		FusionProperty *property = (FusionProperty *) l;
 
-		down(&property->entry.lock);
+		spin_lock(&property->entry.lock);
 
 		if (property->fusion_id == fusion_id) {
 			property->state = FUSION_PROPERTY_AVAILABLE;
@@ -327,8 +327,8 @@ void fusion_property_cede_all(FusionDev * dev, int fusion_id)
 			wake_up_interruptible_all(&property->entry.wait);
 		}
 
-		up(&property->entry.lock);
+		spin_unlock(&property->entry.lock);
 	}
 
-	up(&dev->properties.lock);
+	spin_unlock(&dev->properties.lock);
 }

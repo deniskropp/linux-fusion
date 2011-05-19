@@ -74,7 +74,7 @@ static void free_all_nodes(FusionSHMPool * shmpool);
 
 /******************************************************************************/
 
-static struct semaphore addr_lock = __SEMAPHORE_INITIALIZER(addr_lock, 1);
+static spinlock_t addr_lock = SPIN_LOCK_UNLOCKED;
 static FusionLink *addr_entries;
 static void *addr_base = FUSION_SHM_BASE + 0x80000;
 
@@ -99,10 +99,10 @@ fusion_shmpool_construct(FusionEntry * entry, void *ctx, void *create_ctx)
 	FusionSHMPool *shmpool = (FusionSHMPool *) entry;
 	FusionSHMPoolNew *poolnew = create_ctx;
 
-	down(&addr_lock);
+	spin_lock(&addr_lock);
 
 	if (addr_base + poolnew->max_size >= FUSION_SHM_BASE + FUSION_SHM_SIZE) {
-		up(&addr_lock);
+		spin_unlock(&addr_lock);
 		printk(KERN_WARNING
 		       "%s: virtual address space exhausted! (FIXME)\n",
 		       __FUNCTION__);
@@ -117,7 +117,7 @@ fusion_shmpool_construct(FusionEntry * entry, void *ctx, void *create_ctx)
 
 	shmpool->addr_entry = add_addr_entry(addr_base);
 
-	up(&addr_lock);
+	spin_unlock(&addr_lock);
 
 	return 0;
 }
@@ -129,7 +129,7 @@ static void fusion_shmpool_destruct(FusionEntry * entry, void *ctx)
 
 	free_all_nodes(shmpool);
 
-	down(&addr_lock);
+	spin_lock(&addr_lock);
 
 	fusion_list_remove(&addr_entries, &shmpool->addr_entry->link);
 
@@ -144,7 +144,7 @@ static void fusion_shmpool_destruct(FusionEntry * entry, void *ctx)
 			addr_base = addr_entry->next_base;
 	}
 
-	up(&addr_lock);
+	spin_unlock(&addr_lock);
 }
 
 static void
@@ -311,7 +311,7 @@ void fusion_shmpool_detach_all(FusionDev * dev, FusionID fusion_id)
 {
 	FusionLink *l;
 
-	down(&dev->shmpool.lock);
+	spin_lock(&dev->shmpool.lock);
 
 	fusion_list_foreach(l, dev->shmpool.list) {
 		FusionSHMPool *shmpool = (FusionSHMPool *) l;
@@ -319,7 +319,7 @@ void fusion_shmpool_detach_all(FusionDev * dev, FusionID fusion_id)
 		remove_node(shmpool, fusion_id);
 	}
 
-	up(&dev->shmpool.lock);
+	spin_unlock(&dev->shmpool.lock);
 }
 
 int
@@ -328,7 +328,7 @@ fusion_shmpool_fork_all(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 	FusionLink *l;
 	int ret = 0;
 
-	down(&dev->shmpool.lock);
+	spin_lock(&dev->shmpool.lock);
 
 	fusion_list_foreach(l, dev->shmpool.list) {
 		FusionSHMPool *shmpool = (FusionSHMPool *) l;
@@ -338,7 +338,7 @@ fusion_shmpool_fork_all(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 			break;
 	}
 
-	up(&dev->shmpool.lock);
+	spin_unlock(&dev->shmpool.lock);
 
 	return ret;
 }
@@ -361,7 +361,7 @@ static void remove_node(FusionSHMPool * shmpool, FusionID fusion_id)
 {
 	SHMPoolNode *node;
 
-	down(&shmpool->entry.lock);
+	spin_lock(&shmpool->entry.lock);
 
 	fusion_list_foreach(node, shmpool->nodes) {
 		if (node->fusion_id == fusion_id) {
@@ -370,7 +370,7 @@ static void remove_node(FusionSHMPool * shmpool, FusionID fusion_id)
 		}
 	}
 
-	up(&shmpool->entry.lock);
+	spin_unlock(&shmpool->entry.lock);
 }
 
 static int
@@ -379,7 +379,7 @@ fork_node(FusionSHMPool * shmpool, FusionID fusion_id, FusionID from_id)
 	int ret = 0;
 	SHMPoolNode *node;
 
-	down(&shmpool->entry.lock);
+	spin_lock(&shmpool->entry.lock);
 
 	fusion_list_foreach(node, shmpool->nodes) {
 		if (node->fusion_id == from_id) {
@@ -400,7 +400,7 @@ fork_node(FusionSHMPool * shmpool, FusionID fusion_id, FusionID from_id)
 		}
 	}
 
-	up(&shmpool->entry.lock);
+	spin_unlock(&shmpool->entry.lock);
 
 	return ret;
 }

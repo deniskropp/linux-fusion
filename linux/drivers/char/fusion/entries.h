@@ -37,7 +37,7 @@ typedef struct {
 
 	FusionLink *list;
 	int ids;
-	struct semaphore lock;
+	spinlock_t lock;
 } FusionEntries;
 
 struct __FD_FusionEntry {
@@ -50,7 +50,7 @@ struct __FD_FusionEntry {
 
 	pid_t lock_pid;
 
-	struct semaphore lock;
+	spinlock_t lock;
 	wait_queue_head_t wait;
 	int waiters;
 
