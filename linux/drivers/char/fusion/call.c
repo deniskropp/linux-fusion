@@ -12,6 +12,8 @@
  *	2 of the License, or (at your option) any later version.
  */
 
+//#define FUSION_ENABLE_DEBUG
+
 #ifdef HAVE_LINUX_CONFIG_H
 #include <linux/config.h>
 #endif
@@ -51,13 +53,12 @@ typedef struct {
 typedef struct {
 	FusionEntry entry;
 
-	int fusion_id;		/* owner fusion id */
+	Fusionee *fusionee;		/* owner */
 
 	void *handler;
 	void *ctx;
 
-	FusionLink *executions;	/* prepending! */
-	FusionLink *last;	/* points to the last item of executions */
+	FusionLink *executions;
 
 	int count;		/* number of calls ever made */
 
@@ -66,7 +67,7 @@ typedef struct {
 
 /* collection, required for 1-param-only passing */
 struct fusion_construct_ctx {
-	int fusion_id;
+	Fusionee *fusionee;
 	FusionCallNew *call_new;
 };
 
@@ -89,7 +90,7 @@ fusion_call_construct(FusionEntry * entry, void *ctx, void *create_ctx)
 	struct fusion_construct_ctx *cc =
 	    (struct fusion_construct_ctx *)create_ctx;
 
-	call->fusion_id = cc->fusion_id;
+	call->fusionee = cc->fusionee;
 	call->handler = cc->call_new->handler;
 	call->ctx = cc->call_new->ctx;
 
@@ -113,10 +114,10 @@ static void print_call( FusionCall* call )
 
 	entry = &call->entry;
 
-	printk( KERN_CRIT "%-2d %s, fid:%d, %d calls)",
+	printk( KERN_CRIT "%-2d %s, fid:%lu, %d calls)",
 		   entry->id,
 		   entry->name[0] ? entry->name : "???",
-		   call->fusion_id,
+		   call->fusionee->id,
 		   call->count);
 
 	fusion_list_foreach(e, call->executions) {
@@ -176,12 +177,12 @@ void fusion_call_deinit(FusionDev * dev)
 
 /******************************************************************************/
 
-int fusion_call_new(FusionDev * dev, int fusion_id, FusionCallNew * call_new)
+int fusion_call_new(FusionDev * dev, Fusionee *fusionee, FusionCallNew * call_new)
 {
 	int id;
 	int ret;
 
-	struct fusion_construct_ctx cc = { fusion_id, call_new };
+	struct fusion_construct_ctx cc = { fusionee, call_new };
 
 	ret = fusion_entry_create(&dev->call, &id, &cc);
 	if (ret)
@@ -238,7 +239,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 	FUSION_DEBUG( "  -> sending call message, caller %u\n", message.caller );
 
 	/* Put message into queue of callee. */
-	ret = fusionee_send_message(dev, fusionee, call->fusion_id, FMT_CALL,
+	ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
 				    call->entry.id, 0, sizeof(message),
 				    &message, NULL, NULL, 1, NULL, 0);
 	if (ret) {
@@ -258,7 +259,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 		FUSION_DEBUG( "  -> message sent, transfering all skirmishs...\n" );
 
 		/* Transfer held skirmishs (locks). */
-		fusion_skirmish_transfer_all(dev, call->fusion_id,
+		fusion_skirmish_transfer_all(dev, call->fusionee->id,
 						fusionee_id(fusionee),
 						current->pid,
 						serial);
@@ -342,7 +343,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 	FUSION_DEBUG( "  -> sending call message, caller %u\n", message.caller );
 
 	/* Put message into queue of callee. */
-	ret = fusionee_send_message(dev, fusionee, call->fusion_id, FMT_CALL,
+	ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
 				    call->entry.id, 0, sizeof(FusionCallMessage),
 				    &message, NULL, NULL, 1, execute->ptr, execute->length);
 	if (ret) {
@@ -362,7 +363,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 		FUSION_DEBUG( "  -> message sent, transfering all skirmishs...\n" );
 
 		/* Transfer held skirmishs (locks). */
-		fusion_skirmish_transfer_all(dev, call->fusion_id,
+		fusion_skirmish_transfer_all(dev, call->fusionee->id,
 						fusionee_id(fusionee),
 						current->pid,
 						serial);
@@ -402,8 +403,8 @@ int
 fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
 {
 	int ret;
-	FusionLink *l;
 	FusionCall *call;
+	FusionCallExecution *execution;
 
 	if ( (dev->api.major >= 4) && (call_ret->serial == 0) )
 		return -EOPNOTSUPP;
@@ -413,16 +414,12 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
 	if (ret)
 		return ret;
 
-	/* Search for execution, starting with last (oldest). */
-	l = call->last;
-	while (l) {
-		FusionCallExecution *execution = (FusionCallExecution *) l;
-
+	/* Search for execution, starting with oldest. */
+	direct_list_foreach (execution, call->executions) {
 		if ((execution->executed)
 		    || (execution->call_id != call_ret->call_id)
 		    || ((dev->api.major >= 4)
 			&& (execution->serial != call_ret->serial))) {
-			l = l->prev;
 			continue;
 		}
 
@@ -473,7 +470,7 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
 	return -ENOMSG;
 }
 
-int fusion_call_destroy(FusionDev * dev, int fusion_id, int call_id)
+int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
 {
 	int ret;
 	FusionCall *call;
@@ -482,7 +479,7 @@ int fusion_call_destroy(FusionDev * dev, int fusion_id, int call_id)
 	do {
 		/* Wait for all messages being processed. */
 		ret =
-		    fusionee_wait_processing(dev, fusion_id, FMT_CALL, call_id);
+		    fusionee_wait_processing(dev, fusionee->id, FMT_CALL, call_id);
 		if (ret)
 			return ret;
 
@@ -491,7 +488,7 @@ int fusion_call_destroy(FusionDev * dev, int fusion_id, int call_id)
 			return ret;
 
 		/* Check if we own the call. */
-		if (call->fusion_id != fusion_id) {
+		if (call->fusionee != fusionee) {
 			fusion_call_unlock(call);
 			return -EIO;
 		}
@@ -512,9 +509,11 @@ int fusion_call_destroy(FusionDev * dev, int fusion_id, int call_id)
 	return 0;
 }
 
-void fusion_call_destroy_all(FusionDev * dev, int fusion_id)
+void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee)
 {
 	FusionLink *l;
+
+	FUSION_DEBUG( "%s( dev %p, fusion_id %u )\n", __FUNCTION__, dev, fusion_id );
 
 	down(&dev->call.lock);
 
@@ -526,7 +525,7 @@ void fusion_call_destroy_all(FusionDev * dev, int fusion_id)
 
 		down(&call->entry.lock);
 
-		if (call->fusion_id == fusion_id)
+		if (call->fusionee == fusionee)
 			fusion_entry_destroy_locked(call->entry.entries,
 						    &call->entry);
 		else
@@ -546,6 +545,8 @@ static FusionCallExecution *add_execution(FusionCall * call,
 {
 	FusionCallExecution *execution;
 
+	FUSION_DEBUG( "%s( call %p [%u], caller %p [%u], serial %i )\n", __FUNCTION__, call, call->entry.id, caller, caller->id, serial );
+
 	/* Allocate execution. */
 	execution = kmalloc(sizeof(FusionCallExecution), GFP_KERNEL);
 	if (!execution)
@@ -562,33 +563,31 @@ static FusionCallExecution *add_execution(FusionCall * call,
 	init_waitqueue_head(&execution->wait);
 
 	/* Add execution. */
-	fusion_list_prepend(&call->executions, &execution->link);
-
-	if (!call->last)
-		call->last = &execution->link;
+	direct_list_append(&call->executions, &execution->link);
 
 	return execution;
 }
 
 static void remove_execution(FusionCall * call, FusionCallExecution * execution)
 {
-	if (call->last == &execution->link)
-		call->last = execution->link.prev;
+	FUSION_DEBUG( "%s( call %p [%u], execution %p )\n", __FUNCTION__, call, call->entry.id, execution );
 
 	fusion_list_remove(&call->executions, &execution->link);
 }
 
 static void free_all_executions(FusionCall * call)
 {
-	while (call->last) {
-		FusionCallExecution *execution =
-		    (FusionCallExecution *) call->last;
+	FusionCallExecution *execution, *next;
 
-		remove_execution(call, execution);
+	FUSION_DEBUG( "%s( call %p [%u] )\n", __FUNCTION__, call, call->entry.id );
 
-		wake_up_interruptible_all(&execution->wait);
-		if(!execution->caller)
-			kfree(execution);
+	direct_list_foreach_safe (execution, next, call->executions) {
+		remove_execution( call, execution );
+
+		wake_up_interruptible_all( &execution->wait );
+
+		if (!execution->caller)
+			kfree( execution );
 	}
 }
 

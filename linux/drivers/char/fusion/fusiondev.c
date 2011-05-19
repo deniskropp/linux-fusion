@@ -581,12 +581,12 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
 		if (copy_from_user(&call, (FusionCallNew *) arg, sizeof(call)))
 			return -EFAULT;
 
-		ret = fusion_call_new(dev, fusion_id, &call);
+		ret = fusion_call_new(dev, fusionee, &call);
 		if (ret)
 			return ret;
 
 		if (put_user(call.call_id, (int *)arg)) {
-			fusion_call_destroy(dev, fusion_id, call.call_id);
+			fusion_call_destroy(dev, fusionee, call.call_id);
 			return -EFAULT;
 		}
 		return 0;
@@ -615,7 +615,7 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
 		if (get_user(id, (int *)arg))
 			return -EFAULT;
 
-		return fusion_call_destroy(dev, fusion_id, id);
+		return fusion_call_destroy(dev, fusionee, id);
 
 	case _IOC_NR(FUSION_CALL_EXECUTE2):
 		if (copy_from_user

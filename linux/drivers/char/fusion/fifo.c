@@ -18,32 +18,21 @@
 
 void fusion_fifo_put(FusionFifo * fifo, FusionLink * link)
 {
-	link->prev = fifo->last;
-	link->next = NULL;
-
-	if (fifo->last)
-		fifo->last->next = link;
-	else
-		fifo->first = link;
-
-	fifo->last = link;
+     direct_list_append( &fifo->items, link );
 
 	fifo->count++;
 }
 
 FusionLink *fusion_fifo_get(FusionFifo * fifo)
 {
-	FusionLink *first = fifo->first;
+	FusionLink *first = fifo->items;
 
-	if (!first)
+	if (!first) {
+          D_ASSERT( fifo->count == 0 );
 		return NULL;
+     }
 
-	fifo->first = first->next;
-
-	if (fifo->last == first)
-		fifo->last = NULL;
-	else
-		fifo->first->prev = NULL;
+     direct_list_remove( &fifo->items, first );
 
 	fifo->count--;
 

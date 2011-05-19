@@ -19,15 +19,14 @@
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 19)
 typedef enum {
-	false = 0,
-	true = !false
+     false = 0,
+     true = !false
 } bool;
 #endif
 
 typedef struct __Fusion_FusionDev FusionDev;
-typedef struct __Fusion_Fusionee Fusionee;
+typedef struct __Fusion_Fusionee  Fusionee;
 
-typedef void (*MessageCallback) (FusionDev * dev,
-				 int msg_id, void *ctx, int param);
+typedef void (*MessageCallbackFunc)( FusionDev * dev, int msg_id, void *ctx, int param );
 
 #endif

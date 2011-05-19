@@ -26,7 +26,7 @@ void fusion_call_deinit(FusionDev * dev);
 
 /* public API */
 
-int fusion_call_new(FusionDev * dev, int fusion_id, FusionCallNew * call);
+int fusion_call_new(FusionDev * dev, Fusionee *fusionee, FusionCallNew * call);
 
 int fusion_call_execute(FusionDev * dev, Fusionee * fusionee,	/* NULL if call is from kernel */
 			FusionCallExecute * execute);
@@ -37,10 +37,10 @@ int fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,	/* NULL if call i
 int fusion_call_return(FusionDev * dev,
 		       int fusion_id, FusionCallReturn * call_ret);
 
-int fusion_call_destroy(FusionDev * dev, int fusion_id, int call_id);
+int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id);
 
 /* internal functions */
 
-void fusion_call_destroy_all(FusionDev * dev, int fusion_id);
+void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee);
 
 #endif

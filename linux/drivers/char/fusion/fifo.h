@@ -19,10 +19,8 @@
 #include "list.h"
 
 typedef struct {
-	FusionLink *first;
-	FusionLink *last;
-
-	int count;
+	FusionLink *items;
+	int         count;
 } FusionFifo;
 
 void fusion_fifo_put(FusionFifo * fifo, FusionLink * link);
@@ -31,8 +29,8 @@ FusionLink *fusion_fifo_get(FusionFifo * fifo);
 
 static inline void fusion_fifo_reset(FusionFifo * fifo)
 {
+	fifo->items = NULL;
 	fifo->count = 0;
-	fifo->first = fifo->last = NULL;
 }
 
 #endif /* __FUSION__FIFO_H__ */

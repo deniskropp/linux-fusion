@@ -33,11 +33,13 @@ struct __Fusion_Fusionee {
 	FusionID id;
 	int pid;
 
-	FusionFifo messages;
-	FusionFifo prev_msgs;
+	FusionFifo packets;
+	FusionFifo prev_packets;
 
-	int rcv_total;		/* Total number of messages received. */
-	int snd_total;		/* Total number of messages sent. */
+     FusionFifo free_packets;
+
+     atomic_long_t  rcv_total;		/* Total number of messages received. */
+	atomic_long_t  snd_total;		/* Total number of messages sent. */
 
 	wait_queue_head_t wait_receive;
 	wait_queue_head_t wait_process;
@@ -76,7 +78,19 @@ int fusionee_send_message(FusionDev * dev,
 			  int msg_channel,
 			  int msg_size,
 			  const void *msg_data,
-			  MessageCallback callback,
+			  MessageCallbackFunc callback,
+			  void *callback_ctx, int callback_param,
+			  const void *extra_data, unsigned int extra_size);
+
+int fusionee_send_message2(FusionDev * dev,
+			  Fusionee * sender,
+			  Fusionee * recipient,
+			  FusionMessageType msg_type,
+			  int msg_id,
+			  int msg_channel,
+			  int msg_size,
+			  const void *msg_data,
+			  MessageCallbackFunc callback,
 			  void *callback_ctx, int callback_param,
 			  const void *extra_data, unsigned int extra_size);
 
