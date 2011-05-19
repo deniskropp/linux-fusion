@@ -103,6 +103,24 @@ fusion_sleep_on(wait_queue_head_t * q, struct semaphore *lock,
 
 	finish_wait(q, &wait);
 }
+
+void
+fusion_sleep_on_spinlock(wait_queue_head_t * q, spinlock_t *lock,
+		signed long *timeout)
+{
+	DEFINE_WAIT(wait);
+
+	prepare_to_wait(q, &wait, TASK_INTERRUPTIBLE);
+
+	spin_unlock(lock);
+
+	if (timeout)
+		*timeout = schedule_timeout(*timeout);
+	else
+		schedule();
+
+	finish_wait(q, &wait);
+}
 #else
 void
 fusion_sleep_on(wait_queue_head_t * q, struct semaphore *lock,

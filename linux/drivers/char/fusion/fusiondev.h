@@ -80,6 +80,9 @@ struct __Fusion_FusionDev {
 void fusion_sleep_on(wait_queue_head_t * q,
 		     struct semaphore *lock, signed long *timeout_ms);
 
+void fusion_sleep_on_spinlock(wait_queue_head_t * q,
+		     spinlock_t *lock, signed long *timeout_ms);
+
 
 
 
