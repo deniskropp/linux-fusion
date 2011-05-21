@@ -31,7 +31,6 @@
 #include "fusiondev.h"
 #include "entries.h"
 
-struct timeval now;
 
 void
 fusion_entries_init( FusionEntries    *entries,
@@ -96,7 +95,7 @@ static void *fusion_entries_seq_start(struct seq_file *f, loff_t * pos)
 	if (!class->Print)
 		return NULL;
 
-	do_gettimeofday(&now);
+	do_gettimeofday(&entries->now);
 
 	return entry;
 }
@@ -129,8 +128,8 @@ int fusion_entries_show(struct seq_file *p, void *v)
 	class = entry->entries->class;
 
 	if (entry->last_lock.tv_sec) {
-		int diff = ((now.tv_sec - entry->last_lock.tv_sec) * 1000 +
-			    (now.tv_usec - entry->last_lock.tv_usec) / 1000);
+		int diff = ((entry->entries->now.tv_sec - entry->last_lock.tv_sec) * 1000 +
+			    (entry->entries->now.tv_usec - entry->last_lock.tv_usec) / 1000);
 
 		if (diff < 1000) {
 			seq_printf(p, "%3d  ms  ", diff);
@@ -138,8 +137,8 @@ int fusion_entries_show(struct seq_file *p, void *v)
 			seq_printf(p, "%3d.%d s  ", diff / 1000,
 				   (diff % 1000) / 100);
 		} else {
-			diff = (now.tv_sec - entry->last_lock.tv_sec +
-				(now.tv_usec -
+			diff = (entry->entries->now.tv_sec - entry->last_lock.tv_sec +
+				(entry->entries->now.tv_usec -
 				 entry->last_lock.tv_usec) / 1000000);
 
 			seq_printf(p, "%3d.%d h  ", diff / 3600,

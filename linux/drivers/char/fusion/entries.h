@@ -39,6 +39,8 @@ typedef struct {
 	int ids;
 
      FusionDev *dev;
+
+     struct timeval now; /* temporary for /proc code (seq start/show) */
 } FusionEntries;
 
 struct __FD_FusionEntry {
