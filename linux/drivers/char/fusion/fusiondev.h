@@ -22,7 +22,8 @@
 #include "list.h"
 
 
-#define NUM_MINORS 8
+#define NUM_MINORS  8
+#define NUM_CLASSES 8
 
 
 
@@ -72,6 +73,8 @@ struct __Fusion_FusionDev {
 	FusionEntries ref;
 	FusionEntries shmpool;
 	FusionEntries skirmish;
+
+	unsigned int next_class_index;
 };
 
 

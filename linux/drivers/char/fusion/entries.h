@@ -32,7 +32,7 @@ typedef const struct {
 } FusionEntryClass;
 
 typedef struct {
-	FusionEntryClass *class;
+     unsigned int class_index;
 	void *ctx;
 
 	FusionLink *list;

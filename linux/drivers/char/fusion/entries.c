@@ -32,6 +32,8 @@
 #include "entries.h"
 
 
+static FusionEntryClass *entry_classes[NUM_MINORS][NUM_CLASSES];
+
 void
 fusion_entries_init( FusionEntries    *entries,
 				 FusionEntryClass *class,
@@ -44,9 +46,11 @@ fusion_entries_init( FusionEntries    *entries,
 
 	memset(entries, 0, sizeof(FusionEntries));
 
-	entries->class = class;
+	entries->class_index = dev->next_class_index++;
 	entries->ctx = ctx;
 	entries->dev = dev;
+
+	entry_classes[dev->index][entries->class_index] = class;
 }
 
 void fusion_entries_deinit(FusionEntries * entries)
@@ -56,9 +60,8 @@ void fusion_entries_deinit(FusionEntries * entries)
 	FusionEntryClass *class;
 
 	FUSION_ASSERT(entries != NULL);
-	FUSION_ASSERT(entries->class != NULL);
 
-	class = entries->class;
+	class = entry_classes[entries->dev->index][entries->class_index];
 
 	fusion_list_foreach_safe(entry, tmp, entries->list) {
 		if (class->Destroy)
@@ -89,9 +92,8 @@ static void *fusion_entries_seq_start(struct seq_file *f, loff_t * pos)
 	}
 
 	FUSION_ASSERT(entries != NULL);
-	FUSION_ASSERT(entries->class != NULL);
 
-	class = entries->class;
+	class = entry_classes[entries->dev->index][entries->class_index];
 	if (!class->Print)
 		return NULL;
 
@@ -121,11 +123,14 @@ static void fusion_entries_seq_stop(struct seq_file *f, void *v)
 int fusion_entries_show(struct seq_file *p, void *v)
 {
 	FusionEntry *entry;
+	FusionEntries *entries;
 	FusionEntryClass *class;
+
+	entries = p->private;
 
 	entry = v;
 
-	class = entry->entries->class;
+	class = entry_classes[entries->dev->index][entries->class_index];
 
 	if (entry->last_lock.tv_sec) {
 		int diff = ((entry->entries->now.tv_sec - entry->last_lock.tv_sec) * 1000 +
@@ -208,10 +213,9 @@ int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx)
 	FusionEntryClass *class;
 
 	FUSION_ASSERT(entries != NULL);
-	FUSION_ASSERT(entries->class != NULL);
 	FUSION_ASSERT(ret_id != NULL);
 
-	class = entries->class;
+	class = entry_classes[entries->dev->index][entries->class_index];
 
 	entry = kmalloc(class->object_size, GFP_ATOMIC);
 	if (!entry)
@@ -246,9 +250,8 @@ int fusion_entry_destroy(FusionEntries * entries, int id)
 	FusionEntryClass *class;
 
 	FUSION_ASSERT(entries != NULL);
-	FUSION_ASSERT(entries->class != NULL);
 
-	class = entries->class;
+	class = entry_classes[entries->dev->index][entries->class_index];
 
 	/* Lookup the entry. */
 	fusion_list_foreach(entry, entries->list) {
@@ -272,9 +275,8 @@ void fusion_entry_destroy_locked(FusionEntries * entries, FusionEntry * entry)
 	FusionEntryClass *class;
 
 	FUSION_ASSERT(entries != NULL);
-	FUSION_ASSERT(entries->class != NULL);
 
-	class = entries->class;
+	class = entry_classes[entries->dev->index][entries->class_index];
 
 	/* Remove the entry from the list. */
 	fusion_list_remove(&entries->list, &entry->link);
