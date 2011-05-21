@@ -206,7 +206,8 @@ static int fusiondev_init(FusionDev * dev)
 {
 	int ret;
 
-	sema_init(&dev->enter_lock, 1);
+	spin_lock_init( &dev->lock );
+
 	init_waitqueue_head(&dev->enter_wait);
 
 	ret = fusionee_init(dev);
@@ -455,14 +456,13 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
 		if (fusionee_id(fusionee) != FUSION_ID_MASTER)
 			return -EPERM;
 
-		if (down_interruptible(&dev->enter_lock))
-			return -EINTR;
+		spin_lock( &dev->lock );
 
 		dev->enter_ok = 1;
 
 		wake_up_interruptible_all(&dev->enter_wait);
 
-		up(&dev->enter_lock);
+		spin_unlock( &dev->lock );
 
 		return 0;
 

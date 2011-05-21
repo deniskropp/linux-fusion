@@ -30,7 +30,7 @@ struct __Fusion_FusionDev {
 		int minor;
 	} api;
 
-	struct semaphore enter_lock;
+	spinlock_t lock;
 	int enter_ok;
 	wait_queue_head_t enter_wait;
 
@@ -61,7 +61,6 @@ struct __Fusion_FusionDev {
 	struct {
 		int last_id;
 		FusionLink *list;
-		struct semaphore lock;
 		wait_queue_head_t wait;
 	} fusionee;
 

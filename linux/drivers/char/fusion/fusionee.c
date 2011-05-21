@@ -326,8 +326,7 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
 	FusionDev *dev = private;
 	int written = 0;
 
-	if (down_interruptible(&dev->fusionee.lock))
-		return -EINTR;
+	spin_lock( &dev->lock );
 
 	direct_list_foreach(fusionee, dev->fusionee.list) {
 		written +=
@@ -345,7 +344,7 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
 			break;
 	}
 
-	up(&dev->fusionee.lock);
+	spin_unlock( &dev->lock );
 
 	*start = buf + offset;
 	written -= offset;
@@ -362,8 +361,6 @@ int fusionee_init(FusionDev * dev)
 {
 	init_waitqueue_head(&dev->fusionee.wait);
 
-	sema_init(&dev->fusionee.lock, 1);
-
 	create_proc_read_entry("fusionees", 0, dev->proc_dir,
 			       fusionees_read_proc, dev);
 
@@ -374,7 +371,7 @@ void fusionee_deinit(FusionDev * dev)
 {
 	Fusionee *fusionee, *next;
 
-	down(&dev->fusionee.lock);
+	spin_lock( &dev->lock );
 
 	remove_proc_entry("fusionees", dev->proc_dir);
 
@@ -388,7 +385,7 @@ void fusionee_deinit(FusionDev * dev)
 		kfree(fusionee);
 	}
 
-	up(&dev->fusionee.lock);
+	spin_unlock( &dev->lock );
 }
 
 /******************************************************************************/
@@ -403,11 +400,6 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 
 	memset(fusionee, 0, sizeof(Fusionee));
 
-	if (down_interruptible(&dev->fusionee.lock)) {
-		kfree(fusionee);
-		return -EINTR;
-	}
-
 	fusionee->refs = 1;
 
 	fusionee->pid = current->pid;
@@ -419,9 +411,13 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 	init_waitqueue_head(&fusionee->wait_receive);
 	init_waitqueue_head(&fusionee->wait_process);
 
+
+	spin_lock( &dev->lock );
+
 	direct_list_prepend(&dev->fusionee.list, &fusionee->link);
 
-	up(&dev->fusionee.lock);
+	spin_unlock( &dev->lock );
+
 
 	fusionee->fusion_dev = dev;
 
@@ -432,19 +428,16 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 
 int fusionee_enter(FusionDev * dev, FusionEnter * enter, Fusionee * fusionee)
 {
-	if (down_interruptible(&dev->enter_lock))
-		return -EINTR;
+	spin_lock( &dev->lock );
 
 	if (dev->fusionee.last_id || fusionee->force_slave) {
 		while (!dev->enter_ok) {
-			fusion_sleep_on(&dev->enter_wait, &dev->enter_lock,
-					NULL);
+			fusion_sleep_on_spinlock(&dev->enter_wait, &dev->lock, NULL);
 
 			if (signal_pending(current))
 				return -EINTR;
 
-			if (down_interruptible(&dev->enter_lock))
-				return -EINTR;
+			spin_lock( &dev->lock );
 		}
 
 		FUSION_ASSERT(dev->fusionee.last_id != 0);
@@ -466,7 +459,7 @@ int fusionee_enter(FusionDev * dev, FusionEnter * enter, Fusionee * fusionee)
 
 	fusionee->id = ++dev->fusionee.last_id;
 
-	up(&dev->enter_lock);
+	spin_unlock( &dev->lock );
 
 	enter->fusion_id = fusionee->id;
 
@@ -524,7 +517,7 @@ again:
 	spin_lock(&fusionee->lock);
 
 	if (fusionee->packets.count > 10) {
-		up(&dev->fusionee.lock);
+		spin_unlock( &dev->lock );
 
 		fusion_sleep_on_spinlock(&fusionee->wait_process, &fusionee->lock, 0);
 
@@ -537,7 +530,7 @@ again:
 	if (sender && sender != fusionee)
 		spin_lock( &sender->lock );
 
-	up(&dev->fusionee.lock);
+	spin_unlock( &dev->lock );
 
 	ret = Fusionee_GetPacket( fusionee, sizeof(FusionReadMessage) + msg_size + extra_size, &packet );
 	if (ret)
@@ -865,8 +858,7 @@ fusionee_kill(FusionDev * dev,
 		Fusionee *f;
 		int killed = 0;
 
-		if (down_interruptible(&dev->fusionee.lock))
-			return -EINTR;
+		spin_lock( &dev->lock );
 
 		direct_list_foreach(f, dev->fusionee.list) {
 			if (f != fusionee && (!target || target == f->id)) {
@@ -902,14 +894,14 @@ fusionee_kill(FusionDev * dev,
 		}
 
 		if (!killed || timeout_ms < 0) {
-			up(&dev->fusionee.lock);
+			spin_unlock( &dev->lock );
 			break;
 		}
 
 		if (timeout_ms) {
 			switch (timeout) {
 			case 0:	/* timed out */
-				up(&dev->fusionee.lock);
+				spin_unlock( &dev->lock );
 				return -ETIMEDOUT;
 
 			case -1:	/* setup timeout */
@@ -920,13 +912,13 @@ fusionee_kill(FusionDev * dev,
 				/* fall through */
 
 			default:
-				fusion_sleep_on(&dev->fusionee.wait,
-						&dev->fusionee.lock, &timeout);
+				fusion_sleep_on_spinlock(&dev->fusionee.wait,
+						&dev->lock, &timeout);
 				break;
 			}
 		} else
-			fusion_sleep_on(&dev->fusionee.wait,
-					&dev->fusionee.lock, NULL);
+			fusion_sleep_on_spinlock(&dev->fusionee.wait,
+					&dev->lock, NULL);
 
 		if (signal_pending(current))
 			return -EINTR;
@@ -974,7 +966,7 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 	FUSION_ASSERT( fusionee->refs > 0 );
 
 	/* Lock list. */
-	down(&dev->fusionee.lock);
+	spin_lock( &dev->lock );
 
 	/* Lock fusionee. */
 	spin_lock(&fusionee->lock);
@@ -989,7 +981,7 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 	wake_up_interruptible_all(&dev->fusionee.wait);
 
 	/* Unlock list. */
-	up(&dev->fusionee.lock);
+	spin_unlock( &dev->lock );
 
 	/* Release locks, references, ... */
 	fusion_skirmish_dismiss_all(dev, fusionee->id);
@@ -1023,7 +1015,7 @@ pid_t fusionee_dispatcher_pid(FusionDev * dev, FusionID fusion_id)
 	Fusionee *fusionee;
 	int ret = -EINVAL;
 
-	down(&dev->fusionee.lock);
+	spin_lock( &dev->lock );
 
 	direct_list_foreach(fusionee, dev->fusionee.list) {
 		if (fusionee->id == fusion_id) {
@@ -1035,7 +1027,7 @@ pid_t fusionee_dispatcher_pid(FusionDev * dev, FusionID fusion_id)
 		}
 	}
 
-	up(&dev->fusionee.lock);
+	spin_unlock( &dev->lock );
 
 	return ret;
 }
@@ -1047,7 +1039,7 @@ lookup_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
 {
 	Fusionee *fusionee;
 
-	down(&dev->fusionee.lock);
+	spin_lock( &dev->lock );
 
 	direct_list_foreach(fusionee, dev->fusionee.list) {
 		if (fusionee->id == id) {
@@ -1056,7 +1048,7 @@ lookup_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
 		}
 	}
 
-	up(&dev->fusionee.lock);
+	spin_unlock( &dev->lock );
 
 	return -EINVAL;
 }
@@ -1074,7 +1066,7 @@ static int lock_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
 
 	spin_lock(&fusionee->lock);
 
-	up(&dev->fusionee.lock);
+	spin_unlock( &dev->lock );
 
 	*ret_fusionee = fusionee;
 
