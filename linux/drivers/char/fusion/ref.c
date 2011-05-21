@@ -139,7 +139,7 @@ int fusion_ref_up(FusionDev * dev, int id, FusionID fusion_id)
 	int ret;
 	FusionRef *ref;
 
-	ret = fusion_ref_lock(&dev->ref, id, true, &ref);
+	ret = fusion_ref_lookup(&dev->ref, id, &ref);
 	if (ret)
 		return ret;
 
@@ -147,22 +147,19 @@ int fusion_ref_up(FusionDev * dev, int id, FusionID fusion_id)
 
 	if (ref->locked) {
 		ret = -EAGAIN;
-		goto out;
+		return ret;
 	}
 
 	if (fusion_id) {
 		ret = add_local(ref, fusion_id, 1);
 		if (ret)
-			goto out;
+			return ret;
 
 		ret = propagate_local(dev, ref, 1);
 	} else
 		ref->global ++;
 
-      out:
-	fusion_ref_unlock(ref);
-
-	return ret;
+	return 0;
 }
 
 int fusion_ref_down(FusionDev * dev, int id, FusionID fusion_id)
@@ -170,32 +167,28 @@ int fusion_ref_down(FusionDev * dev, int id, FusionID fusion_id)
 	int ret;
 	FusionRef *ref;
 
-	ret = fusion_ref_lock(&dev->ref, id, true, &ref);
+	ret = fusion_ref_lookup(&dev->ref, id, &ref);
 	if (ret)
 		return ret;
 
 	dev->stat.ref_down++;
 
-	if (ref->locked) {
-		ret = -EAGAIN;
-		goto out;
-	}
+	if (ref->locked)
+		return -EAGAIN;
 
 	if (fusion_id) {
 		ret = -EIO;
 		if (!ref->local)
-			goto out;
+			return ret;
 
 		ret = add_local(ref, fusion_id, -1);
 		if (ret)
-			goto out;
+			return ret;
 
 		ret = propagate_local(dev, ref, -1);
 	} else {
-		if (!ref->global) {
-			ret = -EIO;
-			goto out;
-		}
+		if (!ref->global)
+			return -EIO;
 
 		ref->global --;
 
@@ -203,10 +196,7 @@ int fusion_ref_down(FusionDev * dev, int id, FusionID fusion_id)
 			notify_ref(dev, ref);
 	}
 
-      out:
-	fusion_ref_unlock(ref);
-
-	return ret;
+	return 0;
 }
 
 int fusion_ref_zero_lock(FusionDev * dev, int id, FusionID fusion_id)
@@ -214,20 +204,16 @@ int fusion_ref_zero_lock(FusionDev * dev, int id, FusionID fusion_id)
 	int ret;
 	FusionRef *ref;
 
-	ret = fusion_ref_lock(&dev->ref, id, false, &ref);
+	ret = fusion_ref_lookup(&dev->ref, id, &ref);
 	if (ret)
 		return ret;
 
 	while (true) {
-		if (ref->watched) {
-			fusion_ref_unlock(ref);
+		if (ref->watched)
 			return -EACCES;
-		}
 
-		if (ref->locked) {
-			fusion_ref_unlock(ref);
+		if (ref->locked)
 			return ref->locked == fusion_id ? -EIO : -EAGAIN;
-		}
 
 		if (ref->global ||ref->local) {
 			ret = fusion_ref_wait(ref, NULL);
@@ -239,8 +225,6 @@ int fusion_ref_zero_lock(FusionDev * dev, int id, FusionID fusion_id)
 
 	ref->locked = fusion_id;
 
-	fusion_ref_unlock(ref);
-
 	return 0;
 }
 
@@ -249,21 +233,17 @@ int fusion_ref_zero_trylock(FusionDev * dev, int id, FusionID fusion_id)
 	int ret;
 	FusionRef *ref;
 
-	ret = fusion_ref_lock(&dev->ref, id, false, &ref);
+	ret = fusion_ref_lookup(&dev->ref, id, &ref);
 	if (ret)
 		return ret;
 
-	if (ref->locked) {
-		fusion_ref_unlock(ref);
+	if (ref->locked)
 		return ref->locked == fusion_id ? -EIO : -EAGAIN;
-	}
 
 	if (ref->global ||ref->local)
 		ret = -ETOOMANYREFS;
 	else
 		ref->locked = fusion_id;
-
-	fusion_ref_unlock(ref);
 
 	return ret;
 }
@@ -273,18 +253,14 @@ int fusion_ref_zero_unlock(FusionDev * dev, int id, FusionID fusion_id)
 	int ret;
 	FusionRef *ref;
 
-	ret = fusion_ref_lock(&dev->ref, id, false, &ref);
+	ret = fusion_ref_lookup(&dev->ref, id, &ref);
 	if (ret)
 		return ret;
 
-	if (ref->locked != fusion_id) {
-		fusion_ref_unlock(ref);
+	if (ref->locked != fusion_id)
 		return -EIO;
-	}
 
 	ref->locked = 0;
-
-	fusion_ref_unlock(ref);
 
 	return 0;
 }
@@ -294,13 +270,11 @@ int fusion_ref_stat(FusionDev * dev, int id, int *refs)
 	int ret;
 	FusionRef *ref;
 
-	ret = fusion_ref_lock(&dev->ref, id, false, &ref);
+	ret = fusion_ref_lookup(&dev->ref, id, &ref);
 	if (ret)
 		return ret;
 
 	*refs = ref->global +ref->local;
-
-	fusion_ref_unlock(ref);
 
 	return 0;
 }
@@ -310,32 +284,24 @@ int fusion_ref_watch(FusionDev * dev, int id, int call_id, int call_arg)
 	int ret;
 	FusionRef *ref;
 
-	ret = fusion_ref_lock(&dev->ref, id, false, &ref);
+	ret = fusion_ref_lookup(&dev->ref, id, &ref);
 	if (ret)
 		return ret;
 
-	if (ref->entry.pid != current->pid) {
-		fusion_ref_unlock(ref);
+	if (ref->entry.pid != current->pid)
 		return -EACCES;
-	}
 
-	if (ref->global +ref->local == 0) {
-		fusion_ref_unlock(ref);
+	if (ref->global +ref->local == 0)
 		return -EIO;
-	}
 
-	if (ref->watched) {
-		fusion_ref_unlock(ref);
+	if (ref->watched)
 		return -EBUSY;
-	}
 
 	ref->watched = true;
 	ref->call_id = call_id;
 	ref->call_arg = call_arg;
 
 	fusion_ref_notify(ref, true);
-
-	fusion_ref_unlock(ref);
 
 	return 0;
 }
@@ -346,38 +312,31 @@ int fusion_ref_inherit(FusionDev * dev, int id, int from_id)
 	FusionRef *ref;
 	FusionRef *from = NULL;
 
-	ret = fusion_ref_lock(&dev->ref, id, true, &ref);
+	ret = fusion_ref_lookup(&dev->ref, id, &ref);
 	if (ret)
 		return ret;
 
-	ret = -EBUSY;
 	if (ref->inherited)
-		goto out;
+		return -EBUSY;
 
-	ret = -EINVAL;
 	fusion_list_foreach(from, dev->ref.list) {
-		if (from->entry.id == from_id) {
+		if (from->entry.id == from_id)
 			break;
-		}
 	}
 	if (!from)
-		goto out;
+		return -EINVAL;
 
 	ret = add_inheritor(ref, from);
 	if (ret)
-		goto out;
+		return ret;
 
 	ret = propagate_local(dev, ref, from->local);
 	if (ret)
-		goto out;
+		return ret;
 
 	ref->inherited = from;
 
-      out:
-
-	fusion_ref_unlock(ref);
-
-	return ret;
+	return 0;
 }
 
 int fusion_ref_destroy(FusionDev * dev, int id)

@@ -146,14 +146,12 @@ fusion_reactor_attach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 	if (channel < 0 || channel > 1023)
 		return -EINVAL;
 
-	ret = fusion_reactor_lock(&dev->reactor, id, false, &reactor);
+	ret = fusion_reactor_lookup(&dev->reactor, id, &reactor);
 	if (ret)
 		return ret;
 
-	if (reactor->destroyed) {
-		fusion_reactor_unlock(reactor);
+	if (reactor->destroyed)
 		return -EIDRM;
-	}
 
 	dev->stat.reactor_attach++;
 
@@ -162,15 +160,12 @@ fusion_reactor_attach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 		int ncount = channel + 4;
 
 		node = kmalloc(sizeof(ReactorNode), GFP_ATOMIC);
-		if (!node) {
-			fusion_reactor_unlock(reactor);
+		if (!node)
 			return -ENOMEM;
-		}
 
 		node->counts = kmalloc(sizeof(int) * ncount, GFP_ATOMIC);
 		if (!node->counts) {
 			kfree(node);
-			fusion_reactor_unlock(reactor);
 			return -ENOMEM;
 		}
 
@@ -187,10 +182,8 @@ fusion_reactor_attach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 			int ncount = channel + 4;
 			int *counts = kmalloc(sizeof(int) * ncount, GFP_ATOMIC);
 
-			if (!counts) {
-				fusion_reactor_unlock(reactor);
+			if (!counts)
 				return -ENOMEM;
-			}
 
 			memcpy(counts, node->counts,
 			       sizeof(int) * node->num_counts);
@@ -206,8 +199,6 @@ fusion_reactor_attach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 		node->counts[channel]++;
 	}
 
-	fusion_reactor_unlock(reactor);
-
 	return 0;
 }
 
@@ -221,17 +212,15 @@ fusion_reactor_detach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 	if (channel < 0 || channel > 1023)
 		return -EINVAL;
 
-	ret = fusion_reactor_lock(&dev->reactor, id, true, &reactor);
+	ret = fusion_reactor_lookup(&dev->reactor, id, &reactor);
 	if (ret)
 		return ret;
 
 	dev->stat.reactor_detach++;
 
 	node = get_node(reactor, fusion_id);
-	if (!node || node->num_counts <= channel) {
-		fusion_reactor_unlock(reactor);
+	if (!node || node->num_counts <= channel)
 		return -EIO;
-	}
 
 	if (!--node->counts[channel]) {
 		int i;
@@ -250,8 +239,6 @@ fusion_reactor_detach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 
 	if (reactor->destroyed && !reactor->nodes)
 		fusion_entry_destroy_locked(&dev->reactor, &reactor->entry);
-	else
-		fusion_reactor_unlock(reactor);
 
 	return 0;
 }
@@ -301,23 +288,19 @@ fusion_reactor_dispatch(FusionDev * dev, int id, int channel,
 	if (channel < 0 || channel > 1023)
 		return -EINVAL;
 
-	ret = fusion_reactor_lock(&dev->reactor, id, false, &reactor);
+	ret = fusion_reactor_lookup(&dev->reactor, id, &reactor);
 	if (ret)
 		return ret;
 
-	if (reactor->destroyed) {
-		fusion_reactor_unlock(reactor);
+	if (reactor->destroyed)
 		return -EIDRM;
-	}
 
 	if (reactor->call_id) {
 		void *ptr = *(void **)msg_data;
 
 		dispatch = kmalloc(sizeof(ReactorDispatch), GFP_ATOMIC);
-		if (!dispatch) {
-			fusion_reactor_unlock(reactor);
+		if (!dispatch)
 			return -ENOMEM;
-		}
 
 		dispatch->count = 0;
 		dispatch->call_id = reactor->call_id;
@@ -373,8 +356,6 @@ fusion_reactor_dispatch(FusionDev * dev, int id, int channel,
 		kfree(dispatch);
 	}
 
-	fusion_reactor_unlock(reactor);
-
 	return 0;
 }
 
@@ -385,19 +366,15 @@ fusion_reactor_set_dispatch_callback(FusionDev * dev,
 	int ret;
 	FusionReactor *reactor;
 
-	ret = fusion_reactor_lock(&dev->reactor, id, false, &reactor);
+	ret = fusion_reactor_lookup(&dev->reactor, id, &reactor);
 	if (ret)
 		return ret;
 
-	if (reactor->destroyed) {
-		fusion_reactor_unlock(reactor);
+	if (reactor->destroyed)
 		return -EIDRM;
-	}
 
 	reactor->call_id = call_id;
 	reactor->call_ptr = call_ptr;
-
-	fusion_reactor_unlock(reactor);
 
 	return 0;
 }
@@ -407,21 +384,17 @@ int fusion_reactor_destroy(FusionDev * dev, int id)
 	int ret;
 	FusionReactor *reactor;
 
-	ret = fusion_reactor_lock(&dev->reactor, id, true, &reactor);
+	ret = fusion_reactor_lookup(&dev->reactor, id, &reactor);
 	if (ret)
 		return ret;
 
-	if (reactor->destroyed) {
-		fusion_reactor_unlock(reactor);
+	if (reactor->destroyed)
 		return -EIDRM;
-	}
 
 	reactor->destroyed = true;
 
 	if (!reactor->nodes)
 		fusion_entry_destroy_locked(&dev->reactor, &reactor->entry);
-	else
-		fusion_reactor_unlock(reactor);
 
 	return 0;
 }

@@ -204,7 +204,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 	FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
 
 	/* Lookup and lock call. */
-	ret = fusion_call_lock(&dev->call, execute->call_id, false, &call);
+	ret = fusion_call_lookup(&dev->call, execute->call_id, &call);
 	if (ret)
 		return ret;
 
@@ -217,10 +217,8 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 	/* Add execution to receive the result. */
 	if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
 		execution = add_execution(call, fusionee, serial);
-		if (!execution) {
-			fusion_call_unlock(call);
+		if (!execution)
 			return -ENOMEM;
-		}
 
 		FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
 	}
@@ -248,7 +246,6 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 			remove_execution(call, execution);
 			kfree(execution);
 		}
-		fusion_call_unlock(call);
 		return ret;
 	}
 
@@ -288,8 +285,6 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 		fusion_skirmish_reclaim_all(dev, current->pid);
 	} else {
 		FUSION_DEBUG( "  -> message sent, not waiting.\n" );
-		/* Unlock call. */
-		fusion_call_unlock(call);
 	}
 
 	return 0;
@@ -308,7 +303,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 	FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
 
 	/* Lookup and lock call. */
-	ret = fusion_call_lock(&dev->call, execute->call_id, false, &call);
+	ret = fusion_call_lookup(&dev->call, execute->call_id, &call);
 	if (ret)
 		return ret;
 
@@ -321,10 +316,8 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 	/* Add execution to receive the result. */
 	if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
 		execution = add_execution(call, fusionee, serial);
-		if (!execution) {
-			fusion_call_unlock(call);
+		if (!execution)
 			return -ENOMEM;
-		}
 
 		FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
 	}
@@ -352,7 +345,6 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 			remove_execution(call, execution);
 			kfree(execution);
 		}
-		fusion_call_unlock(call);
 		return ret;
 	}
 
@@ -392,8 +384,6 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 		fusion_skirmish_reclaim_all(dev, current->pid);
 	} else {
 		FUSION_DEBUG( "  -> message sent, not waiting.\n" );
-		/* Unlock call. */
-		fusion_call_unlock(call);
 	}
 
 	return 0;
@@ -410,7 +400,7 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
 		return -EOPNOTSUPP;
 
 	/* Lookup and lock call. */
-	ret = fusion_call_lock(&dev->call, call_ret->call_id, false, &call);
+	ret = fusion_call_lookup(&dev->call, call_ret->call_id, &call);
 	if (ret)
 		return ret;
 
@@ -434,7 +424,6 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
 			/* Remove and free execution. */
 			remove_execution(call, execution);
 			kfree(execution);
-			fusion_call_unlock(call);
 			return -EIDRM;
 		}
 
@@ -454,14 +443,8 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
 		/* Wake up caller. */
 		wake_up_interruptible(&execution->wait);
 
-		/* Unlock call. */
-		fusion_call_unlock(call);
-
 		return 0;
 	}
-
-	/* Unlock call. */
-	fusion_call_unlock(call);
 
 	/* DirectFB 1.0.x does not handle one-way-calls properly */
 	if (dev->api.major <= 3)
@@ -483,15 +466,13 @@ int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
 		if (ret)
 			return ret;
 
-		ret = fusion_call_lock(&dev->call, call_id, false, &call);
+		ret = fusion_call_lookup(&dev->call, call_id, &call);
 		if (ret)
 			return ret;
 
 		/* Check if we own the call. */
-		if (call->fusionee != fusionee) {
-			fusion_call_unlock(call);
+		if (call->fusionee != fusionee)
 			return -EIO;
-		}
 
 		/* If an execution is pending... */
 		execution = (FusionCallExecution *) call->executions;

@@ -49,8 +49,6 @@ struct __FD_FusionEntry {
 	int id;
 	pid_t pid;
 
-	pid_t lock_pid;
-
 	wait_queue_head_t wait;
 	int waiters;
 
@@ -88,12 +86,9 @@ int fusion_entry_set_info(FusionEntries * entries,
 
 int fusion_entry_get_info(FusionEntries * entries, FusionEntryInfo * info);
 
-/* Lock & Unlock */
+/* Lookup */
 
-int fusion_entry_lock(FusionEntries * entries,
-		      int id, bool keep_entries_lock, FusionEntry ** ret_entry);
-
-void fusion_entry_unlock(FusionEntry * entry);
+int fusion_entry_lookup(FusionEntries * entries, int id, FusionEntry ** ret_entry);
 
 /** Wait & Notify **/
 
@@ -129,25 +124,19 @@ void fusion_entry_notify(FusionEntry * entry, bool all);
           .Print       = print_func                                             \
      };                                                                         \
                                                                                 \
-     static inline int fusion_##name##_lock( FusionEntries  *entries,           \
-                                             int             id,                \
-                                             bool            keep,              \
-                                             Type          **ret_##name )       \
+     static inline int fusion_##name##_lookup( FusionEntries  *entries,         \
+                                               int             id,              \
+                                               Type          **ret_##name )     \
      {                                                                          \
           int          ret;                                                     \
           FusionEntry *entry;                                                   \
                                                                                 \
-          ret = fusion_entry_lock( entries, id, keep, &entry );                 \
+          ret = fusion_entry_lookup( entries, id, &entry );                     \
                                                                                 \
           if (!ret)                                                             \
                *ret_##name = (Type *) entry;                                    \
                                                                                 \
           return ret;                                                           \
-     }                                                                          \
-                                                                                \
-     static inline void fusion_##name##_unlock( Type *name )                    \
-     {                                                                          \
-          fusion_entry_unlock( (FusionEntry*) name );                           \
      }                                                                          \
                                                                                 \
      static inline int fusion_##name##_wait( Type *name, long *timeout )        \

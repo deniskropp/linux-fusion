@@ -201,9 +201,7 @@ fusion_shmpool_attach(FusionDev * dev,
 	SHMPoolNode *node;
 	FusionSHMPool *shmpool;
 
-	ret =
-	    fusion_shmpool_lock(&dev->shmpool, attach->pool_id, false,
-				&shmpool);
+	ret = fusion_shmpool_lookup( &dev->shmpool, attach->pool_id, &shmpool );
 	if (ret)
 		return ret;
 
@@ -212,10 +210,8 @@ fusion_shmpool_attach(FusionDev * dev,
 	node = get_node(shmpool, fusion_id);
 	if (!node) {
 		node = kmalloc(sizeof(SHMPoolNode), GFP_ATOMIC);
-		if (!node) {
-			fusion_shmpool_unlock(shmpool);
+		if (!node)
 			return -ENOMEM;
-		}
 
 		node->fusion_id = fusion_id;
 		node->count = 1;
@@ -227,8 +223,6 @@ fusion_shmpool_attach(FusionDev * dev,
 	attach->addr_base = shmpool->addr_base;
 	attach->size = shmpool->size;
 
-	fusion_shmpool_unlock(shmpool);
-
 	return 0;
 }
 
@@ -238,24 +232,20 @@ int fusion_shmpool_detach(FusionDev * dev, int id, FusionID fusion_id)
 	SHMPoolNode *node;
 	FusionSHMPool *shmpool;
 
-	ret = fusion_shmpool_lock(&dev->shmpool, id, false, &shmpool);
+	ret = fusion_shmpool_lookup(&dev->shmpool, id, &shmpool);
 	if (ret)
 		return ret;
 
 	dev->stat.shmpool_detach++;
 
 	node = get_node(shmpool, fusion_id);
-	if (!node) {
-		fusion_shmpool_unlock(shmpool);
+	if (!node)
 		return -EIO;
-	}
 
 	if (!--node->count) {
 		fusion_list_remove(&shmpool->nodes, &node->link);
 		kfree(node);
 	}
-
-	fusion_shmpool_unlock(shmpool);
 
 	return 0;
 }
@@ -273,9 +263,7 @@ fusion_shmpool_dispatch(FusionDev * dev,
 	if (dispatch->size <= 0)
 		return -EINVAL;
 
-	ret =
-	    fusion_shmpool_lock(&dev->shmpool, dispatch->pool_id, false,
-				&shmpool);
+	ret = fusion_shmpool_lookup( &dev->shmpool, dispatch->pool_id, &shmpool );
 	if (ret)
 		return ret;
 
@@ -296,8 +284,6 @@ fusion_shmpool_dispatch(FusionDev * dev,
 				      FMT_SHMPOOL, shmpool->entry.id, 0,
 				      sizeof(message), &message, NULL, NULL, 0, NULL, 0);
 	}
-
-	fusion_shmpool_unlock(shmpool);
 
 	return 0;
 }

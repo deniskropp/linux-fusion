@@ -268,14 +268,13 @@ int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id)
 	FUSION_DEBUG( "%s( id %d, fusion_id %d )\n", __FUNCTION__, id, fusion_id);
 	dev->stat.skirmish_prevail_swoop++;
 
-	ret = fusion_skirmish_lock(&dev->skirmish, id, true, &skirmish);
+	ret = fusion_skirmish_lookup(&dev->skirmish, id, &skirmish);
 	if (ret)
 		return ret;
 
 	if (skirmish->lock_pid == current->pid) {
 		skirmish->lock_count++;
 		skirmish->lock_total++;
-		fusion_skirmish_unlock(skirmish);
 		return 0;
 	}
 #ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
@@ -366,8 +365,6 @@ int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id)
 
 	skirmish->lock_total++;
 
-	fusion_skirmish_unlock(skirmish);
-
 	return 0;
 }
 
@@ -378,7 +375,7 @@ int fusion_skirmish_swoop(FusionDev * dev, int id, int fusion_id)
 
 	FUSION_DEBUG("%s: id=%d, fusion_id=%d\n", __FUNCTION__, id, fusion_id);
 
-	ret = fusion_skirmish_lock(&dev->skirmish, id, false, &skirmish);
+	ret = fusion_skirmish_lookup(&dev->skirmish, id, &skirmish);
 	if (ret)
 		return ret;
 
@@ -394,11 +391,8 @@ int fusion_skirmish_swoop(FusionDev * dev, int id, int fusion_id)
 		if (skirmish->lock_pid == current->pid) {
 			skirmish->lock_count++;
 			skirmish->lock_total++;
-			fusion_skirmish_unlock(skirmish);
 			return 0;
 		}
-
-		fusion_skirmish_unlock(skirmish);
 
 		return -EAGAIN;
 	}
@@ -415,8 +409,6 @@ int fusion_skirmish_swoop(FusionDev * dev, int id, int fusion_id)
 
 	skirmish->lock_total++;
 
-	fusion_skirmish_unlock(skirmish);
-
 	return 0;
 }
 
@@ -427,7 +419,7 @@ fusion_skirmish_lock_count(FusionDev * dev, int id, int fusion_id,
 	int ret;
 	FusionSkirmish *skirmish;
 
-	ret = fusion_skirmish_lock(&dev->skirmish, id, false, &skirmish);
+	ret = fusion_skirmish_lookup(&dev->skirmish, id, &skirmish);
 	if (ret)
 		return ret;
 
@@ -437,8 +429,6 @@ fusion_skirmish_lock_count(FusionDev * dev, int id, int fusion_id,
 	} else {
 		*ret_lock_count = 0;
 	}
-
-	fusion_skirmish_unlock(skirmish);
 
 	return 0;
 }
@@ -451,16 +441,14 @@ int fusion_skirmish_dismiss(FusionDev * dev, int id, int fusion_id)
 
 	FUSION_DEBUG( "%s( id %d, fusion_id %d )\n", __FUNCTION__, id, fusion_id);
 
-	ret = fusion_skirmish_lock(&dev->skirmish, id, false, &skirmish);
+	ret = fusion_skirmish_lookup(&dev->skirmish, id, &skirmish);
 	if (ret)
 		return ret;
 
 	dev->stat.skirmish_dismiss++;
 
-	if (skirmish->lock_pid != current->pid) {
-		fusion_skirmish_unlock(skirmish);
+	if (skirmish->lock_pid != current->pid)
 		return -EIO;
-	}
 
 	if (--skirmish->lock_count == 0) {
 		FUSION_DEBUG( "  -> lock_pid = 0\n" );
@@ -478,8 +466,6 @@ int fusion_skirmish_dismiss(FusionDev * dev, int id, int fusion_id)
 			unblock_all_signals();
 #endif
 	}
-
-	fusion_skirmish_unlock(skirmish);
 
 #ifdef FUSION_SKIRMISH_YIELD
 	/* Locked > 20 ms ? */
@@ -501,7 +487,7 @@ int fusion_skirmish_destroy(FusionDev * dev, int id)
 
 	FUSION_DEBUG("%s: id=%d\n", __FUNCTION__, id);
 
-	ret = fusion_skirmish_lock(&dev->skirmish, id, true, &skirmish);
+	ret = fusion_skirmish_lookup(&dev->skirmish, id, &skirmish);
 	if (ret)
 		return ret;
 
@@ -521,11 +507,9 @@ int fusion_skirmish_destroy(FusionDev * dev, int id)
 		unblock_all_signals();
 #endif
 
-	fusion_skirmish_unlock(skirmish);
+	fusion_entry_destroy_locked(&dev->skirmish, &skirmish->entry);
 
-	/* FIXME: gap? */
-
-	return fusion_entry_destroy(&dev->skirmish, id);
+	return 0;
 }
 
 int
@@ -543,7 +527,7 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
 	     wait->timeout);
 
 	/* Lookup and lock the entry. */
-	ret = fusion_skirmish_lock(&dev->skirmish, wait->id, false, &skirmish);
+	ret = fusion_skirmish_lookup(&dev->skirmish, wait->id, &skirmish);
 	if (ret) {
 		FUSION_SKIRMISH_LOG
 		    ("FusionSkirmish: Failed to lookup skirmish with id 0x%x!\n",
@@ -560,7 +544,6 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
 	if (!wait->lock_count) {
 		/* Cannot wait for skirmish not held by the current task. */
 		if (skirmish->lock_pid != current->pid) {
-			fusion_skirmish_unlock(skirmish);
 			FUSION_SKIRMISH_LOG
 			    ("FusionSkirmish: Tried to wait for skirmish not held by the current task!\n");
 			return -EIO;
@@ -587,7 +570,6 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
 	}
 	/* This might happen when lock count was not initialized. */
 	else if (skirmish->lock_pid == current->pid) {
-		fusion_skirmish_unlock(skirmish);
 		FUSION_SKIRMISH_LOG
 		    ("FusionSkirmish: Tried to resume wait for skirmish still held by the current task!\n");
 		return -EIO;
@@ -617,8 +599,7 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
 
 		/* Relock after timeout. */
 		ret2 =
-		    fusion_skirmish_lock(&dev->skirmish, wait->id, false,
-					 &skirmish);
+		    fusion_skirmish_lookup(&dev->skirmish, wait->id, &skirmish);
 		if (ret2) {
 			FUSION_SKIRMISH_LOG
 			    ("FusionSkirmish: Failed to relookup skirmish with id 0x%x!\n",
@@ -676,11 +657,9 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
 	skirmish->lock_pid   = current->pid;
 	skirmish->lock_count = wait->lock_count;
 
-	fusion_skirmish_unlock(skirmish);
-
 	FUSION_SKIRMISH_LOG("FusionSkirmish: ...done (%d).\n", ret);
 
-	return ret;
+	return 0;
 }
 
 int fusion_skirmish_notify_(FusionDev * dev, int id, FusionID fusion_id)
@@ -690,22 +669,18 @@ int fusion_skirmish_notify_(FusionDev * dev, int id, FusionID fusion_id)
 
 	FUSION_DEBUG("%s: id=%d, fusion_id=%d\n", __FUNCTION__, id, fusion_id);
 
-	ret = fusion_skirmish_lock(&dev->skirmish, id, false, &skirmish);
+	ret = fusion_skirmish_lookup(&dev->skirmish, id, &skirmish);
 	if (ret)
 		return ret;
 
 	dev->stat.skirmish_notify++;
 
-	if (skirmish->lock_pid != current->pid) {
-		fusion_skirmish_unlock(skirmish);
+	if (skirmish->lock_pid != current->pid)
 		return -EIO;
-	}
 
 	skirmish->notify_count++;
 
 	fusion_skirmish_notify(skirmish, true);
-
-	fusion_skirmish_unlock(skirmish);
 
 	return 0;
 }

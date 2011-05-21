@@ -104,7 +104,7 @@ int fusion_property_lease(FusionDev * dev, int id, int fusion_id)
 
 	dev->stat.property_lease_purchase++;
 
-	ret = fusion_property_lock(&dev->properties, id, false, &property);
+	ret = fusion_property_lookup(&dev->properties, id, &property);
 	if (ret)
 		return ret;
 
@@ -116,14 +116,12 @@ int fusion_property_lease(FusionDev * dev, int id, int fusion_id)
 			property->lock_pid = current->pid;
 			property->count = 1;
 
-			fusion_property_unlock(property);
 			return 0;
 
 		case FUSION_PROPERTY_LEASED:
 			if (property->lock_pid == current->pid) {
 				property->count++;
 
-				fusion_property_unlock(property);
 				return 0;
 			}
 
@@ -134,17 +132,12 @@ int fusion_property_lease(FusionDev * dev, int id, int fusion_id)
 			break;
 
 		case FUSION_PROPERTY_PURCHASED:
-			if (property->lock_pid == current->pid) {
-				fusion_property_unlock(property);
+			if (property->lock_pid == current->pid)
 				return -EIO;
-			}
 
 			if (timeout == -1) {
-				if (jiffies - property->purchase_stamp >
-				    HZ / 10) {
-					fusion_property_unlock(property);
+				if (jiffies - property->purchase_stamp > HZ / 10)
 					return -EAGAIN;
-				}
 
 				timeout = HZ / 10;
 			}
@@ -174,7 +167,7 @@ int fusion_property_purchase(FusionDev * dev, int id, int fusion_id)
 
 	dev->stat.property_lease_purchase++;
 
-	ret = fusion_property_lock(&dev->properties, id, false, &property);
+	ret = fusion_property_lookup(&dev->properties, id, &property);
 	if (ret)
 		return ret;
 
@@ -188,15 +181,11 @@ int fusion_property_purchase(FusionDev * dev, int id, int fusion_id)
 			property->count = 1;
 
 			fusion_property_notify(property, true);
-
-			fusion_property_unlock(property);
 			return 0;
 
 		case FUSION_PROPERTY_LEASED:
-			if (property->lock_pid == current->pid) {
-				fusion_property_unlock(property);
+			if (property->lock_pid == current->pid)
 				return -EIO;
-			}
 
 			ret = fusion_property_wait(property, NULL);
 			if (ret)
@@ -208,15 +197,12 @@ int fusion_property_purchase(FusionDev * dev, int id, int fusion_id)
 			if (property->lock_pid == current->pid) {
 				property->count++;
 
-				fusion_property_unlock(property);
 				return 0;
 			}
 
 			if (timeout == -1) {
-				if (jiffies - property->purchase_stamp > HZ) {
-					fusion_property_unlock(property);
+				if (jiffies - property->purchase_stamp > HZ)
 					return -EAGAIN;
-				}
 
 				timeout = HZ;
 			}
@@ -246,19 +232,15 @@ int fusion_property_cede(FusionDev * dev, int id, int fusion_id)
 
 	dev->stat.property_cede++;
 
-	ret = fusion_property_lock(&dev->properties, id, false, &property);
+	ret = fusion_property_lookup(&dev->properties, id, &property);
 	if (ret)
 		return ret;
 
-	if (property->lock_pid != current->pid) {
-		fusion_property_unlock(property);
+	if (property->lock_pid != current->pid)
 		return -EIO;
-	}
 
-	if (--property->count) {
-		fusion_property_unlock(property);
+	if (--property->count)
 		return 0;
-	}
 
 	purchased = (property->state == FUSION_PROPERTY_PURCHASED);
 
@@ -267,8 +249,6 @@ int fusion_property_cede(FusionDev * dev, int id, int fusion_id)
 	property->lock_pid = 0;
 
 	fusion_property_notify(property, true);
-
-	fusion_property_unlock(property);
 
 	if (purchased)
 		yield();
@@ -285,20 +265,16 @@ int fusion_property_holdup(FusionDev * dev, int id, Fusionee * fusionee)
 	if (fusion_id > 1)
 		return -EPERM;
 
-	ret = fusion_property_lock(&dev->properties, id, false, &property);
+	ret = fusion_property_lookup(&dev->properties, id, &property);
 	if (ret)
 		return ret;
 
 	if (property->state == FUSION_PROPERTY_PURCHASED) {
-		if (property->fusion_id == fusion_id) {
-			fusion_property_unlock(property);
+		if (property->fusion_id == fusion_id)
 			return -EIO;
-		}
 
 		fusionee_kill(dev, fusionee, property->fusion_id, SIGKILL, -1);
 	}
-
-	fusion_property_unlock(property);
 
 	return 0;
 }

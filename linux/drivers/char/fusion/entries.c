@@ -294,13 +294,11 @@ int fusion_entry_set_info(FusionEntries * entries, const FusionEntryInfo * info)
 	FUSION_ASSERT(entries != NULL);
 	FUSION_ASSERT(info != NULL);
 
-	ret = fusion_entry_lock(entries, info->id, false, &entry);
+	ret = fusion_entry_lookup(entries, info->id, &entry);
 	if (ret)
 		return ret;
 
 	snprintf(entry->name, FUSION_ENTRY_INFO_NAME_LENGTH, info->name);
-
-	fusion_entry_unlock(entry);
 
 	return 0;
 }
@@ -313,20 +311,18 @@ int fusion_entry_get_info(FusionEntries * entries, FusionEntryInfo * info)
 	FUSION_ASSERT(entries != NULL);
 	FUSION_ASSERT(info != NULL);
 
-	ret = fusion_entry_lock(entries, info->id, false, &entry);
+	ret = fusion_entry_lookup(entries, info->id, &entry);
 	if (ret)
 		return ret;
 
 	snprintf(info->name, FUSION_ENTRY_INFO_NAME_LENGTH, entry->name);
 
-	fusion_entry_unlock(entry);
-
 	return 0;
 }
 
 int
-fusion_entry_lock(FusionEntries * entries,
-		  int id, bool keep_entries_lock, FusionEntry ** ret_entry)
+fusion_entry_lookup(FusionEntries * entries,
+		  int id, FusionEntry ** ret_entry)
 {
 	FusionEntry *entry;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
@@ -347,13 +343,8 @@ fusion_entry_lock(FusionEntries * entries,
 		return -EINVAL;
 	}
 
-	FUSION_ASSUME(entry->lock_pid != current->pid);
-
 	/* Move the entry to the front of all entries. */
 	fusion_list_move_to_front(&entries->list, &entry->link);
-
-	/* Mark as locked. */
-	entry->lock_pid = current->pid;
 
 	/* Keep timestamp, but use the slightly
 	   inexact version to avoid performance impacts. */
@@ -373,14 +364,6 @@ fusion_entry_lock(FusionEntries * entries,
 	return 0;
 }
 
-void fusion_entry_unlock(FusionEntry * entry)
-{
-	FUSION_ASSERT(entry != NULL);
-	FUSION_ASSUME(entry->lock_pid == current->pid);
-
-	entry->lock_pid = 0;
-}
-
 int fusion_entry_wait(FusionEntry * entry, long *timeout)
 {
 	int ret;
@@ -390,14 +373,12 @@ int fusion_entry_wait(FusionEntry * entry, long *timeout)
 
 	FUSION_ASSERT(entry != NULL);
 	FUSION_ASSERT(entry->entries != NULL);
-	FUSION_ASSUME(entry->lock_pid == current->pid);
 
 	id = entry->id;
 	entries = entry->entries;
 
 	entry->waiters++;
 
-	entry->lock_pid = 0;
 	fusion_sleep_on( entry->entries->dev, &entry->wait, timeout );
 
 	entry->waiters--;
@@ -408,7 +389,7 @@ int fusion_entry_wait(FusionEntry * entry, long *timeout)
 	if (timeout && !*timeout)
 		return -ETIMEDOUT;
 
-	ret = fusion_entry_lock(entries, id, false, &entry2);
+	ret = fusion_entry_lookup(entries, id, &entry2);
 	switch (ret) {
 	case -EINVAL:
 		return -EIDRM;
@@ -424,7 +405,6 @@ int fusion_entry_wait(FusionEntry * entry, long *timeout)
 void fusion_entry_notify(FusionEntry * entry, bool all)
 {
 	FUSION_ASSERT(entry != NULL);
-	FUSION_ASSUME(entry->lock_pid == current->pid);
 
 	if (all)
 		wake_up_interruptible_all(&entry->wait);
