@@ -73,6 +73,8 @@ void fusion_entries_deinit(FusionEntries * entries);
 void fusion_entries_create_proc_entry(FusionDev * dev, const char *name,
 				      FusionEntries * data);
 
+void fusion_entries_destroy_proc_entry(FusionDev * dev, const char *name);
+
 /* Create & Destroy */
 
 int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx);

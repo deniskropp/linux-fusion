@@ -22,6 +22,10 @@
 #include "list.h"
 
 
+#define NUM_MINORS 8
+
+
+
 struct __Fusion_FusionDev {
 	int refs;
 	int index;
@@ -35,8 +39,6 @@ struct __Fusion_FusionDev {
 	wait_queue_head_t enter_wait;
 
 	unsigned long shared_area;
-
-	struct proc_dir_entry *proc_dir;
 
 	struct {
 		int property_lease_purchase;
@@ -71,6 +73,14 @@ struct __Fusion_FusionDev {
 	FusionEntries shmpool;
 	FusionEntries skirmish;
 };
+
+
+typedef struct {
+	spinlock_t lock;
+	FusionDev  devs[NUM_MINORS];
+} FusionShared;
+
+extern struct proc_dir_entry *fusion_proc_dir[NUM_MINORS];
 
 /*
  * Special version of interruptible_sleep_on() that unlocks the mutex

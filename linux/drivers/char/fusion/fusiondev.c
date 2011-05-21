@@ -62,11 +62,6 @@ struct proc_dir_entry *proc_fusion_dir;
 
 static int fusion_major = FUSION_MAJOR;
 
-#define NUM_MINORS 8
-
-static FusionDev *fusion_devs[NUM_MINORS] = { 0 };
-static DEFINE_SPINLOCK( devs_lock );
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0)
 static devfs_handle_t devfs_handles[NUM_MINORS];
 static inline unsigned iminor(struct inode *inode)
@@ -82,6 +77,12 @@ static struct class *fusion_class;
 static struct class_simple *fusion_class;
 #endif
 #endif
+
+
+
+static FusionShared shared;
+
+struct proc_dir_entry *fusion_proc_dir[NUM_MINORS] = { 0 };
 
 /******************************************************************************/
 
@@ -222,7 +223,7 @@ static int fusiondev_init(FusionDev * dev)
 	if (ret)
 		goto error_call;
 
-	create_proc_read_entry("stat", 0, dev->proc_dir,
+	create_proc_read_entry("stat", 0, fusion_proc_dir[dev->index],
 			       fusiondev_stat_read_proc, dev);
 
 	return 0;
@@ -251,7 +252,7 @@ static int fusiondev_init(FusionDev * dev)
 
 static void fusiondev_deinit(FusionDev * dev)
 {
-	remove_proc_entry("stat", dev->proc_dir);
+	remove_proc_entry("stat", fusion_proc_dir[dev->index]);
 
 	fusion_call_deinit(dev);
 	fusion_shmpool_deinit(dev);
@@ -274,73 +275,58 @@ static int fusion_open(struct inode *inode, struct file *file)
 	int ret;
 	Fusionee *fusionee;
 	int minor = iminor(inode);
-	FusionDev *dev;
+	FusionDev *dev = &shared.devs[minor];
 
 	FUSION_DEBUG("fusion_open( %p, %d )\n", file, atomic_read(&file->f_count));
 
-	spin_lock( &devs_lock );
+	spin_lock( &shared.lock );
 
-	if (!fusion_devs[minor]) {
+	if (!dev->refs) {
 		char buf[4];
 
-		fusion_devs[minor] = kmalloc(sizeof(FusionDev), GFP_ATOMIC);
-		if (!fusion_devs[minor]) {
-			spin_unlock( &devs_lock );
-			return -ENOMEM;
-		}
-
-		memset(fusion_devs[minor], 0, sizeof(FusionDev));
+		memset( dev, 0, sizeof(FusionDev) );
 
 		snprintf(buf, 4, "%d", minor);
 
-		fusion_devs[minor]->proc_dir = proc_mkdir(buf, proc_fusion_dir);
-		fusion_devs[minor]->index = minor;
+		fusion_proc_dir[minor] = proc_mkdir(buf, proc_fusion_dir);
 
-		ret = fusiondev_init(fusion_devs[minor]);
+		dev->index = minor;
+
+		ret = fusiondev_init( dev );
 		if (ret) {
 			remove_proc_entry(buf, proc_fusion_dir);
-
-			kfree(fusion_devs[minor]);
-			fusion_devs[minor] = NULL;
-
-			spin_unlock( &devs_lock );
-
+			spin_unlock( &shared.lock );
 			return ret;
 		}
 	} else if (file->f_flags & O_EXCL) {
-		if (fusion_devs[minor]->fusionee.last_id) {
-			spin_unlock( &devs_lock );
+		if (dev->fusionee.last_id) {
+			spin_unlock( &shared.lock );
 			return -EBUSY;
 		}
 	}
 
-	dev = fusion_devs[minor];
-
 	spin_lock( &dev->_lock );
 
-	ret = fusionee_new(fusion_devs[minor], !!(file->f_flags & O_APPEND), &fusionee);
-
-	spin_unlock( &dev->_lock );
-
+	ret = fusionee_new(dev, !!(file->f_flags & O_APPEND), &fusionee);
 	if (ret) {
-		if (!fusion_devs[minor]->refs) {
-			fusiondev_deinit(fusion_devs[minor]);
+		if (!dev->refs) {
+			fusiondev_deinit( dev );
 
-			remove_proc_entry(fusion_devs[minor]->proc_dir->name,
-					  proc_fusion_dir);
-
-			kfree(fusion_devs[minor]);
-			fusion_devs[minor] = NULL;
+			remove_proc_entry( fusion_proc_dir[minor]->name, proc_fusion_dir );
 		}
 
-		spin_unlock( &devs_lock );
+		spin_unlock( &dev->_lock );
+
+		spin_unlock( &shared.lock );
 
 		return ret;
 	}
 
-	fusion_devs[minor]->refs++;
+	dev->refs++;
 
-	spin_unlock( &devs_lock );
+	spin_unlock( &dev->_lock );
+
+	spin_unlock( &shared.lock );
 
 	file->private_data = fusionee;
 
@@ -357,24 +343,20 @@ static int fusion_release(struct inode *inode, struct file *file)
 
 	spin_lock( &dev->_lock );
 
-	fusionee_destroy(fusion_devs[minor], fusionee);
+	fusionee_destroy( dev, fusionee );
 
 	spin_unlock( &dev->_lock );
 
 
-	spin_lock( &devs_lock );
+	spin_lock( &shared.lock );
 
-	if (!--fusion_devs[minor]->refs) {
-		fusiondev_deinit(fusion_devs[minor]);
+	if (!--dev->refs) {
+		fusiondev_deinit( dev );
 
-		remove_proc_entry(fusion_devs[minor]->proc_dir->name,
-				  proc_fusion_dir);
-
-		kfree(fusion_devs[minor]);
-		fusion_devs[minor] = NULL;
+		remove_proc_entry( fusion_proc_dir[minor]->name, proc_fusion_dir );
 	}
 
-	spin_unlock( &devs_lock );
+	spin_unlock( &shared.lock );
 
 	return 0;
 }
@@ -1284,6 +1266,8 @@ static int __init register_devices(void)
 int __init fusion_init(void)
 {
 	int ret;
+
+	spin_lock_init( &shared.lock );
 
 	ret = register_devices();
 	if (ret)

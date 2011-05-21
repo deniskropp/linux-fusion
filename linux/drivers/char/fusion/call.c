@@ -170,7 +170,7 @@ int fusion_call_init(FusionDev * dev)
 
 void fusion_call_deinit(FusionDev * dev)
 {
-	remove_proc_entry("calls", dev->proc_dir);
+	fusion_entries_destroy_proc_entry(dev, "calls");
 
 	fusion_entries_deinit(&dev->call);
 }

@@ -202,7 +202,7 @@ void fusion_skirmish_deinit(FusionDev * dev)
 {
 	FUSION_DEBUG("%s \n", __FUNCTION__);
 
-	remove_proc_entry("skirmishs", dev->proc_dir);
+	fusion_entries_destroy_proc_entry( dev, "skirmishs" );
 
 	fusion_entries_deinit(&dev->skirmish);
 }

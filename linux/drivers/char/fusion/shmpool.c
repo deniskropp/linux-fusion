@@ -178,7 +178,7 @@ int fusion_shmpool_init(FusionDev * dev)
 
 void fusion_shmpool_deinit(FusionDev * dev)
 {
-	remove_proc_entry("shmpools", dev->proc_dir);
+	fusion_entries_destroy_proc_entry( dev, "shmpools" );
 
 	fusion_entries_deinit(&dev->shmpool);
 }

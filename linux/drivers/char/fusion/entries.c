@@ -189,11 +189,16 @@ void fusion_entries_create_proc_entry(FusionDev * dev, const char *name,
 {
 	struct proc_dir_entry *pde;
 
-	pde = create_proc_entry(name, 0, dev->proc_dir);
+	pde = create_proc_entry(name, 0, fusion_proc_dir[dev->index]);
 	if (pde) {
 		pde->proc_fops = &proc_fusion_entries_operations;
 		pde->data = data;
 	}
+}
+
+void fusion_entries_destroy_proc_entry(FusionDev * dev, const char *name)
+{
+	remove_proc_entry(name, fusion_proc_dir[dev->index]);
 }
 
 int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx)

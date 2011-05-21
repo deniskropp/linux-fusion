@@ -360,8 +360,7 @@ int fusionee_init(FusionDev * dev)
 {
 	init_waitqueue_head(&dev->fusionee.wait);
 
-	create_proc_read_entry("fusionees", 0, dev->proc_dir,
-			       fusionees_read_proc, dev);
+	create_proc_read_entry( "fusionees", 0, fusion_proc_dir[dev->index], fusionees_read_proc, dev );
 
 	return 0;
 }
@@ -370,7 +369,7 @@ void fusionee_deinit(FusionDev * dev)
 {
 	Fusionee *fusionee, *next;
 
-	remove_proc_entry("fusionees", dev->proc_dir);
+	remove_proc_entry( "fusionees", fusion_proc_dir[dev->index] );
 
 	direct_list_foreach_safe (fusionee, next, dev->fusionee.list) {
 		while (fusionee->packets.count) {

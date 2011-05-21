@@ -124,7 +124,7 @@ int fusion_reactor_init(FusionDev * dev)
 
 void fusion_reactor_deinit(FusionDev * dev)
 {
-	remove_proc_entry("reactors", dev->proc_dir);
+	fusion_entries_destroy_proc_entry( dev, "reactors" );
 
 	fusion_entries_deinit(&dev->reactor);
 }

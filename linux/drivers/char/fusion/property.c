@@ -80,7 +80,7 @@ int fusion_property_init(FusionDev * dev)
 
 void fusion_property_deinit(FusionDev * dev)
 {
-	remove_proc_entry("properties", dev->proc_dir);
+	fusion_entries_destroy_proc_entry( dev, "properties" );
 
 	fusion_entries_deinit(&dev->properties);
 }

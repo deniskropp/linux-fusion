@@ -122,7 +122,7 @@ int fusion_ref_init(FusionDev * dev)
 
 void fusion_ref_deinit(FusionDev * dev)
 {
-	remove_proc_entry("refs", dev->proc_dir);
+	fusion_entries_destroy_proc_entry( dev, "refs" );
 
 	fusion_entries_deinit(&dev->ref);
 }
