@@ -267,7 +267,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 		/* Unlock call and wait for execution result. TODO: add timeout? */
 
 		FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
-		fusion_sleep_on_spinlock(&execution->wait, &call->entry.lock, 0);
+		fusion_sleep_on(&execution->wait, &call->entry.lock, 0);
 
 		if (signal_pending(current)) {
 			FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
@@ -371,7 +371,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 		/* Unlock call and wait for execution result. TODO: add timeout? */
 
 		FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
-		fusion_sleep_on_spinlock(&execution->wait, &call->entry.lock, 0);
+		fusion_sleep_on(&execution->wait, &call->entry.lock, 0);
 
 		if (signal_pending(current)) {
 			FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
@@ -497,7 +497,7 @@ int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
 		execution = (FusionCallExecution *) call->executions;
 		if (execution) {
 			/* Unlock call and wait for execution. TODO: add timeout? */
-			fusion_sleep_on_spinlock(&execution->wait, &call->entry.lock, 0);
+			fusion_sleep_on(&execution->wait, &call->entry.lock, 0);
 
 			if (signal_pending(current))
 				return -EINTR;

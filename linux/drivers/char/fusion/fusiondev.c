@@ -65,7 +65,7 @@ static int fusion_major = FUSION_MAJOR;
 #define NUM_MINORS 8
 
 static FusionDev *fusion_devs[NUM_MINORS] = { 0 };
-static struct semaphore devs_lock = __SEMAPHORE_INITIALIZER(devs_lock, 1);
+static DEFINE_SPINLOCK( devs_lock );
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0)
 static devfs_handle_t devfs_handles[NUM_MINORS];
@@ -87,25 +87,7 @@ static struct class_simple *fusion_class;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 void
-fusion_sleep_on(wait_queue_head_t * q, struct semaphore *lock,
-		signed long *timeout)
-{
-	DEFINE_WAIT(wait);
-
-	prepare_to_wait(q, &wait, TASK_INTERRUPTIBLE);
-
-	up(lock);
-
-	if (timeout)
-		*timeout = schedule_timeout(*timeout);
-	else
-		schedule();
-
-	finish_wait(q, &wait);
-}
-
-void
-fusion_sleep_on_spinlock(wait_queue_head_t * q, spinlock_t *lock,
+fusion_sleep_on(wait_queue_head_t * q, spinlock_t *lock,
 		signed long *timeout)
 {
 	DEFINE_WAIT(wait);
@@ -123,7 +105,7 @@ fusion_sleep_on_spinlock(wait_queue_head_t * q, spinlock_t *lock,
 }
 #else
 void
-fusion_sleep_on(wait_queue_head_t * q, struct semaphore *lock,
+fusion_sleep_on(wait_queue_head_t * q, spinlock_t *lock,
 		signed long *timeout)
 {
 	wait_queue_t wait;
@@ -136,7 +118,7 @@ fusion_sleep_on(wait_queue_head_t * q, struct semaphore *lock,
 	__add_wait_queue(q, &wait);
 	write_unlock(&q->lock);
 
-	up(lock);
+	spin_unlock(lock);
 
 	if (timeout)
 		*timeout = schedule_timeout(*timeout);
@@ -293,15 +275,14 @@ static int fusion_open(struct inode *inode, struct file *file)
 
 	FUSION_DEBUG("fusion_open( %p, %d )\n", file, atomic_read(&file->f_count));
 
-	if (down_interruptible(&devs_lock))
-		return -EINTR;
+	spin_lock( &devs_lock );
 
 	if (!fusion_devs[minor]) {
 		char buf[4];
 
 		fusion_devs[minor] = kmalloc(sizeof(FusionDev), GFP_ATOMIC);
 		if (!fusion_devs[minor]) {
-			up(&devs_lock);
+			spin_unlock( &devs_lock );
 			return -ENOMEM;
 		}
 
@@ -319,13 +300,13 @@ static int fusion_open(struct inode *inode, struct file *file)
 			kfree(fusion_devs[minor]);
 			fusion_devs[minor] = NULL;
 
-			up(&devs_lock);
+			spin_unlock( &devs_lock );
 
 			return ret;
 		}
 	} else if (file->f_flags & O_EXCL) {
 		if (fusion_devs[minor]->fusionee.last_id) {
-			up(&devs_lock);
+			spin_unlock( &devs_lock );
 			return -EBUSY;
 		}
 	}
@@ -344,14 +325,14 @@ static int fusion_open(struct inode *inode, struct file *file)
 			fusion_devs[minor] = NULL;
 		}
 
-		up(&devs_lock);
+		spin_unlock( &devs_lock );
 
 		return ret;
 	}
 
 	fusion_devs[minor]->refs++;
 
-	up(&devs_lock);
+	spin_unlock( &devs_lock );
 
 	file->private_data = fusionee;
 
@@ -367,7 +348,7 @@ static int fusion_release(struct inode *inode, struct file *file)
 
 	fusionee_destroy(fusion_devs[minor], fusionee);
 
-	down(&devs_lock);
+	spin_lock( &devs_lock );
 
 	if (!--fusion_devs[minor]->refs) {
 		fusiondev_deinit(fusion_devs[minor]);
@@ -379,7 +360,7 @@ static int fusion_release(struct inode *inode, struct file *file)
 		fusion_devs[minor] = NULL;
 	}
 
-	up(&devs_lock);
+	spin_unlock( &devs_lock );
 
 	return 0;
 }

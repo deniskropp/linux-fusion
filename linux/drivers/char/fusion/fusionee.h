@@ -28,7 +28,6 @@ struct __Fusion_Fusionee {
 
      int        refs;
 
-	//struct semaphore lock;
      spinlock_t lock;
 
 	FusionID id;

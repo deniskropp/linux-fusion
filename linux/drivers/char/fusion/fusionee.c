@@ -432,7 +432,7 @@ int fusionee_enter(FusionDev * dev, FusionEnter * enter, Fusionee * fusionee)
 
 	if (dev->fusionee.last_id || fusionee->force_slave) {
 		while (!dev->enter_ok) {
-			fusion_sleep_on_spinlock(&dev->enter_wait, &dev->lock, NULL);
+			fusion_sleep_on(&dev->enter_wait, &dev->lock, NULL);
 
 			if (signal_pending(current))
 				return -EINTR;
@@ -519,7 +519,7 @@ again:
 	if (fusionee->packets.count > 10) {
 		spin_unlock( &dev->lock );
 
-		fusion_sleep_on_spinlock(&fusionee->wait_process, &fusionee->lock, 0);
+		fusion_sleep_on(&fusionee->wait_process, &fusionee->lock, 0);
 
 		if (signal_pending(current))
 			return -EINTR;
@@ -616,7 +616,7 @@ again:
 	spin_lock(&fusionee->lock);
 
 	if (fusionee->packets.count > 10) {
-		fusion_sleep_on_spinlock(&fusionee->wait_process, &fusionee->lock, 0);
+		fusion_sleep_on(&fusionee->wait_process, &fusionee->lock, 0);
 
 		if (signal_pending(current))
 			return -EINTR;
@@ -710,7 +710,7 @@ fusionee_get_messages(FusionDev * dev,
 			unlock_fusionee(fusionee);
 			flush_packets(fusionee, dev, &prev_packets);
 		} else {
-			fusion_sleep_on_spinlock(&fusionee->wait_receive, &fusionee->lock, 0);
+			fusion_sleep_on(&fusionee->wait_receive, &fusionee->lock, 0);
 
 			if (signal_pending(current))
 				return -EINTR;
@@ -798,7 +798,7 @@ fusionee_wait_processing(FusionDev * dev,
 			FUSION_ASSUME(fusionee->dispatcher_pid != current->pid);
 
 		/* Otherwise unlock and wait. */
-		fusion_sleep_on_spinlock(&fusionee->wait_process, &fusionee->lock, 0);
+		fusion_sleep_on(&fusionee->wait_process, &fusionee->lock, 0);
 
 		if (signal_pending(current))
 			return -EINTR;
@@ -912,12 +912,12 @@ fusionee_kill(FusionDev * dev,
 				/* fall through */
 
 			default:
-				fusion_sleep_on_spinlock(&dev->fusionee.wait,
+				fusion_sleep_on(&dev->fusionee.wait,
 						&dev->lock, &timeout);
 				break;
 			}
 		} else
-			fusion_sleep_on_spinlock(&dev->fusionee.wait,
+			fusion_sleep_on(&dev->fusionee.wait,
 					&dev->lock, NULL);
 
 		if (signal_pending(current))
