@@ -25,10 +25,6 @@
 #include <linux/sched.h>
 #include <linux/proc_fs.h>
 
-#ifndef yield
-#define yield schedule
-#endif
-
 #include <linux/fusion.h>
 
 #include "fusiondev.h"
@@ -249,9 +245,6 @@ int fusion_property_cede(FusionDev * dev, int id, int fusion_id)
 	property->lock_pid = 0;
 
 	fusion_property_notify(property, true);
-
-	if (purchased)
-		yield();
 
 	return 0;
 }
