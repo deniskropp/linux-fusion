@@ -78,7 +78,6 @@ print_skirmish_internal( FusionSkirmish* skirmish, const char* pHeader )
 	FusionEntry *entry;
 	char p[16];
 	struct timeval now;
-	static int kaboemcount = 100;
 
 	do_gettimeofday(&now);
 
@@ -130,14 +129,6 @@ print_skirmish_internal( FusionSkirmish* skirmish, const char* pHeader )
 		   skirmish->lock_pid,
 		   skirmish->entry.waiters
 		   );
-
-	if( kaboemcount <= 0 ) {
-		printk( KERN_EMERG "boem !\n" );
-		kill_pgrp(task_pgrp(current), SIGSEGV, 1);
-		while(1) {
-			yield();
-		}
-	}
 }
 
 static void
@@ -419,12 +410,6 @@ int fusion_skirmish_dismiss(FusionDev * dev, int id, int fusion_id)
 
 		fusion_skirmish_notify(skirmish, true);
 	}
-
-#ifdef FUSION_SKIRMISH_YIELD
-	/* Locked > 20 ms ? */
-	if (lock_jiffies > HZ / 50)
-		yield();
-#endif
 
 	return 0;
 }
