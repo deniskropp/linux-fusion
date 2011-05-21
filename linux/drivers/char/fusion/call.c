@@ -161,7 +161,7 @@ FUSION_ENTRY_CLASS(FusionCall, call, fusion_call_construct,
 
 int fusion_call_init(FusionDev * dev)
 {
-	fusion_entries_init(&dev->call, &call_class, dev);
+	fusion_entries_init(&dev->call, &call_class, dev, dev);
 
 	fusion_entries_create_proc_entry(dev, "calls", &dev->call);
 
@@ -267,7 +267,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 		/* Unlock call and wait for execution result. TODO: add timeout? */
 
 		FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
-		fusion_sleep_on(&execution->wait, &call->entry.lock, 0);
+		fusion_sleep_on( dev, &execution->wait, 0 );
 
 		if (signal_pending(current)) {
 			FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
@@ -371,7 +371,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 		/* Unlock call and wait for execution result. TODO: add timeout? */
 
 		FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
-		fusion_sleep_on(&execution->wait, &call->entry.lock, 0);
+		fusion_sleep_on( dev, &execution->wait, 0 );
 
 		if (signal_pending(current)) {
 			FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
@@ -497,7 +497,7 @@ int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
 		execution = (FusionCallExecution *) call->executions;
 		if (execution) {
 			/* Unlock call and wait for execution. TODO: add timeout? */
-			fusion_sleep_on(&execution->wait, &call->entry.lock, 0);
+			fusion_sleep_on( dev, &execution->wait, 0);
 
 			if (signal_pending(current))
 				return -EINTR;
@@ -515,26 +515,18 @@ void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee)
 
 	FUSION_DEBUG( "%s( dev %p, fusion_id %u )\n", __FUNCTION__, dev, fusion_id );
 
-	spin_lock(&dev->call.lock);
-
 	l = dev->call.list;
 
 	while (l) {
 		FusionLink *next = l->next;
 		FusionCall *call = (FusionCall *) l;
 
-		spin_lock(&call->entry.lock);
-
 		if (call->fusionee == fusionee)
 			fusion_entry_destroy_locked(call->entry.entries,
 						    &call->entry);
-		else
-			spin_unlock(&call->entry.lock);
 
 		l = next;
 	}
-
-	spin_unlock(&dev->call.lock);
 }
 
 /******************************************************************************/

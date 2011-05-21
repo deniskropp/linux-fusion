@@ -37,7 +37,8 @@ typedef struct {
 
 	FusionLink *list;
 	int ids;
-	spinlock_t lock;
+
+     FusionDev *dev;
 } FusionEntries;
 
 struct __FD_FusionEntry {
@@ -50,7 +51,6 @@ struct __FD_FusionEntry {
 
 	pid_t lock_pid;
 
-	spinlock_t lock;
 	wait_queue_head_t wait;
 	int waiters;
 
@@ -61,8 +61,10 @@ struct __FD_FusionEntry {
 
 /* Entries Init & DeInit */
 
-void fusion_entries_init(FusionEntries * entries,
-			 FusionEntryClass * class, void *ctx);
+void fusion_entries_init( FusionEntries    *entries,
+				 FusionEntryClass *class,
+				 void             *ctx,
+				 FusionDev        *dev );
 
 void fusion_entries_deinit(FusionEntries * entries);
 

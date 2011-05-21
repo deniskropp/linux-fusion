@@ -311,7 +311,6 @@ static int lookup_fusionee(FusionDev * dev, FusionID id,
 			   Fusionee ** ret_fusionee);
 static int lock_fusionee(FusionDev * dev, FusionID id,
 			 Fusionee ** ret_fusionee);
-static void unlock_fusionee(Fusionee * fusionee);
 
 static void flush_packets(Fusionee *fusionee, FusionDev * dev, FusionFifo * fifo);
 static void free_packets(Fusionee *fusionee, FusionDev * dev, FusionFifo * fifo);
@@ -326,7 +325,7 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
 	FusionDev *dev = private;
 	int written = 0;
 
-	spin_lock( &dev->lock );
+	spin_lock( &dev->_lock );
 
 	direct_list_foreach(fusionee, dev->fusionee.list) {
 		written +=
@@ -344,7 +343,7 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
 			break;
 	}
 
-	spin_unlock( &dev->lock );
+	spin_unlock( &dev->_lock );
 
 	*start = buf + offset;
 	written -= offset;
@@ -371,8 +370,6 @@ void fusionee_deinit(FusionDev * dev)
 {
 	Fusionee *fusionee, *next;
 
-	spin_lock( &dev->lock );
-
 	remove_proc_entry("fusionees", dev->proc_dir);
 
 	direct_list_foreach_safe (fusionee, next, dev->fusionee.list) {
@@ -384,8 +381,6 @@ void fusionee_deinit(FusionDev * dev)
 
 		kfree(fusionee);
 	}
-
-	spin_unlock( &dev->lock );
 }
 
 /******************************************************************************/
@@ -406,18 +401,10 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 	fusionee->force_slave = force_slave;
 	fusionee->mm = current->mm;
 
-	spin_lock_init( &fusionee->lock );
-
 	init_waitqueue_head(&fusionee->wait_receive);
 	init_waitqueue_head(&fusionee->wait_process);
 
-
-	spin_lock( &dev->lock );
-
 	direct_list_prepend(&dev->fusionee.list, &fusionee->link);
-
-	spin_unlock( &dev->lock );
-
 
 	fusionee->fusion_dev = dev;
 
@@ -428,16 +415,12 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 
 int fusionee_enter(FusionDev * dev, FusionEnter * enter, Fusionee * fusionee)
 {
-	spin_lock( &dev->lock );
-
 	if (dev->fusionee.last_id || fusionee->force_slave) {
 		while (!dev->enter_ok) {
-			fusion_sleep_on(&dev->enter_wait, &dev->lock, NULL);
+			fusion_sleep_on( dev, &dev->enter_wait, NULL );
 
 			if (signal_pending(current))
 				return -EINTR;
-
-			spin_lock( &dev->lock );
 		}
 
 		FUSION_ASSERT(dev->fusionee.last_id != 0);
@@ -458,8 +441,6 @@ int fusionee_enter(FusionDev * dev, FusionEnter * enter, Fusionee * fusionee)
 	}
 
 	fusionee->id = ++dev->fusionee.last_id;
-
-	spin_unlock( &dev->lock );
 
 	enter->fusion_id = fusionee->id;
 
@@ -513,28 +494,16 @@ fusionee_send_message(FusionDev * dev,
 	FUSION_DEBUG("fusionee_send_message (%d -> %d, type %d, id %d, size %d, extra %d)\n",
 		 fusionee->id, recipient, msg_type, msg_id, msg_size, extra_size);
 
-again:
-	spin_lock(&fusionee->lock);
-
-	if (fusionee->packets.count > 10) {
-		spin_unlock( &dev->lock );
-
-		fusion_sleep_on(&fusionee->wait_process, &fusionee->lock, 0);
+	while (fusionee->packets.count > 10) {
+		fusion_sleep_on( dev, &fusionee->wait_process, 0 );
 
 		if (signal_pending(current))
 			return -EINTR;
-
-		goto again;
 	}
-
-	if (sender && sender != fusionee)
-		spin_lock( &sender->lock );
-
-	spin_unlock( &dev->lock );
 
 	ret = Fusionee_GetPacket( fusionee, sizeof(FusionReadMessage) + msg_size + extra_size, &packet );
 	if (ret)
-		goto error;
+		return ret;
 
 	D_MAGIC_ASSERT( packet, Packet );
 
@@ -546,7 +515,7 @@ again:
 					msg_data, msg_size, extra_data, extra_size,
 					msg_type != FMT_CALL && msg_type != FMT_SHMPOOL );
 	if (ret)
-		goto error;
+		return ret;
 
 
 
@@ -556,7 +525,7 @@ again:
 		ret = Packet_AddCallback( packet, msg_id, callback, callback_ctx, callback_param );
 		if (ret) {
 			packet->size = size;
-			goto error;
+			return ret;
 		}
 	}
 
@@ -572,23 +541,7 @@ again:
 		wake_up_interruptible_all(&fusionee->wait_receive);
 	}
 
-
-	if (sender && sender != fusionee)
-		unlock_fusionee(sender);
-
-	unlock_fusionee(fusionee);
-
-
 	return 0;
-
-
-error:
-	if (sender && sender != fusionee)
-		unlock_fusionee(sender);
-
-	unlock_fusionee(fusionee);
-
-	return ret;
 }
 
 int
@@ -612,21 +565,16 @@ fusionee_send_message2(FusionDev * dev,
 	FUSION_DEBUG("fusionee_send_message2 (%d -> %d, type %d, id %d, size %d, extra %d)\n",
 		 sender->id, fusionee->id, msg_type, msg_id, msg_size, extra_size);
 
-again:
-	spin_lock(&fusionee->lock);
-
-	if (fusionee->packets.count > 10) {
-		fusion_sleep_on(&fusionee->wait_process, &fusionee->lock, 0);
+	while (fusionee->packets.count > 10) {
+		fusion_sleep_on( dev, &fusionee->wait_process, 0 );
 
 		if (signal_pending(current))
 			return -EINTR;
-
-		goto again;
 	}
 
 	ret = Fusionee_GetPacket( fusionee, sizeof(FusionReadMessage) + msg_size + extra_size, &packet );
 	if (ret)
-		goto error;
+		return ret;
 
 	D_MAGIC_ASSERT( packet, Packet );
 
@@ -638,7 +586,7 @@ again:
 					msg_data, msg_size, extra_data, extra_size,
 					msg_type != FMT_CALL && msg_type != FMT_SHMPOOL );
 	if (ret)
-		goto error;
+		return ret;
 
 
 
@@ -648,7 +596,7 @@ again:
 		ret = Packet_AddCallback( packet, msg_id, callback, callback_ctx, callback_param );
 		if (ret) {
 			packet->size = size;
-			goto error;
+			return ret;
 		}
 	}
 
@@ -664,17 +612,7 @@ again:
 		wake_up_interruptible_all(&fusionee->wait_receive);
 	}
 
-
-	unlock_fusionee(fusionee);
-
-
 	return 0;
-
-
-error:
-	unlock_fusionee(fusionee);
-
-	return ret;
 }
 
 int
@@ -685,8 +623,6 @@ fusionee_get_messages(FusionDev * dev,
 	FusionFifo prev_packets;
 
 	FUSION_DEBUG( "%s()\n", __FUNCTION__ );
-
-	spin_lock( &fusionee->lock );
 
 	if (fusionee->dispatcher_pid)
 		FUSION_ASSUME(fusionee->dispatcher_pid == current->pid);
@@ -701,22 +637,18 @@ fusionee_get_messages(FusionDev * dev,
 
 	while (!fusionee->packets.count || !((Packet *) fusionee->packets.items)->flush) {
 		if (!block) {
-			unlock_fusionee(fusionee);
 			flush_packets(fusionee, dev, &prev_packets);
 			return -EAGAIN;
 		}
 
 		if (prev_packets.count) {
-			unlock_fusionee(fusionee);
 			flush_packets(fusionee, dev, &prev_packets);
 		} else {
-			fusion_sleep_on(&fusionee->wait_receive, &fusionee->lock, 0);
+			fusion_sleep_on( dev, &fusionee->wait_receive, 0 );
 
 			if (signal_pending(current))
 				return -EINTR;
 		}
-
-		spin_lock( &fusionee->lock );
 	}
 
 	while (fusionee->packets.count && ((Packet *) fusionee->packets.items)->flush) {
@@ -727,7 +659,6 @@ fusionee_get_messages(FusionDev * dev,
 
 		if (bytes > buf_size) {
 			if (!written) {
-				unlock_fusionee(fusionee);
 				flush_packets(fusionee, dev, &prev_packets);
 				return -EMSGSIZE;
 			}
@@ -736,7 +667,6 @@ fusionee_get_messages(FusionDev * dev,
 		}
 
 		if (copy_to_user(buf, packet->buf, packet->size)) {
-			unlock_fusionee(fusionee);
 			flush_packets(fusionee, dev, &prev_packets);
 			return -EFAULT;
 		}
@@ -754,8 +684,6 @@ fusionee_get_messages(FusionDev * dev,
 		else
 			Fusionee_PutPacket(fusionee, packet);
 	}
-
-	unlock_fusionee(fusionee);
 
 	flush_packets(fusionee, dev, &prev_packets);
 
@@ -798,13 +726,11 @@ fusionee_wait_processing(FusionDev * dev,
 			FUSION_ASSUME(fusionee->dispatcher_pid != current->pid);
 
 		/* Otherwise unlock and wait. */
-		fusion_sleep_on(&fusionee->wait_process, &fusionee->lock, 0);
+		fusion_sleep_on( dev, &fusionee->wait_process, 0 );
 
 		if (signal_pending(current))
 			return -EINTR;
 	} while (true);
-
-	unlock_fusionee(fusionee);
 
 	return 0;
 }
@@ -825,8 +751,6 @@ fusionee_poll(FusionDev * dev,
 
 	fusion_fifo_reset(&fusionee->prev_packets);
 
-	unlock_fusionee(fusionee);
-
 	flush_packets(fusionee, dev, &prev_msgs);
 
 	wake_up_all(&fusionee->wait_process);
@@ -838,12 +762,8 @@ fusionee_poll(FusionDev * dev,
 		return POLLERR;
 
 	if (fusionee->packets.count && ((Packet *) fusionee->packets.items)->flush) {
-		unlock_fusionee(fusionee);
-
 		return POLLIN | POLLRDNORM;
 	}
-
-	unlock_fusionee(fusionee);
 
 	return 0;
 }
@@ -857,8 +777,6 @@ fusionee_kill(FusionDev * dev,
 	while (true) {
 		Fusionee *f;
 		int killed = 0;
-
-		spin_lock( &dev->lock );
 
 		direct_list_foreach(f, dev->fusionee.list) {
 			if (f != fusionee && (!target || target == f->id)) {
@@ -893,15 +811,12 @@ fusionee_kill(FusionDev * dev,
 			}
 		}
 
-		if (!killed || timeout_ms < 0) {
-			spin_unlock( &dev->lock );
+		if (!killed || timeout_ms < 0)
 			break;
-		}
 
 		if (timeout_ms) {
 			switch (timeout) {
 			case 0:	/* timed out */
-				spin_unlock( &dev->lock );
 				return -ETIMEDOUT;
 
 			case -1:	/* setup timeout */
@@ -912,13 +827,11 @@ fusionee_kill(FusionDev * dev,
 				/* fall through */
 
 			default:
-				fusion_sleep_on(&dev->fusionee.wait,
-						&dev->lock, &timeout);
+				fusion_sleep_on( dev, &dev->fusionee.wait, &timeout );
 				break;
 			}
 		} else
-			fusion_sleep_on(&dev->fusionee.wait,
-					&dev->lock, NULL);
+			fusion_sleep_on( dev, &dev->fusionee.wait, NULL );
 
 		if (signal_pending(current))
 			return -EINTR;
@@ -932,13 +845,9 @@ fusionee_ref( Fusionee * fusionee )
 {
 	FUSION_ASSERT( fusionee != NULL );
 
-	spin_lock( &fusionee->lock );
-
 	FUSION_ASSERT( fusionee->refs > 0 );
 
 	fusionee->refs++;
-
-	spin_unlock( &fusionee->lock );
 }
 
 void
@@ -946,14 +855,10 @@ fusionee_unref( Fusionee * fusionee )
 {
 	FUSION_ASSERT( fusionee != NULL );
 
-	spin_lock( &fusionee->lock );
-
 	FUSION_ASSERT( fusionee->refs > 0 );
 
 	if (!--fusionee->refs)
 		kfree( fusionee );
-	else
-		spin_unlock( &fusionee->lock );
 }
 
 
@@ -965,12 +870,6 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 	FUSION_ASSERT( fusionee != NULL );
 	FUSION_ASSERT( fusionee->refs > 0 );
 
-	/* Lock list. */
-	spin_lock( &dev->lock );
-
-	/* Lock fusionee. */
-	spin_lock(&fusionee->lock);
-
 	prev_packets = fusionee->prev_packets;
 	packets      = fusionee->packets;
 
@@ -980,9 +879,6 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 	/* Wake up waiting killer. */
 	wake_up_interruptible_all(&dev->fusionee.wait);
 
-	/* Unlock list. */
-	spin_unlock( &dev->lock );
-
 	/* Release locks, references, ... */
 	fusion_skirmish_dismiss_all(dev, fusionee->id);
 	fusion_skirmish_return_all_from(dev, fusionee->id);
@@ -991,9 +887,6 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 	fusion_property_cede_all(dev, fusionee->id);
 	fusion_ref_clear_all_local(dev, fusionee->id);
 	fusion_shmpool_detach_all(dev, fusionee->id);
-
-	/* Unlock fusionee. */
-	spin_unlock(&fusionee->lock);
 
 	/* Free all pending messages. */
 	flush_packets(fusionee, dev, &prev_packets);
@@ -1015,8 +908,6 @@ pid_t fusionee_dispatcher_pid(FusionDev * dev, FusionID fusion_id)
 	Fusionee *fusionee;
 	int ret = -EINVAL;
 
-	spin_lock( &dev->lock );
-
 	direct_list_foreach(fusionee, dev->fusionee.list) {
 		if (fusionee->id == fusion_id) {
 			/* FIXME: wait for it? */
@@ -1026,8 +917,6 @@ pid_t fusionee_dispatcher_pid(FusionDev * dev, FusionID fusion_id)
 			break;
 		}
 	}
-
-	spin_unlock( &dev->lock );
 
 	return ret;
 }
@@ -1039,16 +928,12 @@ lookup_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
 {
 	Fusionee *fusionee;
 
-	spin_lock( &dev->lock );
-
 	direct_list_foreach(fusionee, dev->fusionee.list) {
 		if (fusionee->id == id) {
 			*ret_fusionee = fusionee;
 			return 0;
 		}
 	}
-
-	spin_unlock( &dev->lock );
 
 	return -EINVAL;
 }
@@ -1064,18 +949,9 @@ static int lock_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
 
 	direct_list_move_to_front(&dev->fusionee.list, &fusionee->link);
 
-	spin_lock(&fusionee->lock);
-
-	spin_unlock( &dev->lock );
-
 	*ret_fusionee = fusionee;
 
 	return 0;
-}
-
-static void unlock_fusionee(Fusionee * fusionee)
-{
-	spin_unlock(&fusionee->lock);
 }
 
 /******************************************************************************/

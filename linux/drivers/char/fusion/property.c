@@ -75,7 +75,7 @@ FUSION_ENTRY_CLASS(FusionProperty, property, NULL, NULL, fusion_property_print)
 /******************************************************************************/
 int fusion_property_init(FusionDev * dev)
 {
-	fusion_entries_init(&dev->properties, &property_class, dev);
+	fusion_entries_init(&dev->properties, &property_class, dev, dev);
 
 	fusion_entries_create_proc_entry(dev, "properties", &dev->properties);
 
@@ -312,12 +312,8 @@ void fusion_property_cede_all(FusionDev * dev, int fusion_id)
 {
 	FusionLink *l;
 
-	spin_lock(&dev->properties.lock);
-
 	fusion_list_foreach(l, dev->properties.list) {
 		FusionProperty *property = (FusionProperty *) l;
-
-		spin_lock(&property->entry.lock);
 
 		if (property->fusion_id == fusion_id) {
 			property->state = FUSION_PROPERTY_AVAILABLE;
@@ -326,9 +322,5 @@ void fusion_property_cede_all(FusionDev * dev, int fusion_id)
 
 			wake_up_interruptible_all(&property->entry.wait);
 		}
-
-		spin_unlock(&property->entry.lock);
 	}
-
-	spin_unlock(&dev->properties.lock);
 }

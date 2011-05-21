@@ -113,7 +113,7 @@ FUSION_ENTRY_CLASS(FusionRef, ref, NULL, fusion_ref_destruct, fusion_ref_print);
 
 int fusion_ref_init(FusionDev * dev)
 {
-	fusion_entries_init(&dev->ref, &ref_class, dev);
+	fusion_entries_init(&dev->ref, &ref_class, dev, dev);
 
 	fusion_entries_create_proc_entry(dev, "refs", &dev->ref);
 
@@ -161,7 +161,6 @@ int fusion_ref_up(FusionDev * dev, int id, FusionID fusion_id)
 
       out:
 	fusion_ref_unlock(ref);
-	spin_unlock(&dev->ref.lock);
 
 	return ret;
 }
@@ -206,7 +205,6 @@ int fusion_ref_down(FusionDev * dev, int id, FusionID fusion_id)
 
       out:
 	fusion_ref_unlock(ref);
-	spin_unlock(&dev->ref.lock);
 
 	return ret;
 }
@@ -359,7 +357,6 @@ int fusion_ref_inherit(FusionDev * dev, int id, int from_id)
 	ret = -EINVAL;
 	fusion_list_foreach(from, dev->ref.list) {
 		if (from->entry.id == from_id) {
-			spin_lock( &from->entry.lock );
 			break;
 		}
 	}
@@ -377,11 +374,8 @@ int fusion_ref_inherit(FusionDev * dev, int id, int from_id)
 	ref->inherited = from;
 
       out:
-	if (from)
-		spin_unlock(&from->entry.lock);
 
 	fusion_ref_unlock(ref);
-	spin_unlock(&dev->ref.lock);
 
 	return ret;
 }
@@ -395,12 +389,8 @@ void fusion_ref_clear_all_local(FusionDev * dev, FusionID fusion_id)
 {
 	FusionRef *ref;
 
-	spin_lock(&dev->ref.lock);
-
 	fusion_list_foreach(ref, dev->ref.list)
 	    clear_local(dev, ref, fusion_id);
-
-	spin_unlock(&dev->ref.lock);
 }
 
 int
@@ -409,15 +399,11 @@ fusion_ref_fork_all_local(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 	FusionRef *ref;
 	int ret = 0;
 
-	spin_lock(&dev->ref.lock);
-
 	fusion_list_foreach(ref, dev->ref.list) {
 		ret = fork_local(dev, ref, fusion_id, from_id);
 		if (ret)
 			break;
 	}
-
-	spin_unlock(&dev->ref.lock);
 
 	return ret;
 }
@@ -463,8 +449,6 @@ static void clear_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id)
 {
 	FusionLink *l;
 
-	spin_lock(&ref->entry.lock);
-
 	if (ref->locked == fusion_id) {
 		ref->locked = 0;
 		wake_up_interruptible_all(&ref->entry.wait);
@@ -483,8 +467,6 @@ static void clear_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id)
 			break;
 		}
 	}
-
-	spin_unlock(&ref->entry.lock);
 }
 
 static int
@@ -493,8 +475,6 @@ fork_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id,
 {
 	FusionLink *l;
 	int ret = 0;
-
-	spin_lock(&ref->entry.lock);
 
 	fusion_list_foreach(l, ref->local_refs) {
 		LocalRef *local = (LocalRef *) l;
@@ -506,8 +486,6 @@ fork_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id,
 			break;
 		}
 	}
-
-	spin_unlock(&ref->entry.lock);
 
 	return ret;
 }
@@ -549,11 +527,7 @@ static int propagate_local(FusionDev * dev, FusionRef * ref, int diff)
 	fusion_list_foreach(l, ref->inheritors) {
 		FusionRef *inheritor = ((Inheritor *) l)->ref;
 
-		spin_lock( &inheritor->entry.lock );
-
 		propagate_local(dev, inheritor, diff);
-
-		spin_unlock(&inheritor->entry.lock);
 	}
 
 	/* Apply difference. */
@@ -585,8 +559,6 @@ static void remove_inheritor(FusionRef * ref, FusionRef * from)
 {
 	FusionLink *l;
 
-	spin_lock(&from->entry.lock);
-
 	fusion_list_foreach(l, from->inheritors) {
 		Inheritor *inheritor = (Inheritor *) l;
 
@@ -597,8 +569,6 @@ static void remove_inheritor(FusionRef * ref, FusionRef * from)
 			break;
 		}
 	}
-
-	spin_unlock(&from->entry.lock);
 }
 
 static void drop_inheritors(FusionDev * dev, FusionRef * ref)
@@ -609,13 +579,9 @@ static void drop_inheritors(FusionDev * dev, FusionRef * ref)
 		FusionLink *next = l->next;
 		FusionRef *inheritor = ((Inheritor *) l)->ref;
 
-		spin_lock( &inheritor->entry.lock );
-
 		propagate_local(dev, inheritor, -ref->local);
 
 		inheritor->inherited = NULL;
-
-		spin_unlock(&inheritor->entry.lock);
 
 		kfree(l);
 

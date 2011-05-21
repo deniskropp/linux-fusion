@@ -34,8 +34,10 @@
 struct timeval now;
 
 void
-fusion_entries_init(FusionEntries * entries,
-		    FusionEntryClass * class, void *ctx)
+fusion_entries_init( FusionEntries    *entries,
+				 FusionEntryClass *class,
+				 void             *ctx,
+				 FusionDev        *dev )
 {
 	FUSION_ASSERT(entries != NULL);
 	FUSION_ASSERT(class != NULL);
@@ -45,8 +47,7 @@ fusion_entries_init(FusionEntries * entries,
 
 	entries->class = class;
 	entries->ctx = ctx;
-
-	spin_lock_init( &entries->lock );
+	entries->dev = dev;
 }
 
 void fusion_entries_deinit(FusionEntries * entries)
@@ -60,16 +61,12 @@ void fusion_entries_deinit(FusionEntries * entries)
 
 	class = entries->class;
 
-	spin_lock(&entries->lock);
-
 	fusion_list_foreach_safe(entry, tmp, entries->list) {
 		if (class->Destroy)
 			class->Destroy(entry, entries->ctx);
 
 		kfree(entry);
 	}
-
-	spin_unlock(&entries->lock);
 }
 
 /* reading PROC entries */
@@ -93,7 +90,7 @@ static void *fusion_entries_seq_start(struct seq_file *f, loff_t * pos)
 	FUSION_ASSERT(entries != NULL);
 	FUSION_ASSERT(entries->class != NULL);
 
-	spin_lock( &entries->lock );
+	spin_lock( &entries->dev->_lock );
 
 	class = entries->class;
 	if (!class->Print)
@@ -119,7 +116,7 @@ static void fusion_entries_seq_stop(struct seq_file *f, void *v)
 	entries = f->private;
 	(void)v;
 
-	spin_unlock(&entries->lock);
+	spin_unlock(&entries->dev->_lock);
 }
 
 int fusion_entries_show(struct seq_file *p, void *v)
@@ -218,28 +215,21 @@ int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx)
 
 	memset(entry, 0, class->object_size);
 
-	spin_lock( &entries->lock );
-
 	entry->entries = entries;
 	entry->id = ++entries->ids;
 	entry->pid = current->pid;
-
-	spin_lock_init( &entry->lock );
 
 	init_waitqueue_head(&entry->wait);
 
 	if (class->Init) {
 		ret = class->Init(entry, entries->ctx, create_ctx);
 		if (ret) {
-			spin_unlock(&entries->lock);
 			kfree(entry);
 			return ret;
 		}
 	}
 
 	fusion_list_prepend(&entries->list, &entry->link);
-
-	spin_unlock(&entries->lock);
 
 	*ret_id = entry->id;
 
@@ -256,9 +246,6 @@ int fusion_entry_destroy(FusionEntries * entries, int id)
 
 	class = entries->class;
 
-	/* Lock entries. */
-	spin_lock( &entries->lock );
-
 	/* Lookup the entry. */
 	fusion_list_foreach(entry, entries->list) {
 		if (entry->id == id)
@@ -267,18 +254,11 @@ int fusion_entry_destroy(FusionEntries * entries, int id)
 
 	/* Check if no entry was found. */
 	if (!entry) {
-		spin_unlock(&entries->lock);
 		return -EINVAL;
 	}
 
-	/* Lock the entry. */
-	spin_lock( &entry->lock );
-
 	/* Destroy it now. */
 	fusion_entry_destroy_locked(entries, entry);
-
-	/* Unlock entries. */
-	spin_unlock(&entries->lock);
 
 	return 0;
 }
@@ -301,9 +281,6 @@ void fusion_entry_destroy_locked(FusionEntries * entries, FusionEntry * entry)
 	/* Call the destroy function. */
 	if (class->Destroy)
 		class->Destroy(entry, entries->ctx);
-
-	/* Unlock the entry. */
-	spin_unlock(&entry->lock);
 
 	/* Deallocate the entry. */
 	kfree(entry);
@@ -359,9 +336,6 @@ fusion_entry_lock(FusionEntries * entries,
 	FUSION_ASSERT(entries != NULL);
 	FUSION_ASSERT(ret_entry != NULL);
 
-	/* Lock entries. */
-	spin_lock( &entries->lock );
-
 	/* Lookup the entry. */
 	fusion_list_foreach(entry, entries->list) {
 		if (entry->id == id)
@@ -370,7 +344,6 @@ fusion_entry_lock(FusionEntries * entries,
 
 	/* Check if no entry was found. */
 	if (!entry) {
-		spin_unlock(&entries->lock);
 		return -EINVAL;
 	}
 
@@ -378,9 +351,6 @@ fusion_entry_lock(FusionEntries * entries,
 
 	/* Move the entry to the front of all entries. */
 	fusion_list_move_to_front(&entries->list, &entry->link);
-
-	/* Lock the entry. */
-	spin_lock( &entry->lock );
 
 	/* Mark as locked. */
 	entry->lock_pid = current->pid;
@@ -397,10 +367,6 @@ fusion_entry_lock(FusionEntries * entries,
 	entry->last_lock = xtime;
 #endif
 
-	/* Unlock entries. */
-	if (!keep_entries_lock)
-		spin_unlock(&entries->lock);
-
 	/* Return the locked entry. */
 	*ret_entry = entry;
 
@@ -413,9 +379,6 @@ void fusion_entry_unlock(FusionEntry * entry)
 	FUSION_ASSUME(entry->lock_pid == current->pid);
 
 	entry->lock_pid = 0;
-
-	/* Unlock the entry. */
-	spin_unlock(&entry->lock);
 }
 
 int fusion_entry_wait(FusionEntry * entry, long *timeout)
@@ -435,7 +398,7 @@ int fusion_entry_wait(FusionEntry * entry, long *timeout)
 	entry->waiters++;
 
 	entry->lock_pid = 0;
-	fusion_sleep_on(&entry->wait, &entry->lock, timeout);
+	fusion_sleep_on( entry->entries->dev, &entry->wait, timeout );
 
 	entry->waiters--;
 

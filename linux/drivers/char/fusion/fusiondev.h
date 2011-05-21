@@ -30,7 +30,7 @@ struct __Fusion_FusionDev {
 		int minor;
 	} api;
 
-	spinlock_t lock;
+	spinlock_t _lock;
 	int enter_ok;
 	wait_queue_head_t enter_wait;
 
@@ -76,11 +76,7 @@ struct __Fusion_FusionDev {
  * Special version of interruptible_sleep_on() that unlocks the mutex
  * after adding the entry to the queue (just before schedule).
  */
-void fusion_sleep_on(wait_queue_head_t * q,
-		     spinlock_t *lock, signed long *timeout_ms);
-
-
-
+void fusion_sleep_on( FusionDev *dev, wait_queue_head_t *q, signed long *timeout_ms );
 
 
 #endif

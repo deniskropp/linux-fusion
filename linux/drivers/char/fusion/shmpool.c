@@ -169,7 +169,7 @@ FUSION_ENTRY_CLASS(FusionSHMPool, shmpool, fusion_shmpool_construct,
 /******************************************************************************/
 int fusion_shmpool_init(FusionDev * dev)
 {
-	fusion_entries_init(&dev->shmpool, &shmpool_class, dev);
+	fusion_entries_init(&dev->shmpool, &shmpool_class, dev, dev);
 
 	fusion_entries_create_proc_entry(dev, "shmpools", &dev->shmpool);
 
@@ -311,15 +311,11 @@ void fusion_shmpool_detach_all(FusionDev * dev, FusionID fusion_id)
 {
 	FusionLink *l;
 
-	spin_lock(&dev->shmpool.lock);
-
 	fusion_list_foreach(l, dev->shmpool.list) {
 		FusionSHMPool *shmpool = (FusionSHMPool *) l;
 
 		remove_node(shmpool, fusion_id);
 	}
-
-	spin_unlock(&dev->shmpool.lock);
 }
 
 int
@@ -328,8 +324,6 @@ fusion_shmpool_fork_all(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 	FusionLink *l;
 	int ret = 0;
 
-	spin_lock(&dev->shmpool.lock);
-
 	fusion_list_foreach(l, dev->shmpool.list) {
 		FusionSHMPool *shmpool = (FusionSHMPool *) l;
 
@@ -337,8 +331,6 @@ fusion_shmpool_fork_all(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 		if (ret)
 			break;
 	}
-
-	spin_unlock(&dev->shmpool.lock);
 
 	return ret;
 }
@@ -361,16 +353,12 @@ static void remove_node(FusionSHMPool * shmpool, FusionID fusion_id)
 {
 	SHMPoolNode *node;
 
-	spin_lock(&shmpool->entry.lock);
-
 	fusion_list_foreach(node, shmpool->nodes) {
 		if (node->fusion_id == fusion_id) {
 			fusion_list_remove(&shmpool->nodes, &node->link);
 			break;
 		}
 	}
-
-	spin_unlock(&shmpool->entry.lock);
 }
 
 static int
@@ -378,8 +366,6 @@ fork_node(FusionSHMPool * shmpool, FusionID fusion_id, FusionID from_id)
 {
 	int ret = 0;
 	SHMPoolNode *node;
-
-	spin_lock(&shmpool->entry.lock);
 
 	fusion_list_foreach(node, shmpool->nodes) {
 		if (node->fusion_id == from_id) {
@@ -399,8 +385,6 @@ fork_node(FusionSHMPool * shmpool, FusionID fusion_id, FusionID from_id)
 			break;
 		}
 	}
-
-	spin_unlock(&shmpool->entry.lock);
 
 	return ret;
 }
