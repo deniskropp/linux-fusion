@@ -74,7 +74,7 @@ static void free_all_nodes(FusionSHMPool * shmpool);
 
 /******************************************************************************/
 
-static spinlock_t addr_lock = SPIN_LOCK_UNLOCKED;
+static DEFINE_SPINLOCK( addr_lock );
 static FusionLink *addr_entries;
 static void *addr_base = FUSION_SHM_BASE + 0x80000;
 
@@ -82,7 +82,7 @@ static void *addr_base = FUSION_SHM_BASE + 0x80000;
 
 static AddrEntry *add_addr_entry(void *next_base)
 {
-	AddrEntry *entry = kmalloc(sizeof(AddrEntry), GFP_KERNEL);
+	AddrEntry *entry = kmalloc(sizeof(AddrEntry), GFP_ATOMIC);
 
 	entry->next_base = next_base;
 
@@ -211,7 +211,7 @@ fusion_shmpool_attach(FusionDev * dev,
 
 	node = get_node(shmpool, fusion_id);
 	if (!node) {
-		node = kmalloc(sizeof(SHMPoolNode), GFP_KERNEL);
+		node = kmalloc(sizeof(SHMPoolNode), GFP_ATOMIC);
 		if (!node) {
 			fusion_shmpool_unlock(shmpool);
 			return -ENOMEM;
@@ -385,7 +385,7 @@ fork_node(FusionSHMPool * shmpool, FusionID fusion_id, FusionID from_id)
 		if (node->fusion_id == from_id) {
 			SHMPoolNode *new_node;
 
-			new_node = kmalloc(sizeof(SHMPoolNode), GFP_KERNEL);
+			new_node = kmalloc(sizeof(SHMPoolNode), GFP_ATOMIC);
 			if (!new_node) {
 				ret = -ENOMEM;
 				break;

@@ -74,7 +74,7 @@ Packet_New( void )
 
 	FUSION_DEBUG( "%s()\n", __FUNCTION__ );
 
-	packet = kmalloc( sizeof(Packet), GFP_KERNEL );
+	packet = kmalloc( sizeof(Packet), GFP_ATOMIC );
 	if (!packet)
 		return NULL;
 
@@ -175,7 +175,7 @@ Packet_AddCallback( Packet			*packet,
 
 	D_MAGIC_ASSERT( packet, Packet );
 
-	callback = kmalloc( sizeof(MessageCallback), GFP_KERNEL );
+	callback = kmalloc( sizeof(MessageCallback), GFP_ATOMIC );
 	if (!callback)
 		return -ENOMEM;
 
@@ -397,7 +397,7 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 {
 	Fusionee *fusionee;
 
-	fusionee = kmalloc(sizeof(Fusionee), GFP_KERNEL);
+	fusionee = kmalloc(sizeof(Fusionee), GFP_ATOMIC);
 	if (!fusionee)
 		return -ENOMEM;
 

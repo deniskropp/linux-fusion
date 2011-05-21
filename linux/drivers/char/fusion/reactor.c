@@ -161,13 +161,13 @@ fusion_reactor_attach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 	if (!node) {
 		int ncount = channel + 4;
 
-		node = kmalloc(sizeof(ReactorNode), GFP_KERNEL);
+		node = kmalloc(sizeof(ReactorNode), GFP_ATOMIC);
 		if (!node) {
 			fusion_reactor_unlock(reactor);
 			return -ENOMEM;
 		}
 
-		node->counts = kmalloc(sizeof(int) * ncount, GFP_KERNEL);
+		node->counts = kmalloc(sizeof(int) * ncount, GFP_ATOMIC);
 		if (!node->counts) {
 			kfree(node);
 			fusion_reactor_unlock(reactor);
@@ -185,7 +185,7 @@ fusion_reactor_attach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 	} else {
 		if (node->num_counts <= channel) {
 			int ncount = channel + 4;
-			int *counts = kmalloc(sizeof(int) * ncount, GFP_KERNEL);
+			int *counts = kmalloc(sizeof(int) * ncount, GFP_ATOMIC);
 
 			if (!counts) {
 				fusion_reactor_unlock(reactor);
@@ -324,7 +324,7 @@ fusion_reactor_dispatch(FusionDev * dev, int id, int channel,
 	if (reactor->call_id) {
 		void *ptr = *(void **)msg_data;
 
-		dispatch = kmalloc(sizeof(ReactorDispatch), GFP_KERNEL);
+		dispatch = kmalloc(sizeof(ReactorDispatch), GFP_ATOMIC);
 		if (!dispatch) {
 			fusion_reactor_unlock(reactor);
 			return -ENOMEM;
@@ -506,14 +506,14 @@ fork_node(FusionReactor * reactor, FusionID fusion_id, FusionID from_id)
 		if (node->fusion_id == from_id) {
 			ReactorNode *new_node;
 
-			new_node = kmalloc(sizeof(ReactorNode), GFP_KERNEL);
+			new_node = kmalloc(sizeof(ReactorNode), GFP_ATOMIC);
 			if (!new_node) {
 				spin_unlock(&reactor->entry.lock);
 				return -ENOMEM;
 			}
 
 			new_node->counts =
-			    kmalloc(sizeof(int) * node->num_counts, GFP_KERNEL);
+			    kmalloc(sizeof(int) * node->num_counts, GFP_ATOMIC);
 			if (!new_node->counts) {
 				kfree(new_node);
 				spin_unlock(&reactor->entry.lock);

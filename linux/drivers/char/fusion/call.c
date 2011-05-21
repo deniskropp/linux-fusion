@@ -548,7 +548,7 @@ static FusionCallExecution *add_execution(FusionCall * call,
 	FUSION_DEBUG( "%s( call %p [%u], caller %p [%u], serial %i )\n", __FUNCTION__, call, call->entry.id, caller, caller->id, serial );
 
 	/* Allocate execution. */
-	execution = kmalloc(sizeof(FusionCallExecution), GFP_KERNEL);
+	execution = kmalloc(sizeof(FusionCallExecution), GFP_ATOMIC);
 	if (!execution)
 		return NULL;
 

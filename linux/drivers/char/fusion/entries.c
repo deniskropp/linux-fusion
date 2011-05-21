@@ -212,7 +212,7 @@ int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx)
 
 	class = entries->class;
 
-	entry = kmalloc(class->object_size, GFP_KERNEL);
+	entry = kmalloc(class->object_size, GFP_ATOMIC);
 	if (!entry)
 		return -ENOMEM;
 

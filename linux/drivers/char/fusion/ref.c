@@ -447,7 +447,7 @@ static int add_local(FusionRef * ref, FusionID fusion_id, int add)
 	if (add <= 0)
 		return -EIO;
 
-	local = kmalloc(sizeof(LocalRef), GFP_KERNEL);
+	local = kmalloc(sizeof(LocalRef), GFP_ATOMIC);
 	if (!local)
 		return -ENOMEM;
 
@@ -570,7 +570,7 @@ static int add_inheritor(FusionRef * ref, FusionRef * from)
 {
 	Inheritor *inheritor;
 
-	inheritor = kmalloc(sizeof(Inheritor), GFP_KERNEL);
+	inheritor = kmalloc(sizeof(Inheritor), GFP_ATOMIC);
 	if (!inheritor)
 		return -ENOMEM;
 

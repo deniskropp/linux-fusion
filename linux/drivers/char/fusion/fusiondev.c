@@ -298,7 +298,7 @@ static int fusion_open(struct inode *inode, struct file *file)
 	if (!fusion_devs[minor]) {
 		char buf[4];
 
-		fusion_devs[minor] = kmalloc(sizeof(FusionDev), GFP_KERNEL);
+		fusion_devs[minor] = kmalloc(sizeof(FusionDev), GFP_ATOMIC);
 		if (!fusion_devs[minor]) {
 			up(&devs_lock);
 			return -ENOMEM;
@@ -1134,7 +1134,7 @@ static int fusion_mmap(struct file *file, struct vm_area_struct *vma)
 		if (fusionee_id(fusionee) != FUSION_ID_MASTER)
 			return -EPERM;
 
-		dev->shared_area = get_zeroed_page(GFP_KERNEL);
+		dev->shared_area = get_zeroed_page(GFP_ATOMIC);
 		if (!dev->shared_area)
 			return -ENOMEM;
 
