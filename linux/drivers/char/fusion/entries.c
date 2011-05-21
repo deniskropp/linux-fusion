@@ -79,8 +79,10 @@ static void *fusion_entries_seq_start(struct seq_file *f, loff_t * pos)
 	FusionEntryClass *class;
 
 	entries = f->private;
-	entry = (void *)(entries->list);
 
+	spin_lock( &entries->dev->_lock );
+
+	entry = (void *)(entries->list);
 	while (i && entry) {
 		entry = (void *)(entry->link.next);
 		i--;
@@ -88,8 +90,6 @@ static void *fusion_entries_seq_start(struct seq_file *f, loff_t * pos)
 
 	FUSION_ASSERT(entries != NULL);
 	FUSION_ASSERT(entries->class != NULL);
-
-	spin_lock( &entries->dev->_lock );
 
 	class = entries->class;
 	if (!class->Print)
