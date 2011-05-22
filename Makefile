@@ -9,6 +9,14 @@
 KERNEL_VERSION   ?= $(shell uname -r)
 INSTALL_MOD_PATH ?= /
 KERNELDIR        ?= $(INSTALL_MOD_PATH)/lib/modules/$(KERNEL_VERSION)/build
+FUSIONCORE       ?= single
+
+export FUSIONCORE
+
+CPPFLAGS += \
+	-I`pwd`/linux/drivers/char/fusion \
+	-I`pwd`/linux/drivers/char/fusion/$(FUSIONCORE)
+
 
 KERNEL_BUILD  = $(KERNELDIR)
 # works for 2.6.23
@@ -34,7 +42,7 @@ export CONFIG_FUSION_DEVICE=m
 
 
 ifeq ($(DEBUG),yes)
-  CPPFLAGS += -DFUSION_DEBUG_SKIRMISH_DEADLOCK
+  CPPFLAGS += -DFUSION_DEBUG_SKIRMISH_DEADLOCK -DFUSION_ENABLE_DEBUG
 endif
 
 ifeq ($(shell test -e $(KERNEL_BUILD)/include/linux/autoconf.h && echo yes),yes)

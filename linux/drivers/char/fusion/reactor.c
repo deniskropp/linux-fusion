@@ -159,13 +159,13 @@ fusion_reactor_attach(FusionDev * dev, int id, int channel, FusionID fusion_id)
      if (!node) {
           int ncount = channel + 4;
 
-          node = kmalloc(sizeof(ReactorNode), GFP_ATOMIC);
+          node = fusion_core_malloc( fusion_core, sizeof(ReactorNode) );
           if (!node)
                return -ENOMEM;
 
-          node->counts = kmalloc(sizeof(int) * ncount, GFP_ATOMIC);
+          node->counts = fusion_core_malloc( fusion_core, sizeof(int) * ncount );
           if (!node->counts) {
-               kfree(node);
+               fusion_core_free( fusion_core, node);
                return -ENOMEM;
           }
 
@@ -181,7 +181,7 @@ fusion_reactor_attach(FusionDev * dev, int id, int channel, FusionID fusion_id)
      else {
           if (node->num_counts <= channel) {
                int ncount = channel + 4;
-               int *counts = kmalloc(sizeof(int) * ncount, GFP_ATOMIC);
+               int *counts = fusion_core_malloc( fusion_core, sizeof(int) * ncount );
 
                if (!counts)
                     return -ENOMEM;
@@ -191,7 +191,7 @@ fusion_reactor_attach(FusionDev * dev, int id, int channel, FusionID fusion_id)
                memset(counts + node->num_counts, 0,
                       sizeof(int) * (ncount - node->num_counts));
 
-               kfree(node->counts);
+               fusion_core_free( fusion_core, node->counts);
 
                node->counts = counts;
                node->num_counts = ncount;
@@ -233,8 +233,8 @@ fusion_reactor_detach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 
           if (i == node->num_counts) {
                fusion_list_remove(&reactor->nodes, &node->link);
-               kfree(node->counts);
-               kfree(node);
+               fusion_core_free( fusion_core, node->counts);
+               fusion_core_free( fusion_core, node);
           }
      }
 
@@ -263,7 +263,7 @@ static void dispatch_callback(FusionDev * dev, int id, void *ctx, int arg)
 
                     fusion_call_execute(dev, NULL, &execute);
 
-                    kfree(dispatch);
+                    fusion_core_free( fusion_core, dispatch);
                }
 
                break;
@@ -272,7 +272,7 @@ static void dispatch_callback(FusionDev * dev, int id, void *ctx, int arg)
 
      if (!reactor) {
           if (!--dispatch->count)
-               kfree(dispatch);
+               fusion_core_free( fusion_core, dispatch);
      }
 }
 
@@ -299,7 +299,7 @@ fusion_reactor_dispatch(FusionDev * dev, int id, int channel,
      if (reactor->call_id) {
           void *ptr = *(void **)msg_data;
 
-          dispatch = kmalloc(sizeof(ReactorDispatch), GFP_ATOMIC);
+          dispatch = fusion_core_malloc( fusion_core, sizeof(ReactorDispatch) );
           if (!dispatch)
                return -ENOMEM;
 
@@ -355,7 +355,7 @@ fusion_reactor_dispatch(FusionDev * dev, int id, int channel,
 
           fusion_call_execute(dev, NULL, &execute);
 
-          kfree(dispatch);
+          fusion_core_free( fusion_core, dispatch);
      }
 
      return 0;
@@ -413,8 +413,8 @@ void fusion_reactor_detach_all(FusionDev * dev, FusionID fusion_id)
                if (node->fusion_id == fusion_id) {
                     fusion_list_remove(&reactor->nodes,
                                        &node->link);
-                    kfree(node->counts);
-                    kfree(node);
+                    fusion_core_free( fusion_core, node->counts);
+                    fusion_core_free( fusion_core, node);
                     break;
                }
           }
@@ -453,15 +453,14 @@ fork_node(FusionReactor * reactor, FusionID fusion_id, FusionID from_id)
           if (node->fusion_id == from_id) {
                ReactorNode *new_node;
 
-               new_node = kmalloc(sizeof(ReactorNode), GFP_ATOMIC);
+               new_node = fusion_core_malloc( fusion_core, sizeof(ReactorNode) );
                if (!new_node) {
                     return -ENOMEM;
                }
 
-               new_node->counts =
-               kmalloc(sizeof(int) * node->num_counts, GFP_ATOMIC);
+               new_node->counts = fusion_core_malloc( fusion_core, sizeof(int) * node->num_counts );
                if (!new_node->counts) {
-                    kfree(new_node);
+                    fusion_core_free( fusion_core, new_node);
                     return -ENOMEM;
                }
 
@@ -486,8 +485,8 @@ static void free_all_nodes(FusionReactor * reactor)
      ReactorNode *node;
 
      fusion_list_foreach_safe(node, n, reactor->nodes) {
-          kfree(node->counts);
-          kfree(node);
+          fusion_core_free( fusion_core, node->counts);
+          fusion_core_free( fusion_core, node);
      }
 
      reactor->nodes = NULL;

@@ -39,8 +39,8 @@ struct __Fusion_Fusionee {
      atomic_long_t  rcv_total;          /* Total number of messages received. */
      atomic_long_t  snd_total;          /* Total number of messages sent. */
 
-     wait_queue_head_t wait_receive;
-     wait_queue_head_t wait_process;
+     FusionWaitQueue wait_receive;
+     FusionWaitQueue wait_process;
 
      bool force_slave;
 

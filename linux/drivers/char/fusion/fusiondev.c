@@ -80,59 +80,10 @@ static struct class_simple *fusion_class;
 
 
 
-static FusionShared shared;
+static FusionShared *shared;
 
+FusionCore            *fusion_core;
 struct proc_dir_entry *fusion_proc_dir[NUM_MINORS] = { 0};
-
-/******************************************************************************/
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-void
-fusion_sleep_on( FusionDev *dev, wait_queue_head_t *q, signed long *timeout )
-{
-     DEFINE_WAIT(wait);
-
-     prepare_to_wait(q, &wait, TASK_INTERRUPTIBLE);
-
-     spin_unlock( &dev->_lock );
-
-     if (timeout)
-          *timeout = schedule_timeout(*timeout);
-     else
-          schedule();
-
-     spin_lock( &dev->_lock );
-
-     finish_wait(q, &wait);
-}
-#else
-void
-fusion_sleep_on( FusionDev *dev, wait_queue_head_t *q, signed long *timeout )
-{
-     wait_queue_t wait;
-
-     init_waitqueue_entry(&wait, current);
-
-     current->state = TASK_INTERRUPTIBLE;
-
-     write_lock(&q->lock);
-     __add_wait_queue(q, &wait);
-     write_unlock(&q->lock);
-
-     spin_unlock( &dev->_lock );
-
-     if (timeout)
-          *timeout = schedule_timeout(*timeout);
-     else
-          schedule();
-
-     spin_lock( &dev->_lock );
-
-     write_lock(&q->lock);
-     __remove_wait_queue(q, &wait);
-     write_unlock(&q->lock);
-}
-#endif
 
 /******************************************************************************/
 
@@ -191,9 +142,7 @@ static int fusiondev_init(FusionDev * dev)
 {
      int ret;
 
-     spin_lock_init( &dev->_lock );
-
-     init_waitqueue_head(&dev->enter_wait);
+     fusion_core_wq_init( fusion_core, &dev->enter_wait);
 
      ret = fusionee_init(dev);
      if (ret)
@@ -275,11 +224,11 @@ static int fusion_open(struct inode *inode, struct file *file)
      int ret;
      Fusionee *fusionee;
      int minor = iminor(inode);
-     FusionDev *dev = &shared.devs[minor];
+     FusionDev *dev = &shared->devs[minor];
 
      FUSION_DEBUG("fusion_open( %p, %d )\n", file, atomic_read(&file->f_count));
 
-     spin_lock( &shared.lock );
+     fusion_core_lock( fusion_core );
 
      if (!dev->refs) {
           char buf[4];
@@ -295,18 +244,16 @@ static int fusion_open(struct inode *inode, struct file *file)
           ret = fusiondev_init( dev );
           if (ret) {
                remove_proc_entry(buf, proc_fusion_dir);
-               spin_unlock( &shared.lock );
+               fusion_core_unlock( fusion_core );
                return ret;
           }
      }
      else if (file->f_flags & O_EXCL) {
           if (dev->fusionee.last_id) {
-               spin_unlock( &shared.lock );
+               fusion_core_unlock( fusion_core );
                return -EBUSY;
           }
      }
-
-     spin_lock( &dev->_lock );
 
      ret = fusionee_new(dev, !!(file->f_flags & O_APPEND), &fusionee);
      if (ret) {
@@ -316,18 +263,14 @@ static int fusion_open(struct inode *inode, struct file *file)
                remove_proc_entry( fusion_proc_dir[minor]->name, proc_fusion_dir );
           }
 
-          spin_unlock( &dev->_lock );
-
-          spin_unlock( &shared.lock );
+          fusion_core_unlock( fusion_core );
 
           return ret;
      }
 
      dev->refs++;
 
-     spin_unlock( &dev->_lock );
-
-     spin_unlock( &shared.lock );
+     fusion_core_unlock( fusion_core );
 
      file->private_data = fusionee;
 
@@ -342,14 +285,10 @@ static int fusion_release(struct inode *inode, struct file *file)
 
      FUSION_DEBUG("fusion_release( %p, %d )\n", file, atomic_read(&file->f_count));
 
-     spin_lock( &dev->_lock );
+     fusion_core_lock( fusion_core );
 
      fusionee_destroy( dev, fusionee );
 
-     spin_unlock( &dev->_lock );
-
-
-     spin_lock( &shared.lock );
 
      if (!--dev->refs) {
           fusiondev_deinit( dev );
@@ -357,7 +296,7 @@ static int fusion_release(struct inode *inode, struct file *file)
           remove_proc_entry( fusion_proc_dir[minor]->name, proc_fusion_dir );
      }
 
-     spin_unlock( &shared.lock );
+     fusion_core_unlock( fusion_core );
 
      return 0;
 }
@@ -378,11 +317,11 @@ fusion_flush(struct file *file)
                   atomic_read(&file->f_count), fusionee_id(fusionee), current->pid);
 
      if (current->flags & PF_EXITING) {
-          spin_lock( &dev->_lock );
+          fusion_core_lock( fusion_core );
 
           fusion_skirmish_dismiss_all_from_pid(dev, current->pid);
 
-          spin_unlock( &dev->_lock );
+          fusion_core_unlock( fusion_core );
      }
 
      return 0;
@@ -398,11 +337,11 @@ fusion_read(struct file *file, char *buf, size_t count, loff_t * ppos)
      FUSION_DEBUG("fusion_read( %p, %d, %d )\n", file, atomic_read(&file->f_count),
                   count);
 
-     spin_lock( &dev->_lock );
+     fusion_core_lock( fusion_core );
 
      ret = fusionee_get_messages(dev, fusionee, buf, count, !(file->f_flags & O_NONBLOCK));
 
-     spin_unlock( &dev->_lock );
+     fusion_core_unlock( fusion_core );
 
      return ret;
 }
@@ -415,11 +354,11 @@ static unsigned int fusion_poll(struct file *file, poll_table * wait)
 
      FUSION_DEBUG("fusion_poll( %p, %d )\n", file, atomic_read(&file->f_count));
 
-     spin_lock( &dev->_lock );
+     fusion_core_lock( fusion_core );
 
      ret = fusionee_poll(dev, fusionee, file, wait);
 
-     spin_unlock( &dev->_lock );
+     fusion_core_unlock( fusion_core );
 
      return ret;
 }
@@ -454,7 +393,7 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
 
                dev->enter_ok = 1;
 
-               wake_up_interruptible_all(&dev->enter_wait);
+               fusion_core_wq_wake( fusion_core, &dev->enter_wait);
 
                return 0;
 
@@ -1070,7 +1009,7 @@ fusion_ioctl(struct inode *inode, struct file *file,
 
      FUSION_DEBUG("fusion_ioctl (0x%08x)\n", cmd);
 
-     spin_lock( &dev->_lock );
+     fusion_core_lock( fusion_core );
 
      fusionee_ref( fusionee );
 
@@ -1110,7 +1049,7 @@ fusion_ioctl(struct inode *inode, struct file *file,
 
      fusionee_unref( fusionee );
 
-     spin_unlock( &dev->_lock );
+     fusion_core_unlock( fusion_core );
 
      return ret;
 }
@@ -1129,17 +1068,17 @@ static int fusion_mmap(struct file *file, struct vm_area_struct *vma)
      if (!size || size > PAGE_SIZE)
           return -EINVAL;
 
-     spin_lock( &dev->_lock );
+     fusion_core_lock( fusion_core );
 
      if (!dev->shared_area) {
           if (fusionee_id(fusionee) != FUSION_ID_MASTER) {
-               spin_unlock( &dev->_lock );
+               fusion_core_unlock( fusion_core );
                return -EPERM;
           }
 
           dev->shared_area = get_zeroed_page(GFP_ATOMIC);
           if (!dev->shared_area) {
-               spin_unlock( &dev->_lock );
+               fusion_core_unlock( fusion_core );
                return -ENOMEM;
           }
 
@@ -1156,7 +1095,7 @@ static int fusion_mmap(struct file *file, struct vm_area_struct *vma)
                                PAGE_SIZE, vma->vm_page_prot);
 #endif
 
-     spin_unlock( &dev->_lock );
+     fusion_core_unlock( fusion_core );
 
      return ret;
 }
@@ -1269,7 +1208,15 @@ int __init fusion_init(void)
 {
      int ret;
 
-     spin_lock_init( &shared.lock );
+     FUSION_DEBUG( "%s()\n", __FUNCTION__ );
+
+     fusion_core_enter( &fusion_core );
+
+     shared = fusion_core_malloc( fusion_core, sizeof(FusionShared) );
+     if (!shared)
+          return -ENOMEM;
+
+     memset( shared, 0, sizeof(FusionShared) );
 
      ret = register_devices();
      if (ret)
@@ -1334,6 +1281,10 @@ void __exit fusion_exit(void)
      deregister_devices();
 
      remove_proc_entry("fusion", NULL);
+
+     fusion_core_free( fusion_core, shared );
+
+     fusion_core_exit( fusion_core );
 }
 
 module_init(fusion_init);

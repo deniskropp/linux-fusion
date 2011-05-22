@@ -82,7 +82,7 @@ static void *addr_base = FUSION_SHM_BASE + 0x80000;
 
 static AddrEntry *add_addr_entry(void *next_base)
 {
-     AddrEntry *entry = kmalloc(sizeof(AddrEntry), GFP_ATOMIC);
+     AddrEntry *entry = fusion_core_malloc( fusion_core, sizeof(AddrEntry) );
 
      entry->next_base = next_base;
 
@@ -209,7 +209,7 @@ fusion_shmpool_attach(FusionDev * dev,
 
      node = get_node(shmpool, fusion_id);
      if (!node) {
-          node = kmalloc(sizeof(SHMPoolNode), GFP_ATOMIC);
+          node = fusion_core_malloc( fusion_core, sizeof(SHMPoolNode) );
           if (!node)
                return -ENOMEM;
 
@@ -245,7 +245,7 @@ int fusion_shmpool_detach(FusionDev * dev, int id, FusionID fusion_id)
 
      if (!--node->count) {
           fusion_list_remove(&shmpool->nodes, &node->link);
-          kfree(node);
+          fusion_core_free( fusion_core, node);
      }
 
      return 0;
@@ -358,7 +358,7 @@ fork_node(FusionSHMPool * shmpool, FusionID fusion_id, FusionID from_id)
           if (node->fusion_id == from_id) {
                SHMPoolNode *new_node;
 
-               new_node = kmalloc(sizeof(SHMPoolNode), GFP_ATOMIC);
+               new_node = fusion_core_malloc( fusion_core, sizeof(SHMPoolNode) );
                if (!new_node) {
                     ret = -ENOMEM;
                     break;
@@ -382,7 +382,7 @@ static void free_all_nodes(FusionSHMPool * shmpool)
      SHMPoolNode *node;
 
      fusion_list_foreach_safe(node, n, shmpool->nodes) {
-          kfree(node);
+          fusion_core_free( fusion_core, node);
      }
 
      shmpool->nodes = NULL;

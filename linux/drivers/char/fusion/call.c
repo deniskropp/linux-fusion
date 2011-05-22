@@ -43,7 +43,7 @@ typedef struct {
 
      bool executed;
 
-     wait_queue_head_t wait;
+     FusionWaitQueue wait;
 
      int call_id;
      unsigned int serial;
@@ -244,7 +244,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
           FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
           if (execution) {
                remove_execution(call, execution);
-               kfree(execution);
+               fusion_core_free( fusion_core, execution);
           }
           return ret;
      }
@@ -264,7 +264,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
           /* Unlock call and wait for execution result. TODO: add timeout? */
 
           FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
-          fusion_sleep_on( dev, &execution->wait, 0 );
+          fusion_core_wq_wait( fusion_core, &execution->wait, 0 );
 
           if (signal_pending(current)) {
                FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
@@ -277,7 +277,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
           execute->ret_val = execution->ret_val;
 
           /* Free execution, which has already been removed by callee. */
-          kfree(execution);
+          fusion_core_free( fusion_core, execution);
 
           FUSION_DEBUG( "  -> woke up, ret val %u, reclaiming skirmishs...\n", execute->ret_val );
 
@@ -344,7 +344,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
           FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
           if (execution) {
                remove_execution(call, execution);
-               kfree(execution);
+               fusion_core_free( fusion_core, execution);
           }
           return ret;
      }
@@ -364,7 +364,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
           /* Unlock call and wait for execution result. TODO: add timeout? */
 
           FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
-          fusion_sleep_on( dev, &execution->wait, 0 );
+          fusion_core_wq_wait( fusion_core, &execution->wait, 0 );
 
           if (signal_pending(current)) {
                FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
@@ -377,7 +377,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
           execute->ret_val = execution->ret_val;
 
           /* Free execution, which has already been removed by callee. */
-          kfree(execution);
+          fusion_core_free( fusion_core, execution);
 
           FUSION_DEBUG( "  -> woke up, ret val %u, reclaiming skirmishs...\n", execute->ret_val );
 
@@ -425,7 +425,7 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
           if (!execution->caller) {
                /* Remove and free execution. */
                remove_execution(call, execution);
-               kfree(execution);
+               fusion_core_free( fusion_core, execution);
                return -EIDRM;
           }
 
@@ -443,7 +443,7 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
           fusion_skirmish_return_all(dev, fusion_id, execution->caller_pid, execution->serial);
 
           /* Wake up caller. */
-          wake_up_interruptible(&execution->wait);
+          fusion_core_wq_wake( fusion_core, &execution->wait);
 
           return 0;
      }
@@ -480,7 +480,7 @@ int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
           execution = (FusionCallExecution *) call->executions;
           if (execution) {
                /* Unlock call and wait for execution. TODO: add timeout? */
-               fusion_sleep_on( dev, &execution->wait, 0);
+               fusion_core_wq_wait( fusion_core, &execution->wait, 0);
 
                if (signal_pending(current))
                     return -EINTR;
@@ -496,7 +496,7 @@ void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee)
 {
      FusionLink *l;
 
-     FUSION_DEBUG( "%s( dev %p, fusion_id %u )\n", __FUNCTION__, dev, fusion_id );
+     FUSION_DEBUG( "%s( dev %p, fusion_id %u )\n", __FUNCTION__, dev, fusionee->id );
 
      l = dev->call.list;
 
@@ -523,7 +523,7 @@ static FusionCallExecution *add_execution(FusionCall * call,
      FUSION_DEBUG( "%s( call %p [%u], caller %p [%u], serial %i )\n", __FUNCTION__, call, call->entry.id, caller, caller->id, serial );
 
      /* Allocate execution. */
-     execution = kmalloc(sizeof(FusionCallExecution), GFP_ATOMIC);
+     execution = fusion_core_malloc( fusion_core, sizeof(FusionCallExecution) );
      if (!execution)
           return NULL;
 
@@ -535,7 +535,7 @@ static FusionCallExecution *add_execution(FusionCall * call,
      execution->call_id = call->entry.id;
      execution->serial = serial;
 
-     init_waitqueue_head(&execution->wait);
+     fusion_core_wq_init( fusion_core, &execution->wait);
 
      /* Add execution. */
      direct_list_append(&call->executions, &execution->link);
@@ -559,10 +559,10 @@ static void free_all_executions(FusionCall * call)
      direct_list_foreach_safe (execution, next, call->executions) {
           remove_execution( call, execution );
 
-          wake_up_interruptible_all( &execution->wait );
+          fusion_core_wq_wake( fusion_core,  &execution->wait );
 
           if (!execution->caller)
-               kfree( execution );
+               fusion_core_free( fusion_core,  execution );
      }
 }
 

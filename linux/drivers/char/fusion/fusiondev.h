@@ -35,9 +35,8 @@ struct __Fusion_FusionDev {
           int minor;
      } api;
 
-     spinlock_t _lock;
      int enter_ok;
-     wait_queue_head_t enter_wait;
+     FusionWaitQueue enter_wait;
 
      unsigned long shared_area;
 
@@ -64,7 +63,7 @@ struct __Fusion_FusionDev {
      struct {
           int last_id;
           FusionLink *list;
-          wait_queue_head_t wait;
+          FusionWaitQueue wait;
      } fusionee;
 
      FusionEntries call;
@@ -79,17 +78,10 @@ struct __Fusion_FusionDev {
 
 
 typedef struct {
-     spinlock_t lock;
      FusionDev  devs[NUM_MINORS];
 } FusionShared;
 
+extern FusionCore            *fusion_core;
 extern struct proc_dir_entry *fusion_proc_dir[NUM_MINORS];
-
-/*
- * Special version of interruptible_sleep_on() that unlocks the mutex
- * after adding the entry to the queue (just before schedule).
- */
-void fusion_sleep_on( FusionDev *dev, wait_queue_head_t *q, signed long *timeout_ms );
-
 
 #endif

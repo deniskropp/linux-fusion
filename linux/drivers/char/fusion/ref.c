@@ -304,7 +304,7 @@ int fusion_ref_watch(FusionDev * dev, int id, int call_id, int call_arg)
      ref->call_id = call_id;
      ref->call_arg = call_arg;
 
-     fusion_ref_notify(ref, true);
+     fusion_ref_notify(ref);
 
      return 0;
 }
@@ -395,7 +395,7 @@ static int add_local(FusionRef * ref, FusionID fusion_id, int add)
      if (add <= 0)
           return -EIO;
 
-     local = kmalloc(sizeof(LocalRef), GFP_ATOMIC);
+     local = fusion_core_malloc( fusion_core, sizeof(LocalRef) );
      if (!local)
           return -ENOMEM;
 
@@ -413,7 +413,7 @@ static void clear_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id)
 
      if (ref->locked == fusion_id) {
           ref->locked = 0;
-          wake_up_interruptible_all(&ref->entry.wait);
+          fusion_core_wq_wake( fusion_core, &ref->entry.wait);
      }
 
      fusion_list_foreach(l, ref->local_refs) {
@@ -425,7 +425,7 @@ static void clear_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id)
 
                fusion_list_remove(&ref->local_refs, l);
 
-               kfree(l);
+               fusion_core_free( fusion_core, l);
                break;
           }
      }
@@ -459,7 +459,7 @@ static void free_all_local(FusionRef * ref)
      while (l) {
           FusionLink *next = l->next;
 
-          kfree(l);
+          fusion_core_free( fusion_core, l);
 
           l = next;
      }
@@ -479,7 +479,7 @@ static void notify_ref(FusionDev * dev, FusionRef * ref)
           fusion_call_execute(dev, 0, &execute);
      }
      else
-          wake_up_interruptible_all(&ref->entry.wait);
+          fusion_core_wq_wake( fusion_core, &ref->entry.wait);
 }
 
 static int propagate_local(FusionDev * dev, FusionRef * ref, int diff)
@@ -507,7 +507,7 @@ static int add_inheritor(FusionRef * ref, FusionRef * from)
 {
      Inheritor *inheritor;
 
-     inheritor = kmalloc(sizeof(Inheritor), GFP_ATOMIC);
+     inheritor = fusion_core_malloc( fusion_core, sizeof(Inheritor) );
      if (!inheritor)
           return -ENOMEM;
 
@@ -528,7 +528,7 @@ static void remove_inheritor(FusionRef * ref, FusionRef * from)
           if (inheritor->ref == ref) {
                fusion_list_remove(&from->inheritors, &inheritor->link);
 
-               kfree(l);
+               fusion_core_free( fusion_core, l);
                break;
           }
      }
@@ -546,7 +546,7 @@ static void drop_inheritors(FusionDev * dev, FusionRef * ref)
 
           inheritor->inherited = NULL;
 
-          kfree(l);
+          fusion_core_free( fusion_core, l);
 
           l = next;
      }

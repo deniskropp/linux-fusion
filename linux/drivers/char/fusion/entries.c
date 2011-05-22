@@ -67,7 +67,7 @@ void fusion_entries_deinit(FusionEntries * entries)
           if (class->Destroy)
                class->Destroy(entry, entries->ctx);
 
-          kfree(entry);
+          fusion_core_free( fusion_core, entry);
      }
 }
 
@@ -83,7 +83,7 @@ static void *fusion_entries_seq_start(struct seq_file *f, loff_t * pos)
 
      entries = f->private;
 
-     spin_lock( &entries->dev->_lock );
+     fusion_core_lock( fusion_core );
 
      entry = (void *)(entries->list);
      while (i && entry) {
@@ -117,7 +117,7 @@ static void fusion_entries_seq_stop(struct seq_file *f, void *v)
      entries = f->private;
      (void)v;
 
-     spin_unlock(&entries->dev->_lock);
+     fusion_core_unlock( fusion_core );
 }
 
 int fusion_entries_show(struct seq_file *p, void *v)
@@ -217,7 +217,7 @@ int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx)
 
      class = entry_classes[entries->dev->index][entries->class_index];
 
-     entry = kmalloc(class->object_size, GFP_ATOMIC);
+     entry = fusion_core_malloc( fusion_core, class->object_size );
      if (!entry)
           return -ENOMEM;
 
@@ -227,12 +227,12 @@ int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx)
      entry->id = ++entries->ids;
      entry->pid = current->pid;
 
-     init_waitqueue_head(&entry->wait);
+     fusion_core_wq_init( fusion_core, &entry->wait);
 
      if (class->Init) {
           ret = class->Init(entry, entries->ctx, create_ctx);
           if (ret) {
-               kfree(entry);
+               fusion_core_free( fusion_core, entry);
                return ret;
           }
      }
@@ -282,14 +282,14 @@ void fusion_entry_destroy_locked(FusionEntries * entries, FusionEntry * entry)
      fusion_list_remove(&entries->list, &entry->link);
 
      /* Wake up any waiting process. */
-     wake_up_interruptible_all(&entry->wait);
+     fusion_core_wq_wake( fusion_core, &entry->wait);
 
      /* Call the destroy function. */
      if (class->Destroy)
           class->Destroy(entry, entries->ctx);
 
           /* Deallocate the entry. */
-          kfree(entry);
+          fusion_core_free( fusion_core, entry);
 }
 
 int fusion_entry_set_info(FusionEntries * entries, const FusionEntryInfo * info)
@@ -371,7 +371,7 @@ fusion_entry_lookup(FusionEntries * entries,
      return 0;
 }
 
-int fusion_entry_wait(FusionEntry * entry, long *timeout)
+int fusion_entry_wait(FusionEntry * entry, int *timeout)
 {
      int ret;
      int id;
@@ -386,7 +386,7 @@ int fusion_entry_wait(FusionEntry * entry, long *timeout)
 
      entry->waiters++;
 
-     fusion_sleep_on( entry->entries->dev, &entry->wait, timeout );
+     fusion_core_wq_wait( fusion_core, &entry->wait, timeout );
 
      entry->waiters--;
 
@@ -409,12 +409,10 @@ int fusion_entry_wait(FusionEntry * entry, long *timeout)
      return ret;
 }
 
-void fusion_entry_notify(FusionEntry * entry, bool all)
+void fusion_entry_notify(FusionEntry * entry)
 {
      FUSION_ASSERT(entry != NULL);
 
-     if (all)
-          wake_up_interruptible_all(&entry->wait);
-     else
-          wake_up_interruptible(&entry->wait);
+     fusion_core_wq_wake( fusion_core, &entry->wait);
 }
+

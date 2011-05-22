@@ -21,6 +21,9 @@
 #include "types.h"
 #include "list.h"
 
+#include "fusioncore.h"
+
+
 typedef struct __FD_FusionEntry FusionEntry;
 
 typedef const struct {
@@ -51,7 +54,7 @@ struct __FD_FusionEntry {
      int id;
      pid_t pid;
 
-     wait_queue_head_t wait;
+     FusionWaitQueue wait;
      int waiters;
 
      struct timeval last_lock;
@@ -110,14 +113,14 @@ int fusion_entry_lookup(FusionEntries * entries, int id, FusionEntry ** ret_entr
  *   -ETIMEDOUT  Timeout occured.
  *   -EINTR      A signal has been received.
  */
-int fusion_entry_wait(FusionEntry * entry, long *timeout);
+int fusion_entry_wait(FusionEntry * entry, int *timeout);
 
 /*
  * Wake up one or all processes waiting for the entry to be notified.
  *
  * The entry has to be locked prior to calling this function.
  */
-void fusion_entry_notify(FusionEntry * entry, bool all);
+void fusion_entry_notify(FusionEntry * entry);
 
 #define FUSION_ENTRY_CLASS( Type, name, init_func, destroy_func, print_func )   \
                                                                                 \
@@ -143,14 +146,14 @@ void fusion_entry_notify(FusionEntry * entry, bool all);
           return ret;                                                           \
      }                                                                          \
                                                                                 \
-     static inline int fusion_##name##_wait( Type *name, long *timeout )        \
+     static inline int fusion_##name##_wait( Type *name, int *timeout )         \
      {                                                                          \
           return fusion_entry_wait( (FusionEntry*) name, timeout );             \
      }                                                                          \
                                                                                 \
-     static inline void fusion_##name##_notify( Type *name, bool all )          \
+     static inline void fusion_##name##_notify( Type *name )                    \
      {                                                                          \
-          fusion_entry_notify( (FusionEntry*) name, all );                      \
+          fusion_entry_notify( (FusionEntry*) name );                           \
      }
 
 #endif

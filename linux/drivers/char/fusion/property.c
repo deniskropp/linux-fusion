@@ -96,7 +96,7 @@ int fusion_property_lease(FusionDev * dev, int id, int fusion_id)
 {
      int ret;
      FusionProperty *property;
-     long timeout = -1;
+     int timeout = -1;
 
      dev->stat.property_lease_purchase++;
 
@@ -159,7 +159,7 @@ int fusion_property_purchase(FusionDev * dev, int id, int fusion_id)
 {
      int ret;
      FusionProperty *property;
-     signed long timeout = -1;
+     int timeout = -1;
 
      dev->stat.property_lease_purchase++;
 
@@ -176,7 +176,7 @@ int fusion_property_purchase(FusionDev * dev, int id, int fusion_id)
                     property->lock_pid = current->pid;
                     property->count = 1;
 
-                    fusion_property_notify(property, true);
+                    fusion_property_notify(property);
                     return 0;
 
                case FUSION_PROPERTY_LEASED:
@@ -244,7 +244,7 @@ int fusion_property_cede(FusionDev * dev, int id, int fusion_id)
      property->fusion_id = 0;
      property->lock_pid = 0;
 
-     fusion_property_notify(property, true);
+     fusion_property_notify(property);
 
      return 0;
 }
@@ -289,7 +289,7 @@ void fusion_property_cede_all(FusionDev * dev, int fusion_id)
                property->fusion_id = 0;
                property->lock_pid = 0;
 
-               wake_up_interruptible_all(&property->entry.wait);
+               fusion_core_wq_wake( fusion_core, &property->entry.wait);
           }
      }
 }

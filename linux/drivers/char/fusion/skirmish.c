@@ -412,7 +412,7 @@ int fusion_skirmish_dismiss(FusionDev * dev, int id, int fusion_id)
 
           lock_jiffies = jiffies - skirmish->lock_time;
 
-          fusion_skirmish_notify(skirmish, true);
+          fusion_skirmish_notify(skirmish);
      }
 
      return 0;
@@ -496,7 +496,7 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
           skirmish->lock_pid = 0;
 
           /* Notify potential notifiers waiting for the entry. */
-          fusion_skirmish_notify(skirmish, true);
+          fusion_skirmish_notify(skirmish);
      }
      /* This might happen when lock count was not initialized. */
      else if (skirmish->lock_pid == current->pid) {
@@ -507,7 +507,7 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
 
      /* Wait until the notification counter differs. */
      if (wait->timeout) {
-          long timeout_jiffies = wait->timeout * HZ / 1000;
+          int timeout_jiffies = wait->timeout * HZ / 1000;
 
           while (wait->notify_count == skirmish->notify_count && !ret)
                ret = fusion_skirmish_wait(skirmish, &timeout_jiffies);
@@ -606,7 +606,7 @@ int fusion_skirmish_notify_(FusionDev * dev, int id, FusionID fusion_id)
 
      skirmish->notify_count++;
 
-     fusion_skirmish_notify(skirmish, true);
+     fusion_skirmish_notify(skirmish);
 
      return 0;
 }
@@ -627,7 +627,7 @@ void fusion_skirmish_dismiss_all(FusionDev * dev, int fusion_id)
                skirmish->lock_pid   = 0;
                skirmish->lock_count = 0;
 
-               wake_up_interruptible_all(&skirmish->entry.wait);
+               fusion_core_wq_wake( fusion_core, &skirmish->entry.wait);
           }
 
           if (skirmish->transfer2_from == fusion_id) {
@@ -636,7 +636,7 @@ void fusion_skirmish_dismiss_all(FusionDev * dev, int fusion_id)
                skirmish->transfer2_from_pid = 0;
                skirmish->transfer2_count    = 0;
 
-               wake_up_interruptible_all(&skirmish->entry.wait);
+               fusion_core_wq_wake( fusion_core, &skirmish->entry.wait);
           }
 
           if (skirmish->transfer_from == fusion_id) {
@@ -652,7 +652,7 @@ void fusion_skirmish_dismiss_all(FusionDev * dev, int fusion_id)
                     skirmish->transfer2_count    = 0;
                }
 
-               wake_up_interruptible_all(&skirmish->entry.wait);
+               fusion_core_wq_wake( fusion_core, &skirmish->entry.wait);
           }
      }
 }
@@ -673,7 +673,7 @@ void fusion_skirmish_dismiss_all_from_pid(FusionDev * dev, int pid)
                skirmish->lock_pid   = 0;
                skirmish->lock_count = 0;
 
-               wake_up_interruptible_all(&skirmish->entry.wait);
+               fusion_core_wq_wake( fusion_core, &skirmish->entry.wait);
           }
 
           if (skirmish->transfer2_from_pid == pid) {
@@ -682,7 +682,7 @@ void fusion_skirmish_dismiss_all_from_pid(FusionDev * dev, int pid)
                skirmish->transfer2_from_pid = 0;
                skirmish->transfer2_count    = 0;
 
-               wake_up_interruptible_all(&skirmish->entry.wait);
+               fusion_core_wq_wake( fusion_core, &skirmish->entry.wait);
           }
 
           if (skirmish->transfer_from_pid == pid) {
@@ -698,7 +698,7 @@ void fusion_skirmish_dismiss_all_from_pid(FusionDev * dev, int pid)
                     skirmish->transfer2_count    = 0;
                }
 
-               wake_up_interruptible_all(&skirmish->entry.wait);
+               fusion_core_wq_wake( fusion_core, &skirmish->entry.wait);
           }
      }
 }
@@ -733,7 +733,7 @@ fusion_skirmish_transfer_all(FusionDev * dev,
                     skirmish->lock_pid   = 0;
                     skirmish->lock_count = 0;
 
-                    wake_up_interruptible_all(&skirmish->entry.wait);
+                    fusion_core_wq_wake( fusion_core, &skirmish->entry.wait);
                }
                else if (skirmish->transfer2_to == 0) {
                     FUSION_ASSERT(skirmish->transfer2_from == 0);
@@ -753,7 +753,7 @@ fusion_skirmish_transfer_all(FusionDev * dev,
                     skirmish->lock_pid   = 0;
                     skirmish->lock_count = 0;
 
-                    wake_up_interruptible_all(&skirmish->entry.wait);
+                    fusion_core_wq_wake( fusion_core, &skirmish->entry.wait);
                }
           }
      }
