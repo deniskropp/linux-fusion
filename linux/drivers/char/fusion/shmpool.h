@@ -1,16 +1,16 @@
 /*
- *	Fusion Kernel Module
- *
- *	(c) Copyright 2002-2003  Convergence GmbH
- *
- *      Written by Denis Oliver Kropp <dok@directfb.org>
- *
- *
- *	This program is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU General Public License
- *	as published by the Free Software Foundation; either version
- *	2 of the License, or (at your option) any later version.
- */
+   (c) Copyright 2002-2011  The world wide DirectFB Open Source Community (directfb.org)
+   (c) Copyright 2002-2004  Convergence (integrated media) GmbH
+
+   All rights reserved.
+
+   Written by Denis Oliver Kropp <dok@directfb.org>
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version
+   2 of the License, or (at your option) any later version.
+*/
 
 #ifndef __FUSION__SHMPOOL_H__
 #define __FUSION__SHMPOOL_H__
@@ -43,13 +43,13 @@ void fusion_shmpool_deinit(FusionDev * dev);
 int fusion_shmpool_new(FusionDev * dev, FusionSHMPoolNew * pool);
 
 int fusion_shmpool_attach(FusionDev * dev,
-			  FusionSHMPoolAttach * attach, FusionID fusion_id);
+                          FusionSHMPoolAttach * attach, FusionID fusion_id);
 
 int fusion_shmpool_detach(FusionDev * dev, int id, FusionID fusion_id);
 
 int fusion_shmpool_dispatch(FusionDev * dev,
-			    FusionSHMPoolDispatch * dispatch,
-			    Fusionee * fusionee);
+                            FusionSHMPoolDispatch * dispatch,
+                            Fusionee * fusionee);
 
 int fusion_shmpool_destroy(FusionDev * dev, int id);
 
@@ -58,6 +58,6 @@ int fusion_shmpool_destroy(FusionDev * dev, int id);
 void fusion_shmpool_detach_all(FusionDev * dev, FusionID fusion_id);
 
 int fusion_shmpool_fork_all(FusionDev * dev,
-			    FusionID fusion_id, FusionID from_id);
+                            FusionID fusion_id, FusionID from_id);
 
 #endif

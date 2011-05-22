@@ -1,16 +1,16 @@
 /*
- *	Fusion Kernel Module
- *
- *	(c) Copyright 2002-2003  Convergence GmbH
- *
- *      Written by Denis Oliver Kropp <dok@directfb.org>
- *
- *
- *	This program is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU General Public License
- *	as published by the Free Software Foundation; either version
- *	2 of the License, or (at your option) any later version.
- */
+   (c) Copyright 2002-2011  The world wide DirectFB Open Source Community (directfb.org)
+   (c) Copyright 2002-2004  Convergence (integrated media) GmbH
+
+   All rights reserved.
+
+   Written by Denis Oliver Kropp <dok@directfb.org>
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License
+   as published by the Free Software Foundation; either version
+   2 of the License, or (at your option) any later version.
+*/
 
 #ifndef __FUSION__ENTRIES_H__
 #define __FUSION__ENTRIES_H__
@@ -24,19 +24,19 @@
 typedef struct __FD_FusionEntry FusionEntry;
 
 typedef const struct {
-	int object_size;
+     int object_size;
 
-	int (*Init)     (FusionEntry * entry, void *ctx, void *create_ctx);
-	void (*Destroy) (FusionEntry * entry, void *ctx);
-	void (*Print)   (FusionEntry * entry, void *ctx, struct seq_file * p);
+     int (*Init)     (FusionEntry * entry, void *ctx, void *create_ctx);
+     void (*Destroy) (FusionEntry * entry, void *ctx);
+     void (*Print)   (FusionEntry * entry, void *ctx, struct seq_file * p);
 } FusionEntryClass;
 
 typedef struct {
      unsigned int class_index;
-	void *ctx;
+     void *ctx;
 
-	FusionLink *list;
-	int ids;
+     FusionLink *list;
+     int ids;
 
      FusionDev *dev;
 
@@ -44,34 +44,34 @@ typedef struct {
 } FusionEntries;
 
 struct __FD_FusionEntry {
-	FusionLink link;
+     FusionLink link;
 
-	FusionEntries *entries;
+     FusionEntries *entries;
 
-	int id;
-	pid_t pid;
+     int id;
+     pid_t pid;
 
-	wait_queue_head_t wait;
-	int waiters;
+     wait_queue_head_t wait;
+     int waiters;
 
-	struct timeval last_lock;
+     struct timeval last_lock;
 
-	char name[FUSION_ENTRY_INFO_NAME_LENGTH];
+     char name[FUSION_ENTRY_INFO_NAME_LENGTH];
 };
 
 /* Entries Init & DeInit */
 
 void fusion_entries_init( FusionEntries    *entries,
-				 FusionEntryClass *class,
-				 void             *ctx,
-				 FusionDev        *dev );
+                          FusionEntryClass *class,
+                          void             *ctx,
+                          FusionDev        *dev );
 
 void fusion_entries_deinit(FusionEntries * entries);
 
 /* '/proc' support */
 
 void fusion_entries_create_proc_entry(FusionDev * dev, const char *name,
-				      FusionEntries * data);
+                                      FusionEntries * data);
 
 void fusion_entries_destroy_proc_entry(FusionDev * dev, const char *name);
 
@@ -86,7 +86,7 @@ void fusion_entry_destroy_locked(FusionEntries * entries, FusionEntry * entry);
 /* Information */
 
 int fusion_entry_set_info(FusionEntries * entries,
-			  const FusionEntryInfo * info);
+                          const FusionEntryInfo * info);
 
 int fusion_entry_get_info(FusionEntries * entries, FusionEntryInfo * info);
 
