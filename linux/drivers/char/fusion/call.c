@@ -496,7 +496,7 @@ void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee)
 {
      FusionLink *l;
 
-     FUSION_DEBUG( "%s( dev %p, fusion_id %u )\n", __FUNCTION__, dev, fusionee->id );
+     FUSION_DEBUG( "%s( dev %p, fusion_id %lu )\n", __FUNCTION__, dev, fusionee->id );
 
      l = dev->call.list;
 
@@ -520,7 +520,7 @@ static FusionCallExecution *add_execution(FusionCall * call,
 {
      FusionCallExecution *execution;
 
-     FUSION_DEBUG( "%s( call %p [%u], caller %p [%u], serial %i )\n", __FUNCTION__, call, call->entry.id, caller, caller->id, serial );
+     FUSION_DEBUG( "%s( call %p [%u], caller %p [%lu], serial %i )\n", __FUNCTION__, call, call->entry.id, caller, caller->id, serial );
 
      /* Allocate execution. */
      execution = fusion_core_malloc( fusion_core, sizeof(FusionCallExecution) );

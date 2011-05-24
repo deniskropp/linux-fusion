@@ -358,7 +358,8 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
 
 int fusionee_init(FusionDev * dev)
 {
-     fusion_core_wq_init( fusion_core, &dev->fusionee.wait);
+     if (!dev->refs)
+          fusion_core_wq_init( fusion_core, &dev->fusionee.wait);
 
      create_proc_read_entry( "fusionees", 0, fusion_proc_dir[dev->index], fusionees_read_proc, dev );
 
@@ -371,14 +372,16 @@ void fusionee_deinit(FusionDev * dev)
 
      remove_proc_entry( "fusionees", fusion_proc_dir[dev->index] );
 
-     direct_list_foreach_safe (fusionee, next, dev->fusionee.list) {
-          while (fusionee->packets.count) {
-               Packet *packet = (Packet *) fusion_fifo_get(&fusionee->packets);
+     if (!dev->refs) {
+          direct_list_foreach_safe (fusionee, next, dev->fusionee.list) {
+               while (fusionee->packets.count) {
+                    Packet *packet = (Packet *) fusion_fifo_get(&fusionee->packets);
 
-               Packet_Free( packet );
+                    Packet_Free( packet );
+               }
+
+               fusion_core_free( fusion_core, fusionee);
           }
-
-          fusion_core_free( fusion_core, fusionee);
      }
 }
 
@@ -495,7 +498,7 @@ fusionee_send_message(FusionDev * dev,
      if (ret)
           return ret;
 
-     FUSION_DEBUG("fusionee_send_message (%d -> %d, type %d, id %d, size %d, extra %d)\n",
+     FUSION_DEBUG("fusionee_send_message (%ld -> %ld, type %d, id %d, size %d, extra %d)\n",
                   fusionee->id, recipient, msg_type, msg_id, msg_size, extra_size);
 
      while (fusionee->packets.count > 10) {
@@ -566,7 +569,7 @@ fusionee_send_message2(FusionDev * dev,
      size_t                   size;
      const FusionCallMessage *call = msg_data;
 
-     FUSION_DEBUG("fusionee_send_message2 (%d -> %d, type %d, id %d, size %d, extra %d)\n",
+     FUSION_DEBUG("fusionee_send_message2 (%ld -> %ld, type %d, id %d, size %d, extra %d)\n",
                   sender->id, fusionee->id, msg_type, msg_id, msg_size, extra_size);
 
      while (fusionee->packets.count > 10) {
@@ -762,7 +765,7 @@ fusionee_poll(FusionDev * dev,
 
 
      // FIXME: what to do because of poll_wait?
-     //fusion_core_wq_wait( fusion_core, &fusionee->wait_receive, NULL );
+//     fusion_core_wq_wait( fusion_core, &fusionee->wait_receive, NULL );
      poll_wait(file, &fusionee->wait_receive.q, wait);
 
 

@@ -28,14 +28,9 @@
 
 
 
-struct __Fusion_FusionCore {
-     spinlock_t     lock;
-};
-
-
-
 FusionCoreResult
-fusion_core_enter( FusionCore **ret_core )
+fusion_core_enter( int          cpu_index,
+                   FusionCore **ret_core )
 {
      FusionCore *core;
 
@@ -44,6 +39,8 @@ fusion_core_enter( FusionCore **ret_core )
      core = kmalloc( sizeof(FusionCore), GFP_KERNEL );
      if (!core)
           return FC_FAILURE;
+
+     core->cpu_index = cpu_index;
 
      spin_lock_init( &core->lock );
 

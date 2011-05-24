@@ -18,6 +18,12 @@
 #include <linux/wait.h>
 
 
+struct __Fusion_FusionCore {
+     int            cpu_index;
+
+     spinlock_t     lock;
+};
+
 typedef struct {
      wait_queue_head_t   q;
 } FusionWaitQueue;

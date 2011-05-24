@@ -28,7 +28,8 @@ typedef enum {
 typedef struct __Fusion_FusionCore FusionCore;
 
 
-FusionCoreResult  fusion_core_enter    ( FusionCore     **ret_core );
+FusionCoreResult  fusion_core_enter    ( int              cpu_index,
+                                         FusionCore     **ret_core );
 
 void              fusion_core_exit     ( FusionCore      *core );
 

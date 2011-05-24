@@ -455,7 +455,7 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
      int ret, ret2;
      FusionSkirmish *skirmish;
 
-     FUSION_DEBUG( "%s( fusion_id %d )\n", __FUNCTION__, fusion_id);
+     FUSION_DEBUG( "%s( fusion_id %ld )\n", __FUNCTION__, fusion_id);
 
      FUSION_SKIRMISH_LOG
      ("FusionSkirmish: %s( 0x%x, lock count %u, notify count %u, timeout %u ) called...\n",
@@ -593,7 +593,7 @@ int fusion_skirmish_notify_(FusionDev * dev, int id, FusionID fusion_id)
      int ret;
      FusionSkirmish *skirmish;
 
-     FUSION_DEBUG("%s: id=%d, fusion_id=%d\n", __FUNCTION__, id, fusion_id);
+     FUSION_DEBUG("%s: id=%d, fusion_id=%ld\n", __FUNCTION__, id, fusion_id);
 
      ret = fusion_skirmish_lookup(&dev->skirmish, id, &skirmish);
      if (ret)
@@ -709,7 +709,7 @@ fusion_skirmish_transfer_all(FusionDev * dev,
 {
      FusionLink *l;
 
-     FUSION_DEBUG("%s: to=%d, from=%d, from_pid=%d, serial=%d\n", __FUNCTION__, to, from, from_pid, serial );
+     FUSION_DEBUG("%s: to=%ld, from=%ld, from_pid=%d, serial=%d\n", __FUNCTION__, to, from, from_pid, serial );
 
      fusion_list_foreach(l, dev->skirmish.list) {
           FusionSkirmish *skirmish = (FusionSkirmish *) l;

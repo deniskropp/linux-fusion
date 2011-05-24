@@ -13,8 +13,9 @@ FUSIONCORE       ?= single
 
 export FUSIONCORE
 
-CPPFLAGS += \
+CPPFLAGS += $(FUSION_CPPFLAGS) \
 	-I`pwd`/linux/drivers/char/fusion \
+	-I`pwd`/linux/drivers/char/fusion/multi \
 	-I`pwd`/linux/drivers/char/fusion/$(FUSIONCORE)
 
 

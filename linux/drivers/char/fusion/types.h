@@ -29,4 +29,8 @@ typedef struct __Fusion_Fusionee  Fusionee;
 
 typedef void (*MessageCallbackFunc)( FusionDev * dev, int msg_id, void *ctx, int param );
 
+
+
+typedef struct __Fusion_FusionUDP FusionUDP;
+
 #endif

@@ -44,30 +44,34 @@ fusion_entries_init( FusionEntries    *entries,
      FUSION_ASSERT(class != NULL);
      FUSION_ASSERT(class->object_size >= sizeof(FusionEntry));
 
-     memset(entries, 0, sizeof(FusionEntries));
+     if (!dev->refs) {
+          memset(entries, 0, sizeof(FusionEntries));
 
-     entries->class_index = dev->next_class_index++;
-     entries->ctx = ctx;
-     entries->dev = dev;
+          entries->class_index = dev->next_class_index++;
+          entries->ctx = ctx;
+          entries->dev = dev;
+     }
 
      entry_classes[dev->index][entries->class_index] = class;
 }
 
 void fusion_entries_deinit(FusionEntries * entries)
 {
-     FusionLink *tmp;
-     FusionEntry *entry;
-     FusionEntryClass *class;
-
      FUSION_ASSERT(entries != NULL);
 
-     class = entry_classes[entries->dev->index][entries->class_index];
+     if (!entries->dev->refs) {
+          FusionLink *tmp;
+          FusionEntry *entry;
+          FusionEntryClass *class;
 
-     fusion_list_foreach_safe(entry, tmp, entries->list) {
-          if (class->Destroy)
-               class->Destroy(entry, entries->ctx);
+          class = entry_classes[entries->dev->index][entries->class_index];
 
-          fusion_core_free( fusion_core, entry);
+          fusion_list_foreach_safe(entry, tmp, entries->list) {
+               if (class->Destroy)
+                    class->Destroy(entry, entries->ctx);
+
+               fusion_core_free( fusion_core, entry);
+          }
      }
 }
 
