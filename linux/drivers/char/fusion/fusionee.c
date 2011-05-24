@@ -388,9 +388,13 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 {
      Fusionee *fusionee;
 
+     FUSION_DEBUG("%s()\n", __FUNCTION__);
+
      fusionee = fusion_core_malloc( fusion_core, sizeof(Fusionee) );
      if (!fusionee)
           return -ENOMEM;
+
+     FUSION_DEBUG( "  -> new fusionee at %p\n", fusionee );
 
      memset(fusionee, 0, sizeof(Fusionee));
 
