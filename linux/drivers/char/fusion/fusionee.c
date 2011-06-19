@@ -41,14 +41,20 @@
 #include "skirmish.h"
 #include "shmpool.h"
 
+
+static MessageCallbackFunc fusion_message_callbacks[] = {
+     [FMC_DISPATCH] = fusion_reactor_dispatch_message_callback
+};
+
+
 typedef struct {
-     FusionLink           link;
+     FusionLink             link;
 
-     int                  msg_id;
+     int                    msg_id;
 
-     MessageCallbackFunc  func;
-     void                *ctx;
-     int                  param;
+     FusionMessageCallback  func_index;
+     void                  *ctx;
+     int                    param;
 } MessageCallback;
 
 #define FUSION_MAX_PACKET_SIZE	16384
@@ -163,11 +169,11 @@ Packet_Write( Packet     *packet,
 }
 
 static int
-Packet_AddCallback( Packet              *packet,
-                    int                  msg_id,
-                    MessageCallbackFunc  func,
-                    void                *ctx,
-                    int                  param )
+Packet_AddCallback( Packet                *packet,
+                    int                    msg_id,
+                    FusionMessageCallback  func,
+                    void                  *ctx,
+                    int                    param )
 {
      MessageCallback *callback;
 
@@ -179,10 +185,10 @@ Packet_AddCallback( Packet              *packet,
      if (!callback)
           return -ENOMEM;
 
-     callback->msg_id = msg_id;
-     callback->func   = func;
-     callback->ctx    = ctx;
-     callback->param  = param;
+     callback->msg_id     = msg_id;
+     callback->func_index = func;
+     callback->ctx        = ctx;
+     callback->param      = param;
 
      fusion_fifo_put( &packet->callbacks, &callback->link );
 
@@ -202,8 +208,11 @@ Packet_RunCallbacks( FusionDev *dev,
      while ((callback = (MessageCallback *) fusion_fifo_get(&packet->callbacks)) != NULL) {
           D_MAGIC_ASSERT( packet, Packet );
 
-          if (callback->func)
-               callback->func( dev, callback->msg_id, callback->ctx, callback->param );
+          if (callback->func_index) {
+               D_ASSERT( callback->func_index < D_ARRAY_SIZE(fusion_message_callbacks) );
+
+               fusion_message_callbacks[callback->func_index]( dev, callback->msg_id, callback->ctx, callback->param );
+          }
 
           fusion_core_free( fusion_core,  callback );
      }
@@ -403,7 +412,7 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 
      fusionee->refs = 1;
 
-     fusionee->pid = current->pid;
+     fusionee->pid = fusion_core_pid( fusion_core );
      fusionee->force_slave = force_slave;
      fusionee->mm = current->mm;
 
@@ -414,6 +423,8 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 
      fusionee->fusion_dev = dev;
 
+     D_MAGIC_SET( fusionee, Fusionee );
+
      *ret_fusionee = fusionee;
 
      return 0;
@@ -421,6 +432,8 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 
 int fusionee_enter(FusionDev * dev, FusionEnter * enter, Fusionee * fusionee)
 {
+     D_MAGIC_ASSERT( fusionee, Fusionee );
+
      if (dev->fusionee.last_id || fusionee->force_slave) {
           while (!dev->enter_ok) {
                fusion_core_wq_wait( fusion_core, &dev->enter_wait, NULL );
@@ -458,6 +471,8 @@ int fusionee_fork(FusionDev * dev, FusionFork * fork, Fusionee * fusionee)
 {
      int ret;
 
+     D_MAGIC_ASSERT( fusionee, Fusionee );
+
      ret = fusion_shmpool_fork_all(dev, fusionee->id, fork->fusion_id);
      if (ret)
           return ret;
@@ -484,7 +499,7 @@ fusionee_send_message(FusionDev * dev,
                       int msg_channel,
                       int msg_size,
                       const void *msg_data,
-                      MessageCallbackFunc callback,
+                      FusionMessageCallback callback,
                       void *callback_ctx, int callback_param,
                       const void *extra_data, unsigned int extra_size )
 {
@@ -500,6 +515,8 @@ fusionee_send_message(FusionDev * dev,
 
      FUSION_DEBUG("fusionee_send_message (%ld -> %ld, type %d, id %d, size %d, extra %d)\n",
                   fusionee->id, recipient, msg_type, msg_id, msg_size, extra_size);
+
+     D_MAGIC_ASSERT( fusionee, Fusionee );
 
      while (fusionee->packets.count > 10) {
           fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0 );
@@ -560,7 +577,7 @@ fusionee_send_message2(FusionDev * dev,
                        int msg_channel,
                        int msg_size,
                        const void *msg_data,
-                       MessageCallbackFunc callback,
+                       FusionMessageCallback callback,
                        void *callback_ctx, int callback_param,
                        const void *extra_data, unsigned int extra_size )
 {
@@ -570,7 +587,9 @@ fusionee_send_message2(FusionDev * dev,
      const FusionCallMessage *call = msg_data;
 
      FUSION_DEBUG("fusionee_send_message2 (%ld -> %ld, type %d, id %d, size %d, extra %d)\n",
-                  sender->id, fusionee->id, msg_type, msg_id, msg_size, extra_size);
+                  sender ? sender->id : 0, fusionee->id, msg_type, msg_id, msg_size, extra_size);
+
+     D_MAGIC_ASSERT( fusionee, Fusionee );
 
      while (fusionee->packets.count > 10) {
           fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0 );
@@ -631,10 +650,12 @@ fusionee_get_messages(FusionDev * dev,
 
      FUSION_DEBUG( "%s()\n", __FUNCTION__ );
 
-     if (fusionee->dispatcher_pid)
-          FUSION_ASSUME(fusionee->dispatcher_pid == current->pid);
+     D_MAGIC_ASSERT( fusionee, Fusionee );
 
-     fusionee->dispatcher_pid = current->pid;
+     if (fusionee->dispatcher_pid)
+          FUSION_ASSUME(fusionee->dispatcher_pid == fusion_core_pid( fusion_core ));
+
+     fusionee->dispatcher_pid = fusion_core_pid( fusion_core );
 
      prev_packets = fusionee->prev_packets;
 
@@ -643,10 +664,10 @@ fusionee_get_messages(FusionDev * dev,
      fusion_core_wq_wake( fusion_core, &fusionee->wait_process);
 
      while (!fusionee->packets.count || !((Packet *) fusionee->packets.items)->flush) {
-          if (!block) {
-               flush_packets(fusionee, dev, &prev_packets);
-               return -EAGAIN;
-          }
+//          if (!block) {
+//               flush_packets(fusionee, dev, &prev_packets);
+//               return -EAGAIN;
+//          }
 
           if (prev_packets.count) {
                flush_packets(fusionee, dev, &prev_packets);
@@ -712,6 +733,8 @@ fusionee_wait_processing(FusionDev * dev,
           if (ret)
                return ret;
 
+          D_MAGIC_ASSERT( fusionee, Fusionee );
+
           /* Search all pending packets. */
           direct_list_foreach (packet, fusionee->packets.items) {
                if (Packet_Search( packet, msg_type, msg_id ))
@@ -731,7 +754,7 @@ fusionee_wait_processing(FusionDev * dev,
                break;
 
           if (fusionee->dispatcher_pid)
-               FUSION_ASSUME(fusionee->dispatcher_pid != current->pid);
+               FUSION_ASSUME(fusionee->dispatcher_pid != fusion_core_pid( fusion_core ));
 
           /* Otherwise unlock and wait. */
           fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0 );
@@ -755,6 +778,8 @@ fusionee_poll(FusionDev * dev,
      if (ret)
           return POLLERR;
 
+     D_MAGIC_ASSERT( fusionee, Fusionee );
+
      prev_msgs = fusionee->prev_packets;
 
      fusion_fifo_reset(&fusionee->prev_packets);
@@ -766,7 +791,7 @@ fusionee_poll(FusionDev * dev,
 
      // FIXME: what to do because of poll_wait?
 //     fusion_core_wq_wait( fusion_core, &fusionee->wait_receive, NULL );
-     poll_wait(file, &fusionee->wait_receive.q, wait);
+//     poll_wait(file, &fusionee->wait_receive.q, wait);
 
 
      ret = lock_fusionee(dev, id, &fusionee);
@@ -856,7 +881,7 @@ fusionee_kill(FusionDev * dev,
 void
 fusionee_ref( Fusionee * fusionee )
 {
-     FUSION_ASSERT( fusionee != NULL );
+     D_MAGIC_ASSERT( fusionee, Fusionee );
 
      FUSION_ASSERT( fusionee->refs > 0 );
 
@@ -866,7 +891,7 @@ fusionee_ref( Fusionee * fusionee )
 void
 fusionee_unref( Fusionee * fusionee )
 {
-     FUSION_ASSERT( fusionee != NULL );
+     D_MAGIC_ASSERT( fusionee, Fusionee );
 
      FUSION_ASSERT( fusionee->refs > 0 );
 
@@ -880,7 +905,8 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
      FusionFifo prev_packets;
      FusionFifo packets;
 
-     FUSION_ASSERT( fusionee != NULL );
+     D_MAGIC_ASSERT( fusionee, Fusionee );
+
      FUSION_ASSERT( fusionee->refs > 0 );
 
      prev_packets = fusionee->prev_packets;
@@ -913,6 +939,8 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 
 FusionID fusionee_id(const Fusionee * fusionee)
 {
+     D_MAGIC_ASSERT( fusionee, Fusionee );
+
      return fusionee->id;
 }
 
@@ -922,6 +950,8 @@ pid_t fusionee_dispatcher_pid(FusionDev * dev, FusionID fusion_id)
      int ret = -EINVAL;
 
      direct_list_foreach(fusionee, dev->fusionee.list) {
+          D_MAGIC_ASSERT( fusionee, Fusionee );
+
           if (fusionee->id == fusion_id) {
                /* FIXME: wait for it? */
                FUSION_ASSUME(fusionee->dispatcher_pid != 0);
@@ -942,6 +972,8 @@ lookup_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
      Fusionee *fusionee;
 
      direct_list_foreach(fusionee, dev->fusionee.list) {
+          D_MAGIC_ASSERT( fusionee, Fusionee );
+
           if (fusionee->id == id) {
                *ret_fusionee = fusionee;
                return 0;
@@ -960,6 +992,8 @@ static int lock_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
      if (ret)
           return ret;
 
+     D_MAGIC_ASSERT( fusionee, Fusionee );
+
      direct_list_move_to_front(&dev->fusionee.list, &fusionee->link);
 
      *ret_fusionee = fusionee;
@@ -973,6 +1007,8 @@ static void flush_packets(Fusionee *fusionee, FusionDev * dev, FusionFifo * fifo
 {
      Packet *packet;
 
+     D_MAGIC_ASSERT( fusionee, Fusionee );
+
      while ((packet = (Packet *) fusion_fifo_get(fifo)) != NULL) {
           D_MAGIC_ASSERT( packet, Packet );
 
@@ -985,6 +1021,8 @@ static void flush_packets(Fusionee *fusionee, FusionDev * dev, FusionFifo * fifo
 static void free_packets(Fusionee *fusionee, FusionDev * dev, FusionFifo * fifo)
 {
      Packet *packet;
+
+     D_MAGIC_ASSERT( fusionee, Fusionee );
 
      while ((packet = (Packet *) fusion_fifo_get(fifo)) != NULL) {
           D_MAGIC_ASSERT( packet, Packet );

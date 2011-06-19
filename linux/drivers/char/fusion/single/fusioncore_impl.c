@@ -42,7 +42,9 @@ fusion_core_enter( int          cpu_index,
 
      core->cpu_index = cpu_index;
 
-     spin_lock_init( &core->lock );
+     sema_init( &core->lock, 1 );
+
+     D_MAGIC_SET( core, FusionCore );
 
      *ret_core = core;
 
@@ -52,7 +54,21 @@ fusion_core_enter( int          cpu_index,
 void
 fusion_core_exit( FusionCore *core )
 {
+     D_MAGIC_ASSERT( core, FusionCore );
+
+
+     D_MAGIC_CLEAR( core );
+
      kfree( core );
+}
+
+// FIXME: in theory pids could be more than 16bit wide, so we'd have to use a 64bit type here
+pid_t
+fusion_core_pid( FusionCore *core )
+{
+     D_MAGIC_ASSERT( core, FusionCore );
+
+     return (core->cpu_index << 16) | current->pid;
 }
 
 
@@ -60,6 +76,8 @@ void *
 fusion_core_malloc( FusionCore *core,
                     size_t      size )
 {
+     D_MAGIC_ASSERT( core, FusionCore );
+
      return kmalloc( size, GFP_ATOMIC );
 }
 
@@ -67,20 +85,56 @@ void
 fusion_core_free( FusionCore *core,
                   void       *ptr )
 {
+     D_MAGIC_ASSERT( core, FusionCore );
+
      kfree( ptr );
+}
+
+
+void
+fusion_core_set_pointer( FusionCore      *core,
+                         unsigned int     index,
+                         void            *ptr )
+{
+     FUSION_DEBUG( "%s( %p, index %d, ptr %p )\n", __FUNCTION__, core, index, ptr );
+
+     D_MAGIC_ASSERT( core, FusionCore );
+
+     D_ASSERT( index < sizeof(core->pointers) );
+
+     core->pointers[index] = ptr;
+}
+
+void *
+fusion_core_get_pointer( FusionCore      *core,
+                         unsigned int     index )
+{
+     FUSION_DEBUG( "%s( %p, index %d )\n", __FUNCTION__, core, index );
+
+     D_MAGIC_ASSERT( core, FusionCore );
+
+     D_ASSERT( index < sizeof(core->pointers) );
+
+     FUSION_DEBUG( "  -> returning %p\n", core->pointers[index] );
+
+     return core->pointers[index];
 }
 
 
 void
 fusion_core_lock( FusionCore *core )
 {
-     spin_lock( &core->lock );
+     D_MAGIC_ASSERT( core, FusionCore );
+
+     down( &core->lock );
 }
 
 void
 fusion_core_unlock( FusionCore *core )
 {
-     spin_unlock( &core->lock );
+     D_MAGIC_ASSERT( core, FusionCore );
+
+     up( &core->lock );
 }
 
 
@@ -88,7 +142,13 @@ FusionCoreResult
 fusion_core_wq_init( FusionCore      *core,
                      FusionWaitQueue *queue )
 {
-     init_waitqueue_head( &queue->q );
+     D_MAGIC_ASSERT( core, FusionCore );
+
+     memset( queue, 0, sizeof(FusionWaitQueue) );
+
+     init_waitqueue_head( &queue->queue );
+
+     D_MAGIC_SET( queue, FusionWaitQueue );
 
      return FC_OK;
 }
@@ -97,6 +157,10 @@ void
 fusion_core_wq_deinit( FusionCore      *core,
                        FusionWaitQueue *queue )
 {
+     D_MAGIC_ASSERT( core, FusionCore );
+     D_MAGIC_ASSERT( queue, FusionWaitQueue );
+
+     D_MAGIC_CLEAR( queue );
 }
 
 void
@@ -107,7 +171,10 @@ fusion_core_wq_wait( FusionCore      *core,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
      DEFINE_WAIT(wait);
 
-     prepare_to_wait( &queue->q, &wait, TASK_INTERRUPTIBLE );
+     D_MAGIC_ASSERT( core, FusionCore );
+     D_MAGIC_ASSERT( queue, FusionWaitQueue );
+
+     prepare_to_wait( &queue->queue, &wait, TASK_INTERRUPTIBLE );
 
      fusion_core_unlock( core );
 
@@ -118,17 +185,20 @@ fusion_core_wq_wait( FusionCore      *core,
 
      fusion_core_lock( core );
 
-     finish_wait( &queue->q, &wait );
+     finish_wait( &queue->queue, &wait );
 #else
      wait_queue_t wait;
+
+     D_MAGIC_ASSERT( core, FusionCore );
+     D_MAGIC_ASSERT( queue, FusionWaitQueue );
 
      init_waitqueue_entry(&wait, current);
 
      current->state = TASK_INTERRUPTIBLE;
 
-     write_lock( &queue->q.lock);
-     __add_wait_queue( &queue->q, &wait);
-     write_unlock( &queue->q.lock );
+     write_lock( &queue->queue.lock);
+     __add_wait_queue( &queue->queue, &wait);
+     write_unlock( &queue->queue.lock );
 
      fusion_core_unlock( core );
 
@@ -139,9 +209,9 @@ fusion_core_wq_wait( FusionCore      *core,
 
      fusion_core_lock( core );
 
-     write_lock( &queue->q.lock );
-     __remove_wait_queue( &queue->q, &wait );
-     write_unlock( &queue->q.lock );
+     write_lock( &queue->queue.lock );
+     __remove_wait_queue( &queue->queue, &wait );
+     write_unlock( &queue->queue.lock );
 #endif
 }
 
@@ -149,6 +219,9 @@ void
 fusion_core_wq_wake( FusionCore      *core,
                      FusionWaitQueue *queue )
 {
-     wake_up_all( &queue->q );
+     D_MAGIC_ASSERT( core, FusionCore );
+     D_MAGIC_ASSERT( queue, FusionWaitQueue );
+
+     wake_up_all( &queue->queue );
 }
 

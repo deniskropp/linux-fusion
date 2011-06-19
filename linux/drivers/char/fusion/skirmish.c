@@ -234,7 +234,7 @@ int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id)
      if (ret)
           return ret;
 
-     if (skirmish->lock_pid == current->pid) {
+     if (skirmish->lock_pid == fusion_core_pid( fusion_core )) {
           skirmish->lock_count++;
           skirmish->lock_total++;
           return 0;
@@ -243,7 +243,7 @@ int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id)
      /* look in currently acquired skirmishs for this one being
         a pre-acquisition, indicating a potential deadlock */
      fusion_list_foreach(s, dev->skirmish.list) {
-          if (s->lock_pid != current->pid)
+          if (s->lock_pid != fusion_core_pid( fusion_core ))
                continue;
 
           outer = false;
@@ -267,7 +267,7 @@ int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id)
      fusion_list_foreach(s, dev->skirmish.list) {
           int free = -1;
 
-          if (s->lock_pid != current->pid)
+          if (s->lock_pid != fusion_core_pid( fusion_core ))
                continue;
 
           for (i = 0; i < MAX_PRE_ACQUISITIONS; i++) {
@@ -306,18 +306,18 @@ int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id)
      while (   skirmish->lock_pid
                || (    (skirmish->transfer2_to == 0)
                        &&  skirmish->transfer_to
-                       && (fusionee_dispatcher_pid(dev, skirmish-> transfer_to) != current->pid))
+                       && (fusionee_dispatcher_pid(dev, skirmish-> transfer_to) != fusion_core_pid( fusion_core )))
                || (     skirmish->transfer2_to
-                        && (fusionee_dispatcher_pid(dev, skirmish-> transfer2_to) != current->pid)) ) {
+                        && (fusionee_dispatcher_pid(dev, skirmish-> transfer2_to) != fusion_core_pid( fusion_core ))) ) {
           ret = fusion_skirmish_wait(skirmish, NULL);
           if (ret)
                return ret;
      }
 
-     FUSION_DEBUG( "  -> lock_pid = %d\n", current->pid );
+     FUSION_DEBUG( "  -> lock_pid = %d\n", fusion_core_pid( fusion_core ) );
 
      skirmish->lock_fid   = fusion_id;
-     skirmish->lock_pid   = current->pid;
+     skirmish->lock_pid   = fusion_core_pid( fusion_core );
      skirmish->lock_count = 1;
      skirmish->lock_time  = jiffies;
 
@@ -342,10 +342,10 @@ int fusion_skirmish_swoop(FusionDev * dev, int id, int fusion_id)
      if (   skirmish->lock_fid
             || (    (skirmish->transfer2_to == 0)
                     &&  skirmish->transfer_to
-                    && (fusionee_dispatcher_pid(dev, skirmish->transfer_to) != current->pid))
+                    && (fusionee_dispatcher_pid(dev, skirmish->transfer_to) != fusion_core_pid( fusion_core )))
             || (     skirmish->transfer2_to
-                     && (fusionee_dispatcher_pid(dev, skirmish-> transfer2_to) != current->pid)) ) {
-          if (skirmish->lock_pid == current->pid) {
+                     && (fusionee_dispatcher_pid(dev, skirmish-> transfer2_to) != fusion_core_pid( fusion_core ))) ) {
+          if (skirmish->lock_pid == fusion_core_pid( fusion_core )) {
                skirmish->lock_count++;
                skirmish->lock_total++;
                return 0;
@@ -354,10 +354,10 @@ int fusion_skirmish_swoop(FusionDev * dev, int id, int fusion_id)
           return -EAGAIN;
      }
 
-     FUSION_DEBUG( "  -> lock_pid = %d\n", current->pid );
+     FUSION_DEBUG( "  -> lock_pid = %d\n", fusion_core_pid( fusion_core ) );
 
      skirmish->lock_fid   = fusion_id;
-     skirmish->lock_pid   = current->pid;
+     skirmish->lock_pid   = fusion_core_pid( fusion_core );
      skirmish->lock_count = 1;
 
      skirmish->lock_total++;
@@ -377,7 +377,7 @@ fusion_skirmish_lock_count(FusionDev * dev, int id, int fusion_id,
           return ret;
 
      if (skirmish->lock_fid == fusion_id &&
-         skirmish->lock_pid == current->pid) {
+         skirmish->lock_pid == fusion_core_pid( fusion_core )) {
           *ret_lock_count = skirmish->lock_count;
      }
      else {
@@ -401,7 +401,7 @@ int fusion_skirmish_dismiss(FusionDev * dev, int id, int fusion_id)
 
      dev->stat.skirmish_dismiss++;
 
-     if (skirmish->lock_pid != current->pid)
+     if (skirmish->lock_pid != fusion_core_pid( fusion_core ))
           return -EIO;
 
      if (--skirmish->lock_count == 0) {
@@ -479,7 +479,7 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
      /* Check if not a resumed call. */
      if (!wait->lock_count) {
           /* Cannot wait for skirmish not held by the current task. */
-          if (skirmish->lock_pid != current->pid) {
+          if (skirmish->lock_pid != fusion_core_pid( fusion_core )) {
                FUSION_SKIRMISH_LOG
                ("FusionSkirmish: Tried to wait for skirmish not held by the current task!\n");
                return -EIO;
@@ -499,7 +499,7 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
           fusion_skirmish_notify(skirmish);
      }
      /* This might happen when lock count was not initialized. */
-     else if (skirmish->lock_pid == current->pid) {
+     else if (skirmish->lock_pid == fusion_core_pid( fusion_core )) {
           FUSION_SKIRMISH_LOG
           ("FusionSkirmish: Tried to resume wait for skirmish still held by the current task!\n");
           return -EIO;
@@ -577,10 +577,10 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
           }
      }
 
-     FUSION_DEBUG( "  -> lock_pid = %d\n", current->pid );
+     FUSION_DEBUG( "  -> lock_pid = %d\n", fusion_core_pid( fusion_core ) );
 
      skirmish->lock_fid   = fusion_id;
-     skirmish->lock_pid   = current->pid;
+     skirmish->lock_pid   = fusion_core_pid( fusion_core );
      skirmish->lock_count = wait->lock_count;
 
      FUSION_SKIRMISH_LOG("FusionSkirmish: ...done (%d).\n", ret);
@@ -601,7 +601,7 @@ int fusion_skirmish_notify_(FusionDev * dev, int id, FusionID fusion_id)
 
      dev->stat.skirmish_notify++;
 
-     if (skirmish->lock_pid != current->pid)
+     if (skirmish->lock_pid != fusion_core_pid( fusion_core ))
           return -EIO;
 
      skirmish->notify_count++;

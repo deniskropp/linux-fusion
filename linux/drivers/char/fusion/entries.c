@@ -40,6 +40,12 @@ fusion_entries_init( FusionEntries    *entries,
                      void             *ctx,
                      FusionDev        *dev )
 {
+
+     FUSION_DEBUG( "%s( entries %p, class %p, ctx %p, dev %p )\n",
+                   __FUNCTION__, entries, class, ctx, dev );
+
+     FUSION_DEBUG( "  -> object_size %d, entry size %zu\n", class->object_size, sizeof(FusionEntry) );
+
      FUSION_ASSERT(entries != NULL);
      FUSION_ASSERT(class != NULL);
      FUSION_ASSERT(class->object_size >= sizeof(FusionEntry));
@@ -229,7 +235,7 @@ int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx)
 
      entry->entries = entries;
      entry->id = ++entries->ids;
-     entry->pid = current->pid;
+     entry->pid = fusion_core_pid( fusion_core );
 
      fusion_core_wq_init( fusion_core, &entry->wait);
 

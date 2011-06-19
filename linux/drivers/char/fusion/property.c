@@ -109,13 +109,13 @@ int fusion_property_lease(FusionDev * dev, int id, int fusion_id)
                case FUSION_PROPERTY_AVAILABLE:
                     property->state = FUSION_PROPERTY_LEASED;
                     property->fusion_id = fusion_id;
-                    property->lock_pid = current->pid;
+                    property->lock_pid = fusion_core_pid( fusion_core );
                     property->count = 1;
 
                     return 0;
 
                case FUSION_PROPERTY_LEASED:
-                    if (property->lock_pid == current->pid) {
+                    if (property->lock_pid == fusion_core_pid( fusion_core )) {
                          property->count++;
 
                          return 0;
@@ -128,10 +128,11 @@ int fusion_property_lease(FusionDev * dev, int id, int fusion_id)
                     break;
 
                case FUSION_PROPERTY_PURCHASED:
-                    if (property->lock_pid == current->pid)
+                    if (property->lock_pid == fusion_core_pid( fusion_core ))
                          return -EIO;
 
                     if (timeout == -1) {
+                         // FIXME: add fusion_core_jiffies()
                          if (jiffies - property->purchase_stamp > HZ / 10)
                               return -EAGAIN;
 
@@ -173,14 +174,14 @@ int fusion_property_purchase(FusionDev * dev, int id, int fusion_id)
                     property->state = FUSION_PROPERTY_PURCHASED;
                     property->fusion_id = fusion_id;
                     property->purchase_stamp = jiffies;
-                    property->lock_pid = current->pid;
+                    property->lock_pid = fusion_core_pid( fusion_core );
                     property->count = 1;
 
                     fusion_property_notify(property);
                     return 0;
 
                case FUSION_PROPERTY_LEASED:
-                    if (property->lock_pid == current->pid)
+                    if (property->lock_pid == fusion_core_pid( fusion_core ))
                          return -EIO;
 
                     ret = fusion_property_wait(property, NULL);
@@ -190,7 +191,7 @@ int fusion_property_purchase(FusionDev * dev, int id, int fusion_id)
                     break;
 
                case FUSION_PROPERTY_PURCHASED:
-                    if (property->lock_pid == current->pid) {
+                    if (property->lock_pid == fusion_core_pid( fusion_core )) {
                          property->count++;
 
                          return 0;
@@ -232,7 +233,7 @@ int fusion_property_cede(FusionDev * dev, int id, int fusion_id)
      if (ret)
           return ret;
 
-     if (property->lock_pid != current->pid)
+     if (property->lock_pid != fusion_core_pid( fusion_core ))
           return -EIO;
 
      if (--property->count)

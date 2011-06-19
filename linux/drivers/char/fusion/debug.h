@@ -21,11 +21,12 @@
 #define FUSION_ASSUME(exp)    do { if (!(exp)) printk( KERN_ERR "linux-fusion: Assumption [ " #exp " ] failed! (%s:%d)\n", __FILE__, __LINE__ ); } while (0)
 
 #ifdef FUSION_ENABLE_DEBUG
-#define FUSION_DEBUG(x...)  printk (KERN_DEBUG "Fusion: " x)
+#define FUSION_DEBUG(x...)  fusion_debug_printk (x)
 #else
 #define FUSION_DEBUG(x...)  do {} while (0)
 #endif
 
+void fusion_debug_printk( const char *format, ... );
 
 
 #define D_ASSERT FUSION_ASSERT

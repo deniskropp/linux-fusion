@@ -291,7 +291,7 @@ int fusion_ref_watch(FusionDev * dev, int id, int call_id, int call_arg)
      if (ret)
           return ret;
 
-     if (ref->entry.pid != current->pid)
+     if (ref->entry.pid != fusion_core_pid( fusion_core ))
           return -EACCES;
 
      if (ref->global +ref->local == 0)

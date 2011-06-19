@@ -50,4 +50,9 @@ void fusion_reactor_detach_all(FusionDev * dev, FusionID fusion_id);
 
 int fusion_reactor_fork_all(FusionDev * dev,
                             FusionID fusion_id, FusionID from_id);
+
+
+
+void fusion_reactor_dispatch_message_callback(FusionDev * dev, int id, void *ctx, int arg);
+
 #endif

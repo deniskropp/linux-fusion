@@ -21,13 +21,16 @@
 #include "entries.h"
 #include "list.h"
 
+#define D_ARRAY_SIZE(array)        ((int)(sizeof(array) / sizeof((array)[0])))
 
 #define NUM_MINORS  8
 #define NUM_CLASSES 8
 
-
+typedef struct __Fusion_FusionShared FusionShared;
 
 struct __Fusion_FusionDev {
+     FusionShared *shared;
+
      int refs;
      int index;
      struct {
@@ -38,7 +41,11 @@ struct __Fusion_FusionDev {
      int enter_ok;
      FusionWaitQueue enter_wait;
 
+#ifdef FUSION_CORE_SHMPOOLS
+     void *shared_area;
+#else
      unsigned long shared_area;
+#endif
 
      struct {
           int property_lease_purchase;
@@ -76,10 +83,12 @@ struct __Fusion_FusionDev {
      unsigned int next_class_index;
 };
 
+struct __Fusion_FusionShared {
+     FusionDev   devs[NUM_MINORS];
 
-typedef struct {
-     FusionDev  devs[NUM_MINORS];
-} FusionShared;
+     FusionLink *addr_entries;
+     void       *addr_base;
+};
 
 extern FusionCore            *fusion_core;
 extern struct proc_dir_entry *fusion_proc_dir[NUM_MINORS];

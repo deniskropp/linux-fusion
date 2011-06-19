@@ -239,7 +239,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
      /* Put message into queue of callee. */
      ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
                                   call->entry.id, 0, sizeof(message),
-                                  &message, NULL, NULL, 1, NULL, 0);
+                                  &message, FMC_NONE, NULL, 1, NULL, 0);
      if (ret) {
           FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
           if (execution) {
@@ -258,7 +258,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
           /* Transfer held skirmishs (locks). */
           fusion_skirmish_transfer_all(dev, call->fusionee->id,
                                        fusionee_id(fusionee),
-                                       current->pid,
+                                       fusion_core_pid( fusion_core ),
                                        serial);
 
           /* Unlock call and wait for execution result. TODO: add timeout? */
@@ -282,7 +282,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
           FUSION_DEBUG( "  -> woke up, ret val %u, reclaiming skirmishs...\n", execute->ret_val );
 
           /* Reclaim skirmishs. */
-          fusion_skirmish_reclaim_all(dev, current->pid);
+          fusion_skirmish_reclaim_all(dev, fusion_core_pid( fusion_core ));
      }
      else {
           FUSION_DEBUG( "  -> message sent, not waiting.\n" );
@@ -339,7 +339,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
      /* Put message into queue of callee. */
      ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
                                   call->entry.id, 0, sizeof(FusionCallMessage),
-                                  &message, NULL, NULL, 1, execute->ptr, execute->length);
+                                  &message, FMC_NONE, NULL, 1, execute->ptr, execute->length);
      if (ret) {
           FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
           if (execution) {
@@ -358,7 +358,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
           /* Transfer held skirmishs (locks). */
           fusion_skirmish_transfer_all(dev, call->fusionee->id,
                                        fusionee_id(fusionee),
-                                       current->pid,
+                                       fusion_core_pid( fusion_core ),
                                        serial);
 
           /* Unlock call and wait for execution result. TODO: add timeout? */
@@ -382,7 +382,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
           FUSION_DEBUG( "  -> woke up, ret val %u, reclaiming skirmishs...\n", execute->ret_val );
 
           /* Reclaim skirmishs. */
-          fusion_skirmish_reclaim_all(dev, current->pid);
+          fusion_skirmish_reclaim_all(dev, fusion_core_pid( fusion_core ));
      }
      else {
           FUSION_DEBUG( "  -> message sent, not waiting.\n" );
@@ -531,7 +531,7 @@ static FusionCallExecution *add_execution(FusionCall * call,
      memset(execution, 0, sizeof(FusionCallExecution));
 
      execution->caller = caller;
-     execution->caller_pid = current->pid;
+     execution->caller_pid = fusion_core_pid( fusion_core );
      execution->call_id = call->entry.id;
      execution->serial = serial;
 

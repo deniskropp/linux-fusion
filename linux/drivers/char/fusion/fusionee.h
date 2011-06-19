@@ -24,12 +24,14 @@
 
 
 struct __Fusion_Fusionee {
-     FusionLink link;
+     FusionLink     link;
 
-     int        refs;
+     int            magic;
 
-     FusionID id;
-     int pid;
+     int            refs;
+
+     FusionID       id;
+     int            pid;
 
      FusionFifo packets;
      FusionFifo prev_packets;
@@ -50,6 +52,14 @@ struct __Fusion_Fusionee {
 
      FusionDev *fusion_dev;
 };
+
+
+
+
+typedef enum {
+     FMC_NONE,
+     FMC_DISPATCH
+} FusionMessageCallback;
 
 
 /* module init/cleanup */
@@ -76,7 +86,7 @@ int fusionee_send_message(FusionDev * dev,
                           int msg_channel,
                           int msg_size,
                           const void *msg_data,
-                          MessageCallbackFunc callback,
+                          FusionMessageCallback callback,
                           void *callback_ctx, int callback_param,
                           const void *extra_data, unsigned int extra_size);
 
@@ -88,7 +98,7 @@ int fusionee_send_message2(FusionDev * dev,
                            int msg_channel,
                            int msg_size,
                            const void *msg_data,
-                           MessageCallbackFunc callback,
+                           FusionMessageCallback callback,
                            void *callback_ctx, int callback_param,
                            const void *extra_data, unsigned int extra_size);
 
@@ -113,5 +123,6 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee);
 FusionID fusionee_id(const Fusionee * fusionee);
 
 pid_t fusionee_dispatcher_pid(FusionDev * dev, FusionID fusion_id);
+
 
 #endif

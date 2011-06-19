@@ -15,20 +15,26 @@
 #ifndef __FUSION__FUSIONCORE_IMPL_H__
 #define __FUSION__FUSIONCORE_IMPL_H__
 
+#include <linux/semaphore.h>
 #include <linux/wait.h>
 
 
 struct __Fusion_FusionCore {
-     int            cpu_index;
+     int                 magic;
 
-     spinlock_t     lock;
+     int                 cpu_index;
+
+     struct semaphore    lock;
+
+     void               *pointers[10];
 };
 
+
 typedef struct {
-     wait_queue_head_t   q;
+     int                 magic;
+
+     wait_queue_head_t   queue;
 } FusionWaitQueue;
-
-
 
 
 #endif

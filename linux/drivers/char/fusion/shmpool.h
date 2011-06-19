@@ -19,7 +19,7 @@
 #include "types.h"
 
 #if defined(__mips__)
-#define FUSION_SHM_BASE_32	0x50000000	/* virtual base address */
+#define FUSION_SHM_BASE_32	0x50010000	/* virtual base address */
 #elif defined(CONFIG_CPU_SH4)
 #define FUSION_SHM_BASE_32	0x30000000	/* virtual base address */
 #else
@@ -59,5 +59,9 @@ void fusion_shmpool_detach_all(FusionDev * dev, FusionID fusion_id);
 
 int fusion_shmpool_fork_all(FusionDev * dev,
                             FusionID fusion_id, FusionID from_id);
+
+#ifdef FUSION_CORE_SHMPOOLS
+int fusion_shmpool_map(FusionDev *dev, struct vm_area_struct *vma);
+#endif
 
 #endif

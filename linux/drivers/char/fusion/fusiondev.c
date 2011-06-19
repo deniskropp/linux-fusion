@@ -12,6 +12,8 @@
    2 of the License, or (at your option) any later version.
 */
 
+//#define FUSION_ENABLE_DEBUG
+
 #include <linux/version.h>
 #include <linux/module.h>
 #ifdef HAVE_LINUX_CONFIG_H
@@ -28,7 +30,11 @@
 #include <linux/page-flags.h>
 #include <linux/mm.h>
 #endif
+#include <asm/pgtable.h>
+#include <linux/mm.h>
 
+#include <linux/vmalloc.h>
+#include <linux/mman.h>
 #include <linux/proc_fs.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
@@ -78,6 +84,34 @@ static struct class_simple *fusion_class;
 #endif
 #endif
 
+
+
+#define unlocked_copy_from_user(a,b,c)  \
+({                                      \
+     int ret;                           \
+                                        \
+     /*fusion_core_unlock( fusion_core );*/ \
+                                        \
+     ret = copy_from_user( a, b, c );   \
+                                        \
+     /*fusion_core_lock( fusion_core );*/   \
+                                        \
+     ret;                               \
+})
+
+
+#define unlocked_copy_to_user(a,b,c)    \
+({                                      \
+     int ret;                           \
+                                        \
+     /*fusion_core_unlock( fusion_core );*/ \
+                                        \
+     ret = copy_to_user( a, b, c );     \
+                                        \
+     /*fusion_core_lock( fusion_core );*/   \
+                                        \
+     ret;                               \
+})
 
 
 static FusionShared *shared;
@@ -143,8 +177,11 @@ static int fusiondev_init(FusionDev * dev)
 {
      int ret;
 
-     if (!dev->refs)
+     if (!dev->refs) {
+          dev->shared = shared;
+
           fusion_core_wq_init( fusion_core, &dev->enter_wait);
+     }
 
      ret = fusionee_init(dev);
      if (ret)
@@ -214,8 +251,12 @@ static void fusiondev_deinit(FusionDev * dev)
      fusionee_deinit(dev);
 
      if (!dev->refs && dev->shared_area) {
+#ifdef FUSION_CORE_SHMPOOLS
+          fusion_core_free( fusion_core, dev->shared_area );
           ClearPageReserved(virt_to_page(dev->shared_area));
+#else
           free_page(dev->shared_area);
+#endif
      }
 }
 
@@ -328,12 +369,12 @@ fusion_flush(struct file *file)
      (void)fusionee;
 
      FUSION_DEBUG("fusion_flush( %p, %ld, 0x%08lx %d )\n", file,
-                  atomic_long_read(&file->f_count), fusionee_id(fusionee), current->pid);
+                  atomic_long_read(&file->f_count), fusionee_id(fusionee), fusion_core_pid( fusion_core ));
 
      if (current->flags & PF_EXITING) {
           fusion_core_lock( fusion_core );
 
-          fusion_skirmish_dismiss_all_from_pid(dev, current->pid);
+          fusion_skirmish_dismiss_all_from_pid(dev, fusion_core_pid( fusion_core ));
 
           fusion_core_unlock( fusion_core );
      }
@@ -389,14 +430,14 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_ENTER):
-               if (copy_from_user(&enter, (FusionEnter *) arg, sizeof(enter)))
+               if (unlocked_copy_from_user(&enter, (FusionEnter *) arg, sizeof(enter)))
                     return -EFAULT;
 
                ret = fusionee_enter(dev, &enter, fusionee);
                if (ret)
                     return ret;
 
-               if (copy_to_user((FusionEnter *) arg, &enter, sizeof(enter)))
+               if (unlocked_copy_to_user((FusionEnter *) arg, &enter, sizeof(enter)))
                     return -EFAULT;
 
                return 0;
@@ -412,7 +453,7 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                return 0;
 
           case _IOC_NR(FUSION_KILL):
-               if (copy_from_user(&kill, (FusionKill *) arg, sizeof(kill)))
+               if (unlocked_copy_from_user(&kill, (FusionKill *) arg, sizeof(kill)))
                     return -EFAULT;
 
                return fusionee_kill(dev, fusionee,
@@ -420,7 +461,7 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                                     kill.timeout_ms);
 
           case _IOC_NR(FUSION_ENTRY_SET_INFO):
-               if (copy_from_user
+               if (unlocked_copy_from_user
                    (&info, (FusionEntryInfo *) arg, sizeof(info)))
                     return -EFAULT;
 
@@ -445,7 +486,7 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                }
 
           case _IOC_NR(FUSION_ENTRY_GET_INFO):
-               if (copy_from_user
+               if (unlocked_copy_from_user
                    (&info, (FusionEntryInfo *) arg, sizeof(info)))
                     return -EFAULT;
 
@@ -477,20 +518,20 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                if (ret)
                     return ret;
 
-               if (copy_to_user((FusionEntryInfo *) arg, &info, sizeof(info)))
+               if (unlocked_copy_to_user((FusionEntryInfo *) arg, &info, sizeof(info)))
                     return -EFAULT;
 
                return 0;
 
           case _IOC_NR(FUSION_FORK):
-               if (copy_from_user(&fork, (FusionFork *) arg, sizeof(fork)))
+               if (unlocked_copy_from_user(&fork, (FusionFork *) arg, sizeof(fork)))
                     return -EFAULT;
 
                ret = fusionee_fork(dev, &fork, fusionee);
                if (ret)
                     return ret;
 
-               if (copy_to_user((FusionFork *) arg, &fork, sizeof(fork)))
+               if (unlocked_copy_to_user((FusionFork *) arg, &fork, sizeof(fork)))
                     return -EFAULT;
 
                return 0;
@@ -507,7 +548,7 @@ messaging_ioctl(FusionDev * dev, Fusionee * fusionee,
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_SEND_MESSAGE):
-               if (copy_from_user
+               if (unlocked_copy_from_user
                    (&send, (FusionSendMessage *) arg, sizeof(send)))
                     return -EFAULT;
 
@@ -521,7 +562,7 @@ messaging_ioctl(FusionDev * dev, Fusionee * fusionee,
                return fusionee_send_message(dev, fusionee, send.fusion_id,
                                             FMT_SEND, send.msg_id,
                                             send.msg_channel, send.msg_size,
-                                            send.msg_data, NULL, NULL, 0, NULL, 0);
+                                            send.msg_data, FMC_NONE, NULL, 0, NULL, 0);
      }
 
      return -ENOSYS;
@@ -541,7 +582,7 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_CALL_NEW):
-               if (copy_from_user(&call, (FusionCallNew *) arg, sizeof(call)))
+               if (unlocked_copy_from_user(&call, (FusionCallNew *) arg, sizeof(call)))
                     return -EFAULT;
 
                ret = fusion_call_new(dev, fusionee, &call);
@@ -555,7 +596,7 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                return 0;
 
           case _IOC_NR(FUSION_CALL_EXECUTE):
-               if (copy_from_user
+               if (unlocked_copy_from_user
                    (&execute, (FusionCallExecute *) arg, sizeof(execute)))
                     return -EFAULT;
 
@@ -568,7 +609,7 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                return 0;
 
           case _IOC_NR(FUSION_CALL_RETURN):
-               if (copy_from_user
+               if (unlocked_copy_from_user
                    (&call_ret, (FusionCallReturn *) arg, sizeof(call_ret)))
                     return -EFAULT;
 
@@ -581,7 +622,7 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                return fusion_call_destroy(dev, fusionee, id);
 
           case _IOC_NR(FUSION_CALL_EXECUTE2):
-               if (copy_from_user
+               if (unlocked_copy_from_user
                    (&execute2, (FusionCallExecute2 *) arg, sizeof(execute2)))
                     return -EFAULT;
 
@@ -673,7 +714,7 @@ ref_ioctl(FusionDev * dev, Fusionee * fusionee,
                return refs;
 
           case _IOC_NR(FUSION_REF_WATCH):
-               if (copy_from_user
+               if (unlocked_copy_from_user
                    (&watch, (FusionRefWatch *) arg, sizeof(watch)))
                     return -EFAULT;
 
@@ -681,7 +722,7 @@ ref_ioctl(FusionDev * dev, Fusionee * fusionee,
                                        watch.call_arg);
 
           case _IOC_NR(FUSION_REF_INHERIT):
-               if (copy_from_user
+               if (unlocked_copy_from_user
                    (&inherit, (FusionRefInherit *) arg, sizeof(inherit)))
                     return -EFAULT;
 
@@ -755,12 +796,12 @@ skirmish_ioctl(FusionDev * dev, Fusionee * fusionee,
                return ret;
 
           case _IOC_NR(FUSION_SKIRMISH_WAIT):
-               if (copy_from_user
+               if (unlocked_copy_from_user
                    (&wait, (FusionSkirmishWait *) arg, sizeof(wait)))
                     return -EFAULT;
 
                ret = fusion_skirmish_wait_(dev, &wait, fusion_id);
-               if (copy_to_user
+               if (unlocked_copy_to_user
                    ((FusionSkirmishWait *) arg, &wait, sizeof(wait)))
                     return -EFAULT;
 
@@ -863,7 +904,7 @@ reactor_ioctl(FusionDev * dev, Fusionee * fusionee,
                     attach.channel = 0;
                }
                else {
-                    if (copy_from_user(&attach,
+                    if (unlocked_copy_from_user(&attach,
                                        (FusionReactorAttach *) arg,
                                        sizeof(attach)))
                          return -EFAULT;
@@ -881,7 +922,7 @@ reactor_ioctl(FusionDev * dev, Fusionee * fusionee,
                     detach.channel = 0;
                }
                else {
-                    if (copy_from_user(&detach,
+                    if (unlocked_copy_from_user(&detach,
                                        (FusionReactorDetach *) arg,
                                        sizeof(detach)))
                          return -EFAULT;
@@ -891,7 +932,7 @@ reactor_ioctl(FusionDev * dev, Fusionee * fusionee,
                                             detach.channel, fusion_id);
 
           case _IOC_NR(FUSION_REACTOR_DISPATCH):
-               if (copy_from_user(&dispatch,
+               if (unlocked_copy_from_user(&dispatch,
                                   (FusionReactorDispatch *) arg,
                                   sizeof(dispatch)))
                     return -EFAULT;
@@ -919,7 +960,7 @@ reactor_ioctl(FusionDev * dev, Fusionee * fusionee,
                return fusion_reactor_destroy(dev, id);
 
           case _IOC_NR(FUSION_REACTOR_SET_DISPATCH_CALLBACK):
-               if (copy_from_user(&callback,
+               if (unlocked_copy_from_user(&callback,
                                   (FusionReactorSetCallback *) arg,
                                   sizeof(callback)))
                     return -EFAULT;
@@ -946,7 +987,7 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_SHMPOOL_NEW):
-               if (copy_from_user
+               if (unlocked_copy_from_user
                    (&pool, (FusionSHMPoolNew *) arg, sizeof(pool)))
                     return -EFAULT;
 
@@ -954,7 +995,7 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
                if (ret)
                     return ret;
 
-               if (copy_to_user((FusionSHMPoolNew *) arg, &pool, sizeof(pool))) {
+               if (unlocked_copy_to_user((FusionSHMPoolNew *) arg, &pool, sizeof(pool))) {
                     fusion_shmpool_destroy(dev, pool.pool_id);
                     return -EFAULT;
                }
@@ -962,7 +1003,7 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
                return 0;
 
           case _IOC_NR(FUSION_SHMPOOL_ATTACH):
-               if (copy_from_user(&attach,
+               if (unlocked_copy_from_user(&attach,
                                   (FusionSHMPoolAttach *) arg, sizeof(attach)))
                     return -EFAULT;
 
@@ -970,7 +1011,7 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
                if (ret)
                     return ret;
 
-               if (copy_to_user
+               if (unlocked_copy_to_user
                    ((FusionSHMPoolAttach *) arg, &attach, sizeof(attach))) {
                     fusion_shmpool_detach(dev, attach.pool_id, fusion_id);
                     return -EFAULT;
@@ -985,7 +1026,7 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
                return fusion_shmpool_detach(dev, id, fusion_id);
 
           case _IOC_NR(FUSION_SHMPOOL_DISPATCH):
-               if (copy_from_user(&dispatch,
+               if (unlocked_copy_from_user(&dispatch,
                                   (FusionSHMPoolDispatch *) arg,
                                   sizeof(dispatch)))
                     return -EFAULT;
@@ -1021,7 +1062,7 @@ fusion_ioctl(struct inode *inode, struct file *file,
      Fusionee  *fusionee = file->private_data;
      FusionDev *dev      = fusionee->fusion_dev;
 
-     FUSION_DEBUG("fusion_ioctl (0x%08x)\n", cmd);
+//     FUSION_DEBUG("fusion_ioctl (0x%08x)\n", cmd);
 
      fusion_core_lock( fusion_core );
 
@@ -1068,6 +1109,59 @@ fusion_ioctl(struct inode *inode, struct file *file,
      return ret;
 }
 
+#ifdef FUSION_CORE_SHMPOOLS
+static int fusion_mmap(struct file *file, struct vm_area_struct *vma)
+{
+     int           ret;
+     unsigned int  size;
+     Fusionee     *fusionee = file->private_data;
+     FusionDev    *dev      = fusionee->fusion_dev;
+
+     fusion_core_lock( fusion_core );
+
+     // FIXME: compile switch!
+     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
+     if (vma->vm_pgoff != 0) {
+          ret = fusion_shmpool_map(dev, vma);
+     }
+     else {
+          size = vma->vm_end - vma->vm_start;
+          if (!size || size > PAGE_SIZE) {
+               fusion_core_unlock( fusion_core );
+               return -EINVAL;
+          }
+
+          if (!dev->shared_area) {
+               if (fusionee_id(fusionee) != FUSION_ID_MASTER) {
+                    fusion_core_unlock( fusion_core );
+                    return -EPERM;
+               }
+
+               dev->shared_area = fusion_core_malloc( fusion_core, PAGE_SIZE );
+               if (!dev->shared_area) {
+                    fusion_core_unlock( fusion_core );
+                    return -ENOMEM;
+               }
+          }
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
+          ret = remap_pfn_range(vma, vma->vm_start,
+                                virt_to_phys((void *)dev->
+                                             shared_area) >> PAGE_SHIFT,
+                                PAGE_SIZE, vma->vm_page_prot);
+#else
+          ret = io_remap_page_range(vma->vm_start,
+                                    virt_to_phys((void *)dev->shared_area),
+                                    PAGE_SIZE, vma->vm_page_prot);
+#endif
+     }
+
+     fusion_core_unlock( fusion_core );
+
+     return ret;
+}
+#else
 static int fusion_mmap(struct file *file, struct vm_area_struct *vma)
 {
      int ret;
@@ -1113,6 +1207,7 @@ static int fusion_mmap(struct file *file, struct vm_area_struct *vma)
 
      return ret;
 }
+#endif
 
 static struct file_operations fusion_fops = {
      .owner = THIS_MODULE,
@@ -1120,7 +1215,7 @@ static struct file_operations fusion_fops = {
      .flush = fusion_flush,
      .release = fusion_release,
      .read = fusion_read,
-     .poll = fusion_poll,
+//     .poll = fusion_poll,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
      .unlocked_ioctl = fusion_ioctl,
 #else
@@ -1219,10 +1314,10 @@ static int __init register_devices(void)
 #endif
 
 
-ulong join;
+ulong cpu;
 
-module_param( join, ulong, 0 );
-MODULE_PARM_DESC( join, "Shared address (for join)");
+module_param( cpu, ulong, 0 );
+MODULE_PARM_DESC( cpu, "CPU index");
 
 int __init fusion_init(void)
 {
@@ -1230,10 +1325,10 @@ int __init fusion_init(void)
 
      printk( KERN_INFO "%s()\n", __FUNCTION__ );
 
-     fusion_core_enter( join ? 1 : 0, &fusion_core );
+     fusion_core_enter( cpu, &fusion_core );
 
-     if (join) {
-          shared = (FusionShared*) join;
+     if (cpu) {
+          shared = (FusionShared*) fusion_core_get_pointer( fusion_core, 0 );
 
           printk( KERN_INFO "  -> joining shared area at %p\n", shared );
      }
@@ -1245,6 +1340,10 @@ int __init fusion_init(void)
           printk( KERN_INFO "  -> initializing shared area at %p\n", shared );
 
           memset( shared, 0, sizeof(FusionShared) );
+
+          shared->addr_base = FUSION_SHM_BASE + 0x80000;
+
+          fusion_core_set_pointer( fusion_core, 0, shared );
      }
 
      ret = register_devices();

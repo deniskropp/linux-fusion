@@ -33,12 +33,21 @@ FusionCoreResult  fusion_core_enter    ( int              cpu_index,
 
 void              fusion_core_exit     ( FusionCore      *core );
 
+pid_t             fusion_core_pid      ( FusionCore      *core );
+
 
 void             *fusion_core_malloc   ( FusionCore      *core,
                                          size_t           size );
 
 void              fusion_core_free     ( FusionCore      *core,
                                          void            *ptr );
+
+void              fusion_core_set_pointer( FusionCore      *core,
+                                           unsigned int     index,
+                                           void            *ptr );
+
+void             *fusion_core_get_pointer( FusionCore      *core,
+                                           unsigned int     index );
 
 
 void              fusion_core_lock     ( FusionCore      *core );

@@ -244,7 +244,8 @@ fusion_reactor_detach(FusionDev * dev, int id, int channel, FusionID fusion_id)
      return 0;
 }
 
-static void dispatch_callback(FusionDev * dev, int id, void *ctx, int arg)
+void
+fusion_reactor_dispatch_message_callback(FusionDev * dev, int id, void *ctx, int arg)
 {
      FusionLink *l;
      FusionReactor *reactor = NULL;
@@ -334,7 +335,7 @@ fusion_reactor_dispatch(FusionDev * dev, int id, int channel,
                                      node->fusion_id, FMT_REACTOR,
                                      reactor->entry.id, channel,
                                      msg_size, msg_data,
-                                     dispatch_callback, dispatch,
+                                     FMC_DISPATCH, dispatch,
                                      reactor->entry.id, NULL, 0);
           }
           else
@@ -342,7 +343,7 @@ fusion_reactor_dispatch(FusionDev * dev, int id, int channel,
                fusionee_send_message(dev, fusionee,
                                      node->fusion_id, FMT_REACTOR,
                                      reactor->entry.id, channel,
-                                     msg_size, msg_data, NULL,
+                                     msg_size, msg_data, FMC_NONE,
                                      NULL, 0, NULL, 0);
      }
 
