@@ -12,7 +12,6 @@
    2 of the License, or (at your option) any later version.
 */
 
-#include <linux/autoconf.h>
 #include <linux/compiler.h>
 #include <linux/ctype.h>
 #include <linux/fs.h>
@@ -31,7 +30,6 @@
 #include <asm/string.h>
 
 #include "debug.h"
-#include "quad.h"
 
 
 
