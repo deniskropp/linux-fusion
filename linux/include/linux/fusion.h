@@ -82,7 +82,8 @@ typedef enum {
      FMT_SEND,                               /* msg_id is an optional custom id */
      FMT_CALL,                               /* msg_id is the call id */
      FMT_REACTOR,                            /* msg_id is the reactor id */
-     FMT_SHMPOOL                             /* msg_id is the pool id */
+     FMT_SHMPOOL,                            /* msg_id is the pool id */
+     FMT_CALL3                               /* msg_id is the call id */
 } FusionMessageType;
 
 typedef struct {
@@ -177,12 +178,34 @@ typedef struct {
 } FusionCallExecute2;
 
 typedef struct {
+     int                      call_id;       /* id of the requested call, each call has a fixed owner */
+
+     int                      call_arg;      /* optional int argument */
+     void                    *ptr;           /* optional argument, data will be appended (copy) to message and passed to callee */
+     unsigned int             length;
+
+     void                    *ret_ptr;       /* pointer to return buffer */
+     unsigned int             ret_length;    /* maximum (input) and actual (output) length of return buffer */
+
+     FusionCallExecFlags      flags;         /* execution flags */
+} FusionCallExecute3;
+
+typedef struct {
      int                      call_id;       /* id of currently executing call */
 
      int                      val;           /* value to return */
 
      unsigned int             serial;
 } FusionCallReturn;
+
+typedef struct {
+     int                      call_id;       /* id of currently executing call */
+
+     unsigned int             serial;
+
+     void                    *ptr;           /* pointer to return buffer */
+     unsigned int             length;        /* length of return buffer */
+} FusionCallReturn3;
 
 typedef struct {
      void                    *handler;       /* function pointer of handler to call */
@@ -194,6 +217,19 @@ typedef struct {
 
      unsigned int             serial;        /* serial number of call, used for return, zero if nothing shall be returned */
 } FusionCallMessage;
+
+typedef struct {
+     void                    *handler;       /* function pointer of handler to call */
+     void                    *ctx;           /* optional handler context */
+
+     int                      caller;        /* fusion id of the caller or zero if called from Fusion */
+     int                      call_arg;      /* optional call parameter */
+     void                    *call_ptr;      /* optional data */
+     unsigned int             call_length;   /* length of data */
+     unsigned int             ret_length;    /* maximum length of return data */
+
+     unsigned int             serial;        /* serial number of call, used for return, zero if nothing shall be returned */
+} FusionCallMessage3;
 
 /*
  * Watching a reference
@@ -317,6 +353,8 @@ typedef struct {
 #define FUSION_CALL_RETURN                   _IOW(FT_CALL,      0x02, FusionCallReturn)
 #define FUSION_CALL_DESTROY                  _IOW(FT_CALL,      0x03, int)
 #define FUSION_CALL_EXECUTE2                 _IOW(FT_CALL,      0x04, FusionCallExecute2)
+#define FUSION_CALL_EXECUTE3                 _IOW(FT_CALL,      0x05, FusionCallExecute3)
+#define FUSION_CALL_RETURN3                  _IOW(FT_CALL,      0x06, FusionCallReturn3)
 
 #define FUSION_REF_NEW                       _IOW(FT_REF,       0x00, int)
 #define FUSION_REF_UP                        _IOW(FT_REF,       0x01, int)

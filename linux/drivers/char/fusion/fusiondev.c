@@ -572,13 +572,15 @@ static int
 call_ioctl(FusionDev * dev, Fusionee * fusionee,
            unsigned int cmd, unsigned long arg)
 {
-     int id;
-     int ret;
-     FusionCallNew call;
-     FusionCallExecute execute;
+     int                id;
+     int                ret;
+     FusionCallNew      call;
+     FusionCallExecute  execute;
      FusionCallExecute2 execute2;
-     FusionCallReturn call_ret;
-     FusionID fusion_id = fusionee_id(fusionee);
+     FusionCallExecute3 execute3;
+     FusionCallReturn   call_ret;
+     FusionCallReturn3  call_ret3;
+     FusionID           fusion_id = fusionee_id(fusionee);
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_CALL_NEW):
@@ -633,6 +635,27 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                if (put_user(execute2.ret_val, (int *)arg))
                     return -EFAULT;
                return 0;
+
+          case _IOC_NR(FUSION_CALL_EXECUTE3):
+               if (unlocked_copy_from_user
+                   (&execute3, (FusionCallExecute3 *) arg, sizeof(execute3)))
+                    return -EFAULT;
+
+               ret = fusion_call_execute3(dev, fusionee, &execute3);
+               if (ret)
+                    return ret;
+
+               if (unlocked_copy_to_user
+                   ((FusionCallExecute3 *) arg, &execute3, sizeof(execute3)))
+                    return -EFAULT;
+               return 0;
+
+          case _IOC_NR(FUSION_CALL_RETURN3):
+               if (unlocked_copy_from_user
+                   (&call_ret3, (FusionCallReturn3 *) arg, sizeof(call_ret3)))
+                    return -EFAULT;
+
+               return fusion_call_return3(dev, fusion_id, &call_ret3);
      }
 
      return -ENOSYS;

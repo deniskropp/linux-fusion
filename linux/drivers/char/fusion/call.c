@@ -48,6 +48,11 @@ typedef struct {
      int call_id;
      unsigned int serial;
      int          caller_pid;
+
+     unsigned int ret_size;
+     unsigned int ret_length;
+
+     /* return data follows */
 } FusionCallExecution;
 
 typedef struct {
@@ -75,7 +80,8 @@ struct fusion_construct_ctx {
 
 static FusionCallExecution *add_execution(FusionCall * call,
                                           Fusionee * caller,
-                                          unsigned int serial);
+                                          unsigned int serial,
+                                          unsigned int ret_size);
 static void remove_execution(FusionCall * call,
                              FusionCallExecution * execution);
 static void free_all_executions(FusionCall * call);
@@ -216,7 +222,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 
      /* Add execution to receive the result. */
      if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
-          execution = add_execution(call, fusionee, serial);
+          execution = add_execution(call, fusionee, serial, 0);
           if (!execution)
                return -ENOMEM;
 
@@ -316,7 +322,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 
      /* Add execution to receive the result. */
      if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
-          execution = add_execution(call, fusionee, serial);
+          execution = add_execution(call, fusionee, serial, 0);
           if (!execution)
                return -ENOMEM;
 
@@ -455,6 +461,199 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
      return -ENOMSG;
 }
 
+int
+fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
+                     FusionCallExecute3 * execute)
+{
+     int ret;
+     FusionCall *call;
+     FusionCallExecution *execution = NULL;
+     FusionCallMessage3 message;
+     unsigned int serial;
+
+     FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
+
+     /* Lookup and lock call. */
+     ret = fusion_call_lookup(&dev->call, execute->call_id, &call);
+     if (ret)
+          return ret;
+
+     FUSION_DEBUG( "  -> call %u '%s'\n", call->entry.id, call->entry.name );
+
+     do {
+          serial = ++call->serial;
+     } while (!serial);
+
+     /* Add execution to receive the result. */
+     if (fusionee && !(execute->flags & FCEF_ONEWAY)) {
+          execution = add_execution(call, fusionee, serial, execute->ret_length);
+          if (!execution)
+               return -ENOMEM;
+
+          FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
+     }
+
+     /* Fill call message. */
+     message.handler = call->handler;
+     message.ctx = call->ctx;
+
+     message.caller = fusionee ? fusionee_id(fusionee) : 0;
+
+     message.call_arg    = execute->call_arg;
+     message.call_ptr    = NULL;
+     message.call_length = execute->length;
+     message.ret_length  = execute->ret_length;
+
+     message.serial = execution ? serial : 0;
+
+     FUSION_DEBUG( "  -> sending call message, caller %u, ptr %p, length %u\n", message.caller, execute->ptr, execute->length );
+
+     /* Put message into queue of callee. */
+     ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL3,
+                                  call->entry.id, 0, sizeof(FusionCallMessage3),
+                                  &message, FMC_NONE, NULL, 1, execute->ptr, execute->length);
+     if (ret) {
+          FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
+          if (execution) {
+               remove_execution(call, execution);
+               fusion_core_free( fusion_core, execution);
+          }
+          return ret;
+     }
+
+     call->count++;
+
+     /* When waiting for a result... */
+     if (execution) {
+          FUSION_DEBUG( "  -> message sent, transfering all skirmishs...\n" );
+
+          /* Transfer held skirmishs (locks). */
+          fusion_skirmish_transfer_all(dev, call->fusionee->id,
+                                       fusionee_id(fusionee),
+                                       fusion_core_pid( fusion_core ),
+                                       serial);
+
+          /* Unlock call and wait for execution result. TODO: add timeout? */
+
+          FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
+          fusion_core_wq_wait( fusion_core, &execution->wait, 0 );
+
+          if (signal_pending(current)) {
+               FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
+               /* Indicate that a signal was received and execution won't be freed by caller. */
+               execution->caller = NULL;
+               return -EINTR;
+          }
+
+          /* Return result to calling process. */
+          if (execution->ret_length) {
+               FUSION_DEBUG( "  -> ret_length %u, ret_size %u, ret_ptr %p\n", execution->ret_length, execution->ret_size, execute->ret_ptr );
+
+               FUSION_ASSERT( execution->ret_length <= execution->ret_size );
+
+               if (copy_to_user( execute->ret_ptr, execution + 1, execution->ret_length )) {
+                    FUSION_DEBUG( "  -> ERROR COPYING RETURN DATA TO USER!\n" );
+                    ret = -EFAULT;
+               }
+          }
+          else
+               ret = -ENODATA;
+
+          execute->ret_length = execution->ret_length;
+
+          /* Free execution, which has already been removed by callee. */
+          fusion_core_free( fusion_core, execution );
+
+          FUSION_DEBUG( "  -> woke up, ret length %u, reclaiming skirmishs...\n", execute->ret_length );
+
+          /* Reclaim skirmishs. */
+          fusion_skirmish_reclaim_all(dev, fusion_core_pid( fusion_core ));
+     }
+     else {
+          FUSION_DEBUG( "  -> message sent, not waiting.\n" );
+     }
+
+     return ret;
+}
+
+int
+fusion_call_return3(FusionDev * dev, int fusion_id, FusionCallReturn3 * call_ret)
+{
+     int ret;
+     FusionCall *call;
+     FusionCallExecution *execution;
+
+     if ( (dev->api.major >= 4) && (call_ret->serial == 0) )
+          return -EOPNOTSUPP;
+
+     /* Lookup and lock call. */
+     ret = fusion_call_lookup(&dev->call, call_ret->call_id, &call);
+     if (ret)
+          return ret;
+
+     /* Search for execution, starting with oldest. */
+     direct_list_foreach (execution, call->executions) {
+          if ((execution->executed)
+              || (execution->call_id != call_ret->call_id)
+              || ((dev->api.major >= 4)
+                  && (execution->serial != call_ret->serial))) {
+               continue;
+          }
+
+          /*
+           * Check if caller received a signal while waiting for the result.
+           *
+           * TODO: This is not completely solved. Restarting the system call
+           * should be possible without causing another execution.
+           */
+          FUSION_ASSUME(execution->caller != NULL);
+          if (!execution->caller) {
+               /* Remove and free execution. */
+               remove_execution(call, execution);
+               fusion_core_free( fusion_core, execution);
+               return -EIDRM;
+          }
+
+          if (execution->ret_size < call_ret->length) {
+               /* Remove and free execution. */
+               remove_execution(call, execution);
+               fusion_core_free( fusion_core, execution);
+               return -E2BIG;
+          }
+
+          /* Write result to execution. */
+          if (copy_from_user( execution + 1, call_ret->ptr, call_ret->length )) {
+               /* Remove and free execution. */
+               remove_execution(call, execution);
+               fusion_core_free( fusion_core, execution);
+               return -EFAULT;
+          }
+
+          execution->ret_length = call_ret->length;
+          execution->executed = true;
+
+          /* Remove execution, freeing is up to caller. */
+          remove_execution(call, execution);
+
+          /* FIXME: Caller might still have received a signal since check above. */
+          FUSION_ASSERT(execution->caller != NULL);
+
+          /* Return skirmishs. */
+          fusion_skirmish_return_all(dev, fusion_id, execution->caller_pid, execution->serial);
+
+          /* Wake up caller. */
+          fusion_core_wq_wake( fusion_core, &execution->wait);
+
+          return 0;
+     }
+
+     /* DirectFB 1.0.x does not handle one-way-calls properly */
+     if (dev->api.major <= 3)
+          return 0;
+
+     return -ENOMSG;
+}
+
 int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
 {
      int ret;
@@ -516,14 +715,15 @@ void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee)
 
 static FusionCallExecution *add_execution(FusionCall * call,
                                           Fusionee * caller,
-                                          unsigned int serial)
+                                          unsigned int serial,
+                                          unsigned int ret_size)
 {
      FusionCallExecution *execution;
 
      FUSION_DEBUG( "%s( call %p [%u], caller %p [%lu], serial %i )\n", __FUNCTION__, call, call->entry.id, caller, caller->id, serial );
 
      /* Allocate execution. */
-     execution = fusion_core_malloc( fusion_core, sizeof(FusionCallExecution) );
+     execution = fusion_core_malloc( fusion_core, sizeof(FusionCallExecution) + ret_size );
      if (!execution)
           return NULL;
 
@@ -534,6 +734,7 @@ static FusionCallExecution *add_execution(FusionCall * call,
      execution->caller_pid = fusion_core_pid( fusion_core );
      execution->call_id = call->entry.id;
      execution->serial = serial;
+     execution->ret_size = ret_size;
 
      fusion_core_wq_init( fusion_core, &execution->wait);
 

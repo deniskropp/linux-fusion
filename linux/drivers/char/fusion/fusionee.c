@@ -610,7 +610,7 @@ fusionee_send_message2(FusionDev * dev,
 
      ret = Packet_Write( packet, msg_type, msg_id, msg_channel,
                          msg_data, msg_size, extra_data, extra_size,
-                         msg_type != FMT_CALL && msg_type != FMT_SHMPOOL );
+                         msg_type != FMT_CALL && msg_type != FMT_CALL3 && msg_type != FMT_SHMPOOL );
      if (ret)
           return ret;
 
@@ -632,7 +632,7 @@ fusionee_send_message2(FusionDev * dev,
           atomic_long_inc(&sender->snd_total);
 
 
-     if (msg_type != FMT_CALL || call->serial || !sender) {
+     if ((msg_type != FMT_CALL && msg_type != FMT_CALL3) || call->serial || !sender) {
           packet->flush = true;
 
           fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);

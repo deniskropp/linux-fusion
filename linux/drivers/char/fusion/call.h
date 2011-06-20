@@ -37,6 +37,12 @@ int fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,   /* NULL if call
 int fusion_call_return(FusionDev * dev,
                        int fusion_id, FusionCallReturn * call_ret);
 
+int fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,   /* NULL if call is from kernel */
+                         FusionCallExecute3 * execute);
+
+int fusion_call_return3(FusionDev * dev,
+                        int fusion_id, FusionCallReturn3 * call_ret);
+
 int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id);
 
 /* internal functions */
