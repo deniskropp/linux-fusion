@@ -460,6 +460,9 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                                     kill.fusion_id, kill.signal,
                                     kill.timeout_ms);
 
+          case _IOC_NR(FUSION_SYNC):
+               return fusionee_sync( dev, fusionee );
+
           case _IOC_NR(FUSION_ENTRY_SET_INFO):
                if (unlocked_copy_from_user
                    (&info, (FusionEntryInfo *) arg, sizeof(info)))
@@ -665,12 +668,13 @@ static int
 ref_ioctl(FusionDev * dev, Fusionee * fusionee,
           unsigned int cmd, unsigned long arg)
 {
-     int id;
-     int ret;
-     int refs;
-     FusionRefWatch watch;
+     int              id;
+     int              ret;
+     int              refs;
+     FusionRefWatch   watch;
      FusionRefInherit inherit;
-     FusionID fusion_id = fusionee_id(fusionee);
+     FusionRefThrow   throw_;
+     FusionID         fusion_id = fusionee_id(fusionee);
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_REF_NEW):
@@ -756,6 +760,19 @@ ref_ioctl(FusionDev * dev, Fusionee * fusionee,
                     return -EFAULT;
 
                return fusion_ref_destroy(dev, id);
+
+          case _IOC_NR(FUSION_REF_CATCH):
+               if (get_user(id, (int *)arg))
+                    return -EFAULT;
+
+               return fusion_ref_catch(dev, id, fusion_id);
+
+          case _IOC_NR(FUSION_REF_THROW):
+               if (unlocked_copy_from_user
+                   (&throw_, (FusionRefThrow *) arg, sizeof(throw_)))
+                    return -EFAULT;
+
+               return fusion_ref_throw(dev, throw_.id, fusion_id, throw_.catcher);
      }
 
      return -ENOSYS;

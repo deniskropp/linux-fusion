@@ -58,6 +58,9 @@ struct __Fusion_FusionDev {
           int ref_up;
           int ref_down;
 
+          int ref_catch;
+          int ref_throw;
+
           int skirmish_prevail_swoop;
           int skirmish_dismiss;
           int skirmish_wait;

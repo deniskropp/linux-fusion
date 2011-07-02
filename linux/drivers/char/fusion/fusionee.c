@@ -806,6 +806,22 @@ fusionee_poll(FusionDev * dev,
 }
 
 int
+fusionee_sync( FusionDev *dev,
+               Fusionee  *fusionee )
+{
+     D_MAGIC_ASSERT( fusionee, Fusionee );
+
+     while (fusionee->packets.count) {
+          fusion_core_wq_wait( fusion_core, &fusionee->wait_process, NULL );
+
+          if (signal_pending(current))
+               return -EINTR;
+     }
+
+     return 0;
+}
+
+int
 fusionee_kill(FusionDev * dev,
               Fusionee * fusionee, FusionID target, int signal, int timeout_ms)
 {

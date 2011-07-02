@@ -31,6 +31,10 @@ int fusion_ref_up(FusionDev * dev, int id, FusionID fusion_id);
 
 int fusion_ref_down(FusionDev * dev, int id, FusionID fusion_id);
 
+int fusion_ref_catch(FusionDev * dev, int id, FusionID fusion_id);
+
+int fusion_ref_throw(FusionDev * dev, int id, FusionID fusion_id, FusionID catcher);
+
 int fusion_ref_zero_lock(FusionDev * dev, int id, FusionID fusion_id);
 
 int fusion_ref_zero_trylock(FusionDev * dev, int id, FusionID fusion_id);

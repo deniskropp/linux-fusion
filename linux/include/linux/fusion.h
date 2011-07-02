@@ -19,8 +19,8 @@
 
 /* Fusion supports all API versions up to this version */
 #define FUSION_API_MAJOR_PROVIDED 8
-#define FUSION_API_MINOR_PROVIDED 3
-#define FUSION_API_MICRO_PROVIDED 1
+#define FUSION_API_MINOR_PROVIDED 4
+#define FUSION_API_MICRO_PROVIDED 0
 
 /*
  * Fusion Kernel Device API Version
@@ -257,6 +257,14 @@ typedef struct {
 } FusionRefInherit;
 
 /*
+ * Throwing a reference
+ */
+typedef struct {
+     int                      id;            /* reference id */
+     int                      catcher;       /* fusion id of the catcher */
+} FusionRefThrow;
+
+/*
  * Killing other fusionees (experimental)
  */
 typedef struct {
@@ -346,6 +354,9 @@ typedef struct {
 
 #define FUSION_FORK                          _IOW(FT_LOUNGE,    0x05, FusionFork)
 
+#define FUSION_SYNC                          _IO (FT_LOUNGE,    0x06)
+
+
 #define FUSION_SEND_MESSAGE                  _IOW(FT_MESSAGING, 0x00, FusionSendMessage)
 
 #define FUSION_CALL_NEW                      _IOW(FT_CALL,      0x00, FusionCallNew)
@@ -368,6 +379,8 @@ typedef struct {
 #define FUSION_REF_WATCH                     _IOW(FT_REF,       0x09, FusionRefWatch)
 #define FUSION_REF_INHERIT                   _IOW(FT_REF,       0x0A, FusionRefInherit)
 #define FUSION_REF_DESTROY                   _IOW(FT_REF,       0x0B, int)
+#define FUSION_REF_CATCH                     _IOW(FT_REF,       0x0C, int)
+#define FUSION_REF_THROW                     _IOW(FT_REF,       0x0D, FusionRefThrow)
 
 #define FUSION_SKIRMISH_NEW                  _IOW(FT_SKIRMISH,  0x00, int)
 #define FUSION_SKIRMISH_PREVAIL              _IOW(FT_SKIRMISH,  0x01, int)

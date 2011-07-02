@@ -45,6 +45,12 @@ typedef struct {
      FusionRef *ref;
 } Inheritor;
 
+typedef struct {
+     FusionLink link;
+     FusionID   fusion_id;
+     FusionID   catcher;
+} Throw;
+
 struct __Fusion_FusionRef {
      FusionEntry entry;
 
@@ -61,9 +67,16 @@ struct __Fusion_FusionRef {
      FusionLink *inheritors;
 
      FusionLink *local_refs;
+
+     FusionLink *throws;
 };
 
 /**********************************************************************************************************************/
+
+static int get_local(FusionRef * ref, FusionID fusion_id);
+static int get_throws(FusionRef * ref, FusionID fusion_id);
+
+static int add_throw(FusionRef * ref, FusionID fusion_id, FusionID catcher);
 
 static int add_local(FusionRef * ref, FusionID fusion_id, int add);
 static void clear_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id);
@@ -197,6 +210,75 @@ int fusion_ref_down(FusionDev * dev, int id, FusionID fusion_id)
           if (ref->local + ref->global == 0)
                notify_ref(dev, ref);
      }
+
+     return 0;
+}
+
+int fusion_ref_catch(FusionDev * dev, int id, FusionID fusion_id)
+{
+     int        ret;
+     FusionRef *ref;
+     Throw     *throw_;
+
+     ret = fusion_ref_lookup(&dev->ref, id, &ref);
+     if (ret)
+          return ret;
+
+     dev->stat.ref_catch++;
+
+     if (ref->locked)
+          return -EAGAIN;
+
+     direct_list_foreach( throw_, ref->throws ) {
+          if (throw_->catcher == fusion_id) {
+               FusionID thrower = throw_->fusion_id;
+
+               fusion_list_remove( &ref->throws, &throw_->link );
+
+               fusion_core_free( fusion_core, throw_ );
+
+
+               ret = add_local( ref, thrower, -1 );
+               if (ret)
+                    return ret;
+
+               propagate_local( dev, ref, -1 );
+
+               return 0;
+          }
+     }
+
+     return -EACCES;
+}
+
+int fusion_ref_throw(FusionDev * dev, int id, FusionID fusion_id, FusionID catcher)
+{
+     int        ret;
+     int        local;
+     int        throws;
+     FusionRef *ref;
+
+     ret = fusion_ref_lookup(&dev->ref, id, &ref);
+     if (ret)
+          return ret;
+
+     dev->stat.ref_throw++;
+
+     if (ref->locked)
+          return -EAGAIN;
+
+     local = get_local( ref, fusion_id );
+     if (!local)
+          return -EIO;
+
+     throws = get_throws( ref, fusion_id );
+     if (throws == local)
+          return -EIO;
+
+     // FIXME: cleanup on release() of thrower/catcher, timeout?
+     ret = add_throw(ref, fusion_id, catcher);
+     if (ret)
+          return ret;
 
      return 0;
 }
@@ -372,6 +454,47 @@ fusion_ref_fork_all_local(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 
 /**********************************************************************************************************************/
 
+static int get_local( FusionRef * ref, FusionID fusion_id )
+{
+     LocalRef *local;
+
+     direct_list_foreach (local, ref->local_refs) {
+          if (local->fusion_id == fusion_id)
+               return local->refs;
+     }
+
+     return 0;
+}
+
+static int get_throws( FusionRef * ref, FusionID fusion_id )
+{
+     Throw *throw_;
+     int    throws = 0;
+
+     direct_list_foreach (throw_, ref->throws) {
+          if (throw_->fusion_id == fusion_id)
+               throws++;
+     }
+
+     return throws;
+}
+
+static int add_throw(FusionRef * ref, FusionID fusion_id, FusionID catcher)
+{
+     Throw *throw_;
+
+     throw_ = fusion_core_malloc( fusion_core, sizeof(Throw) );
+     if (!throw_)
+          return -ENOMEM;
+
+     throw_->fusion_id = fusion_id;
+     throw_->catcher   = catcher;
+
+     direct_list_append( &ref->throws, &throw_->link );
+
+     return 0;
+}
+
 static int add_local(FusionRef * ref, FusionID fusion_id, int add)
 {
      FusionLink *l;
@@ -477,6 +600,8 @@ static void notify_ref(FusionDev * dev, FusionRef * ref)
           execute.call_ptr = NULL;
 
           fusion_call_execute(dev, 0, &execute);
+
+          ref->watched = false;
      }
      else
           fusion_core_wq_wake( fusion_core, &ref->entry.wait);
@@ -495,6 +620,8 @@ static int propagate_local(FusionDev * dev, FusionRef * ref, int diff)
 
      /* Apply difference. */
      ref->local += diff;
+
+     FUSION_ASSERT( ref->local >= 0);
 
      /* Notify zero count. */
      if (ref->local + ref->global == 0)
