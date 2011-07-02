@@ -427,7 +427,6 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
            * TODO: This is not completely solved. Restarting the system call
            * should be possible without causing another execution.
            */
-          FUSION_ASSUME(execution->caller != NULL);
           if (!execution->caller) {
                /* Remove and free execution. */
                remove_execution(call, execution);
