@@ -1,3 +1,255 @@
+commit 8d24d27eb655bcf2c7a03c059ab123971c78ff2d
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Jul 2 11:06:48 2011 +0200
+
+    8.4.0: Add FUSION_SYNC, FUSION_REF_CATCH and FUSION_REF_THROW
+    
+    FUSION_SYNC replaces ugly select() in user space, mainly due to switching
+    to blocking read() that also reduced overhead, of course.
+    
+    FUSION_REF_THROW starts reference passing to a certain Fusionee,
+    only possible when thrower has a local reference to pass.
+    
+    TODO: needs check in unref if throws are active and unref can proceed.
+    
+    FUSIONE_REF_CATCH finishes reference passing on catcher side by
+    decreasing the thrower's local reference count.
+    
+    TODO: Cleanup throws on device close by thrower/catcher, maybe also timeout?
+
+commit 06e8c9d2d244fb2240bb929a92a23e08a8c0220b
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Jul 2 11:01:40 2011 +0200
+
+    call: Remove assumption about withdrawn caller.
+
+commit 863fa9c521d018425e9f06e8bc519499c0f3e74c
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Jun 20 21:58:07 2011 +0200
+
+    Calls: Add FusionCall v3 with variable return data.
+    
+    This adds FUSION_CALL_EXECUTE3 and FUSION_CALL_RETURN3 to execute
+    calls with variable sized request and return data, using new
+    FusionCallMessage3 and FusionCallExecute3/FusionCallReturn3.
+
+commit 1aaff59d1b73a480d1e56f9930f21490b18ea2b9
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun Jun 19 23:26:14 2011 +0200
+
+    debug: Fix build.
+
+commit b5f17a718e2cec23acafbf3597fb1445fcc7c27f
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun Jun 19 23:25:29 2011 +0200
+
+    Makefile: Add missing debug.o
+
+commit 50f5a1600476bd2cc6cfeab734afc76c7c3d2158
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun Jun 19 05:55:52 2011 +0200
+
+    Fusion: Progress with abstration and multi kernel support
+    
+    Still only single kernel implementation with this commit, but a user mode
+    Linux based emulation with file based shared memory will be ready soon.
+    
+    wait_queue_head_t replaced by FusionWaitQueue
+    - fusion_sleep_on replaced by fusion_core_wq_wait
+    - wake_up_* replaced by fusion_core_wq_wake
+    
+    shared and local initialization of each world
+    - local part only registers /proc entries and entry classes (function pointers)
+    - entry classes looked up via index instead of pointer to function table
+    - local ref count in addition to shared world ref count (fusion_local_refs)
+    
+    message callback function pointers turned into function index with lookup table per cpu
+    
+    current->pid replaced by fusion_core_pid() which adds the cpu id in high word
+    
+    all kmalloc/kfree replaced by fusion_core_malloc/fusion_core_free
+    
+    all semaphores removed, except for one global
+    - calling fusion_core_lock/unlock when kernel module is entered/left
+    - multi kernel implementation has shared lock in addition to local semaphore per kernel
+    
+    moved global variables to shared structure (FusionShared)
+    - also moved structure per world (FusionDev) to FusionShared
+    
+    shared root page and shared memory pools allocated via fusion_core_malloc() if enabled
+    - mmap also maps shared memory regions to user space
+    - vma->vm_pgoff is the surface pool id to map
+    
+    fusion device is opened in blocking mode to avoid usage of poll
+    - poll is currently not implemented because of wait queue changes
+    
+    introduced abstraction layer to avoid fork of the kernel module
+    - fusion_core_enter/exit for init/deinit of kernel module
+    - fusion_core_pid for retrieval of current process id (unique across cpus)
+    - fusion_core_malloc/free for allocations in shared memory
+    - fusion_core_set/get_pointer for init/join of both kernel module instances
+    - fusion_core_lock/unlock for the global spin locking
+    - fusion_core_wq_init/deinit/wait/wake for wait queues across cpus
+    
+    fusion core implementation uses udp for inter kernel messaging
+    - cpu != 0 sends shared memory address request to cpu 0 to retrieve internal shared structure
+    - waking up processes on other side sends wake up request with queue pointer
+    
+    kernel module has new parameter cpu=<index>
+    - if cpu is 0, FusionShared is allocated and registered via fusion_core_set_pointer
+    - if cpu is 1, FusionShared is looked up via fusion_core_get_pointer
+    
+    added some debugging functions
+    
+    removed some dead code
+    - yield on unlock
+    - signal blocking
+    
+    todo
+    - fix poll
+    - remove property
+    - implement fusionee_kill
+
+commit 217113df6efbeb5294ea85335de156fffa55f76c
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed May 25 05:54:23 2011 +0800
+
+    Fusion: Add join parameter, handle local refs and join/leave worlds, debug fixes.
+
+commit 6df5d7403fff727ff2f9c1d46dbcbc16a0590222
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue May 24 10:54:01 2011 +0800
+
+    Fusionee: Add some debug in fusionee init.
+
+commit b803784b5d478d6af44db79f2548676d5e1e9ae5
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon May 23 03:50:50 2011 +0800
+
+    Fusion: Introduce FusionCore for abstraction of some functionality.
+
+commit f92d0520bbe8e993183b061d432a5ef802b995d8
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 23:57:02 2011 +0800
+
+    Fusion: Only coding style fixes and copyright update.
+    
+    This is a barrier, of course, for application of patches etc,
+    but I don't see the module being integrated in the mainline kernel,
+    and even then I don't agree following that ugly coding style in a
+    totally independent module.
+
+commit cdc2e26ba87f99707a738036184bd2be7f5174c9
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 07:03:09 2011 +0800
+
+    Entries: Register entry classes separate from entries structure.
+    
+    Still, the entries structure must not be cleared when attaching!
+
+commit d6b48611c70f9328ec985a26b4901fd425875e00
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 06:46:37 2011 +0800
+
+    Entries: Fix spin lock taken too late when printing /proc entries.
+
+commit d934adeb1e6053bd04c74f9509cfe3b74c7045f1
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 06:25:45 2011 +0800
+
+    Fusion: First step for separation of shared/local stuff in kernel module.
+
+commit 53d654c134c19542dd72e3799b809d89f89d6cb2
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 05:19:44 2011 +0800
+
+    Property: Remove yield().
+
+commit b696d3d5208971c8b4fe62df5bcb9a552af6d67c
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 05:18:44 2011 +0800
+
+    Skirmish: Remove yield()s.
+
+commit c2e1dc3ae559bb784533e2c54f180284aed2604f
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 05:09:14 2011 +0800
+
+    Skirmish: Remove signal blocking code completely.
+    
+    The code was bad (global data, array of PID_MAX) and disabled anyhow.
+    
+    Also, the array was always there, even if disabled,
+    so the module has shrinked in memory foot print by more than 60%!
+
+commit 79c5914d1f7305fda3814faf0d86b0adde8c837e
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 05:02:22 2011 +0800
+
+    Fusion: Move global temporary variable 'now' to FusionEntries struct.
+
+commit 4fa4c563d15602482dfee101d8a7c92dab1ffa3c
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 04:40:01 2011 +0800
+
+    Fusion: Second wave of simplifications, just entry lookup, no lock/unlock needed.
+
+commit a673cb3724e2832855ed5e4c83956bc848a6681e
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 04:12:19 2011 +0800
+
+    Fusion: First wave of simplifications, one spinlock per world, one global.
+    
+    Async calls also went faster once more at 4.0M/sec, meaning 80% of Voodoo speed.
+
+commit 4eb63c43ab10455a2f387a30b181dce40b5b1a14
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 03:01:36 2011 +0800
+
+    Fusion: No more semaphores, fusion_sleep_on() only with spinlock.
+
+commit 4533bcd0192027df3d7ea533ab82beb10222cf42
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun May 22 02:46:41 2011 +0800
+
+    Fusion: Replace two semaphores in FusionDev by one spinlock.
+
+commit 3b6b1f161c36215a045e5bad6297b1f470d96ecf
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat May 21 20:35:05 2011 +0800
+
+    Fusion: Use DEFINE_SPINLOCK instead of defining it manually, use GFP_ATOMIC for kmalloc.
+
+commit 1955cc804bb81b1044b109c15be07ebc4741492e
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu May 19 22:49:44 2011 +0800
+
+    Fusion: Get rid of other semaphores, we have wait queues where appropriate.
+    
+    Async call performance against boosted from 2.5M/sec to 3.3M/sec.
+
+commit 662f70222c7880aa293bec2f31b7d4c28fef6deb
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu May 19 22:28:31 2011 +0800
+
+    Fusion: Use spin lock for fusionee instead of semaphore.
+    
+    Boosts async calls from 1.5M/sec to 2.5M/sec on Q740 @ 1.73GHz.
+
+commit e9be1c03bc49abead2e16c529a33cb35b3b2ec8d
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu May 19 21:54:55 2011 +0800
+
+    Fusion: Rework message buffering to reduce overhead.
+    
+    Asynchronous FusionCalls are performing 10x better now.
+
+commit 4bd0761bec5c4623fe2dc54ff3c4d1ef557596b8
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Sat Apr 9 18:24:50 2011 +0200
+
+    release 8.3.1
+
 commit e4050a9e660c3fb7502e5c5fbfd14501afa95139
 Author: Andreas Shimokawa <andi@directfb.org>
 Date:   Sat Apr 9 18:13:45 2011 +0200
