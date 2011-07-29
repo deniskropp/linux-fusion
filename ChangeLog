@@ -1,3 +1,21 @@
+commit ca6ec4e7812841f1ba74bc0aa84fe20a2c232aed
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jul 29 18:19:08 2011 +0200
+
+    fusion: add special permission check for deprecated ioctl() FUSION_SHMPOOL_GET_BASE
+
+commit 076b85d5c1726445033cd0ebbc907ee582586446
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jul 29 18:17:30 2011 +0200
+
+    fusionee: only initialize secure flag when application uses API level >=8.5
+
+commit 6e2c8d03e68ffb20492f20db6d8e122f966bd3fb
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jul 29 16:04:58 2011 +0200
+
+    fusion: update changelog for 8.5.0 release
+
 commit 349dbf0616a8a98ffb602d9579bbbb358fdcf7c5
 Author: Denis Oliver Kropp <dok@directfb.org>
 Date:   Fri Jul 29 14:14:29 2011 +0200
