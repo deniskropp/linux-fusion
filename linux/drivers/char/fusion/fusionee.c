@@ -454,7 +454,8 @@ int fusionee_enter(FusionDev * dev, FusionEnter * enter, Fusionee * fusionee)
           dev->api.major = enter->api.major;
           dev->api.minor = enter->api.minor;
 
-          dev->secure    = enter->secure;
+          if (dev->api.major > 8 || (dev->api.major == 8 && dev->api.minor >= 5))
+               dev->secure = enter->secure;
      }
      else {
           if ((enter->api.major != dev->api.major)
