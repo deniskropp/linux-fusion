@@ -1227,7 +1227,7 @@ fusion_ioctl(struct inode *inode, struct file *file,
                break;
 
           case FT_SHMPOOL:
-               if (dev->secure) {
+               if (dev->secure && cmd != FUSION_SHMPOOL_GET_BASE) {
                     ret = check_permission( &dev->shmpool, fusionee, cmd, arg );
                     if (ret)
                          break;
