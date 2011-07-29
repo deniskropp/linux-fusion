@@ -1,3 +1,53 @@
+commit 349dbf0616a8a98ffb602d9579bbbb358fdcf7c5
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Jul 29 14:14:29 2011 +0200
+
+    Security: Add permission mechanism for entities like call, ref, reactor... version 8.5.0
+    
+    New security model adds per entity permissions. Master is always allowed to do everything.
+    Additionally, the creator of an entity is allowed to do everything with the entity including
+    giving permission to other Fusionees to do certain actions with the entity.
+    
+    Permissions are added using the new ioctl FUSION_ENTRY_ADD_PERMISSIONS. It receives the
+    type and id of the entity as well as a FusionID (whom to give permission) and a bit mask
+    of ioctl numbers (what to permit).
+    
+    This new mode needs to be enabled by the master's FUSION_ENTER call (setting FusionEnter.secure
+    to non-zero), so that per default only master and creator have all permissions for an entity.
+    
+    Also, with a secure fusion device only the master may map the shared root page writable.
+    
+    For convenience there are macros FUSION_ENTRY_PERMISSIONS_ADD, FUSION_ENTRY_PERMISSIONS_REMOVE
+    and FUSION_ENTRY_PERMISSIONS_HAVE for bit field handling.
+    
+    --
+    
+    This patch also adds FUSION_SHM_GET_BASE which already existed as FUSION_SHMPOOL_GET_BASE (deprecated).
+
+commit 83481abe722dbfe4b58de9ad096bd24bec9e846a
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jul 29 12:54:54 2011 +0200
+
+    debian: update changelog (prepare for next release)
+
+commit 37a27cd28e915a78c93332998ff6fc0fb6420fcc
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Jul 25 11:51:48 2011 +0200
+
+    fix Makefile to work with kernel 3.x.x
+
+commit dfaa649be1a40e064fd9f33c428a1de52663c44a
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Jul 12 11:21:17 2011 +0200
+
+    debian: new upstream version
+
+commit 36ccc0970301f4a83ed68be3391a00be88ff125c
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Jul 9 13:41:24 2011 +0200
+
+    update changelog
+
 commit 8d24d27eb655bcf2c7a03c059ab123971c78ff2d
 Author: Denis Oliver Kropp <dok@directfb.org>
 Date:   Sat Jul 2 11:06:48 2011 +0200
