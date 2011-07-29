@@ -456,6 +456,9 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                return 0;
 
           case _IOC_NR(FUSION_KILL):
+               if (fusionee_id(fusionee) != FUSION_ID_MASTER)
+                    return -EPERM;
+
                if (unlocked_copy_from_user(&kill, (FusionKill *) arg, sizeof(kill)))
                     return -EFAULT;
 
