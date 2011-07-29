@@ -19,7 +19,7 @@
 
 /* Fusion supports all API versions up to this version */
 #define FUSION_API_MAJOR_PROVIDED 8
-#define FUSION_API_MINOR_PROVIDED 4
+#define FUSION_API_MINOR_PROVIDED 5
 #define FUSION_API_MICRO_PROVIDED 0
 
 /*
@@ -54,6 +54,8 @@ typedef struct {
      } api;
 
      FusionID                 fusion_id;     /* Returns the fusion id of the entering process. */
+
+     int                      secure;
 } FusionEnter;
 
 /*
@@ -345,6 +347,29 @@ typedef struct {
      char                     name[FUSION_ENTRY_INFO_NAME_LENGTH];
 } FusionEntryInfo;
 
+typedef struct {
+     FusionType               type;
+     int                      id;
+
+     FusionID                 fusion_id;
+     unsigned int             permissions;
+} FusionEntryPermissions;
+
+
+#define FUSION_ENTRY_PERMISSIONS_ADD( p, ioc )    \
+     do {                                         \
+          (p) |= 1 << (_IOC_NR(ioc));             \
+     } while (0)
+
+#define FUSION_ENTRY_PERMISSIONS_REMOVE( p, ioc ) \
+     do {                                         \
+          (p) &= ~(1 << (_IOC_NR(ioc)));          \
+     } while (0)
+
+#define FUSION_ENTRY_PERMISSIONS_HAVE( p, ioc )   \
+     ((p) & (1 << (_IOC_NR(ioc))))
+
+
 #define FUSION_ENTER                         _IOR(FT_LOUNGE,    0x00, FusionEnter)
 #define FUSION_UNBLOCK                       _IO (FT_LOUNGE,    0x01)
 #define FUSION_KILL                          _IOW(FT_LOUNGE,    0x02, FusionKill)
@@ -355,6 +380,10 @@ typedef struct {
 #define FUSION_FORK                          _IOW(FT_LOUNGE,    0x05, FusionFork)
 
 #define FUSION_SYNC                          _IO (FT_LOUNGE,    0x06)
+
+#define FUSION_ENTRY_ADD_PERMISSIONS         _IOW(FT_LOUNGE,    0x07, FusionEntryPermissions)
+
+#define FUSION_SHM_GET_BASE                  _IOR(FT_LOUNGE,    0x08, unsigned long)
 
 
 #define FUSION_SEND_MESSAGE                  _IOW(FT_MESSAGING, 0x00, FusionSendMessage)

@@ -25,7 +25,7 @@ void fusion_reactor_deinit(FusionDev * dev);
 
 /* public API */
 
-int fusion_reactor_new(FusionDev * dev, int *id);
+int fusion_reactor_new(FusionDev * dev, Fusionee *fusionee, int *id);
 
 int fusion_reactor_attach(FusionDev * dev,
                           int id, int channel, FusionID fusion_id);

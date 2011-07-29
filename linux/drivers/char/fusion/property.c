@@ -87,9 +87,9 @@ void fusion_property_deinit(FusionDev * dev)
 
 /******************************************************************************/
 
-int fusion_property_new(FusionDev * dev, int *ret_id)
+int fusion_property_new(FusionDev * dev, Fusionee *fusionee, int *ret_id)
 {
-     return fusion_entry_create(&dev->properties, ret_id, NULL);
+     return fusion_entry_create(&dev->properties, ret_id, NULL, fusionee_id(fusionee));
 }
 
 int fusion_property_lease(FusionDev * dev, int id, int fusion_id)

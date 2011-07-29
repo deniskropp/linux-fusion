@@ -25,7 +25,7 @@ void fusion_ref_deinit(FusionDev * dev);
 
 /* public API */
 
-int fusion_ref_new(FusionDev * dev, int *id);
+int fusion_ref_new(FusionDev * dev, Fusionee *fusionee, int *id);
 
 int fusion_ref_up(FusionDev * dev, int id, FusionID fusion_id);
 

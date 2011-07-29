@@ -190,7 +190,7 @@ int fusion_call_new(FusionDev * dev, Fusionee *fusionee, FusionCallNew * call_ne
 
      struct fusion_construct_ctx cc = { fusionee, call_new};
 
-     ret = fusion_entry_create(&dev->call, &id, &cc);
+     ret = fusion_entry_create(&dev->call, &id, &cc, fusionee_id(fusionee));
      if (ret)
           return ret;
 

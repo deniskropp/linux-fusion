@@ -401,6 +401,7 @@ fusion_read(struct file *file, char *buf, size_t count, loff_t * ppos)
      return ret;
 }
 
+/*
 static unsigned int fusion_poll(struct file *file, poll_table * wait)
 {
      int ret;
@@ -417,6 +418,7 @@ static unsigned int fusion_poll(struct file *file, poll_table * wait)
 
      return ret;
 }
+*/
 
 static int
 lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
@@ -427,6 +429,7 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
      FusionKill kill;
      FusionEntryInfo info;
      FusionFork fork = { 0};
+     FusionEntryPermissions permissions;
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_ENTER):
@@ -535,6 +538,39 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                     return ret;
 
                if (unlocked_copy_to_user((FusionFork *) arg, &fork, sizeof(fork)))
+                    return -EFAULT;
+
+               return 0;
+
+          case _IOC_NR(FUSION_ENTRY_ADD_PERMISSIONS):
+               if (unlocked_copy_from_user(&permissions, (FusionEntryPermissions *) arg, sizeof(permissions)))
+                    return -EFAULT;
+
+               switch (permissions.type) {
+                    case FT_CALL:
+                         return fusion_entry_add_permissions(&dev->call, &permissions, fusionee);
+
+                    case FT_REF:
+                         return fusion_entry_add_permissions(&dev->ref, &permissions, fusionee);
+
+                    case FT_SKIRMISH:
+                         return fusion_entry_add_permissions(&dev->skirmish, &permissions, fusionee);
+
+                    case FT_PROPERTY:
+                         return fusion_entry_add_permissions(&dev->properties, &permissions, fusionee);
+
+                    case FT_REACTOR:
+                         return fusion_entry_add_permissions(&dev->reactor, &permissions, fusionee);
+
+                    case FT_SHMPOOL:
+                         return fusion_entry_add_permissions(&dev->shmpool, &permissions, fusionee);
+
+                    default:
+                         return -ENOSYS;
+               }
+
+          case _IOC_NR(FUSION_SHM_GET_BASE):
+               if (put_user((unsigned long)FUSION_SHM_BASE, (unsigned long *)arg))
                     return -EFAULT;
 
                return 0;
@@ -678,7 +714,7 @@ ref_ioctl(FusionDev * dev, Fusionee * fusionee,
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_REF_NEW):
-               ret = fusion_ref_new(dev, &id);
+               ret = fusion_ref_new(dev, fusionee, &id);
                if (ret)
                     return ret;
 
@@ -790,7 +826,7 @@ skirmish_ioctl(FusionDev * dev, Fusionee * fusionee,
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_SKIRMISH_NEW):
-               ret = fusion_skirmish_new(dev, &id);
+               ret = fusion_skirmish_new(dev, fusionee, &id);
                if (ret)
                     return ret;
 
@@ -867,7 +903,7 @@ property_ioctl(FusionDev * dev, Fusionee * fusionee,
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_PROPERTY_NEW):
-               ret = fusion_property_new(dev, &id);
+               ret = fusion_property_new(dev, fusionee, &id);
                if (ret)
                     return ret;
 
@@ -925,7 +961,7 @@ reactor_ioctl(FusionDev * dev, Fusionee * fusionee,
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_REACTOR_NEW):
-               ret = fusion_reactor_new(dev, &id);
+               ret = fusion_reactor_new(dev, fusionee, &id);
                if (ret)
                     return ret;
 
@@ -1031,7 +1067,7 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
                    (&pool, (FusionSHMPoolNew *) arg, sizeof(pool)))
                     return -EFAULT;
 
-               ret = fusion_shmpool_new(dev, &pool);
+               ret = fusion_shmpool_new(dev, fusionee, &pool);
                if (ret)
                     return ret;
 
@@ -1089,6 +1125,34 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
      return -ENOSYS;
 }
 
+static int
+check_permission( FusionEntries *entries,
+                  Fusionee      *fusionee,
+                  unsigned int   cmd,
+                  unsigned long  arg )
+{
+     int      ret;
+     FusionID fusion_id = fusionee_id( fusionee );
+     int      nr        = _IOC_NR( cmd );
+     int      entry_id;
+
+     /* Master can do everything */
+     if (fusion_id == FUSION_ID_MASTER)
+          return 0;
+
+     /* Allow _NEW for now */
+     if (!nr)
+          return 0;
+
+     /* Get Entry ID */
+     ret = get_user( entry_id, (int*) arg );
+     if (ret)
+          return ret;
+
+     /* Lookup entry and check permission bits */
+     return fusion_entry_check_permissions( entries, entry_id, fusion_id, nr );
+}
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
 static long
 fusion_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
@@ -1118,26 +1182,56 @@ fusion_ioctl(struct inode *inode, struct file *file,
                break;
 
           case FT_CALL:
+               if (dev->secure) {
+                    ret = check_permission( &dev->call, fusionee, cmd, arg );
+                    if (ret)
+                         break;
+               }
                ret = call_ioctl(dev, fusionee, cmd, arg);
                break;
 
           case FT_REF:
+               if (dev->secure) {
+                    ret = check_permission( &dev->ref, fusionee, cmd, arg );
+                    if (ret)
+                         break;
+               }
                ret = ref_ioctl(dev, fusionee, cmd, arg);
                break;
 
           case FT_SKIRMISH:
+               if (dev->secure) {
+                    ret = check_permission( &dev->skirmish, fusionee, cmd, arg );
+                    if (ret)
+                         break;
+               }
                ret = skirmish_ioctl(dev, fusionee, cmd, arg);
                break;
 
           case FT_PROPERTY:
+               if (dev->secure) {
+                    ret = check_permission( &dev->properties, fusionee, cmd, arg );
+                    if (ret)
+                         break;
+               }
                ret = property_ioctl(dev, fusionee, cmd, arg);
                break;
 
           case FT_REACTOR:
+               if (dev->secure) {
+                    ret = check_permission( &dev->reactor, fusionee, cmd, arg );
+                    if (ret)
+                         break;
+               }
                ret = reactor_ioctl(dev, fusionee, cmd, arg);
                break;
 
           case FT_SHMPOOL:
+               if (dev->secure) {
+                    ret = check_permission( &dev->shmpool, fusionee, cmd, arg );
+                    if (ret)
+                         break;
+               }
                ret = shmpool_ioctl(dev, fusionee, cmd, arg);
                break;
      }
@@ -1215,6 +1309,9 @@ static int fusion_mmap(struct file *file, struct vm_area_struct *vma)
      size = vma->vm_end - vma->vm_start;
      if (!size || size > PAGE_SIZE)
           return -EINVAL;
+
+     if (fusionee_id(fusionee) != FUSION_ID_MASTER && (vma->vm_flags & VM_WRITE))
+          return -EPERM;
 
      fusion_core_lock( fusion_core );
 

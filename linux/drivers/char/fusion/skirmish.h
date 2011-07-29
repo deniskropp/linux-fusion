@@ -25,7 +25,7 @@ void fusion_skirmish_deinit(FusionDev * dev);
 
 /* public API */
 
-int fusion_skirmish_new(FusionDev * dev, int *id);
+int fusion_skirmish_new(FusionDev * dev, Fusionee *fusionee, int *id);
 
 int fusion_skirmish_prevail(FusionDev * dev, int id, int fusion_id);
 

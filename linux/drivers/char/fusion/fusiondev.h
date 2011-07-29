@@ -41,6 +41,8 @@ struct __Fusion_FusionDev {
      int enter_ok;
      FusionWaitQueue enter_wait;
 
+     int secure;
+
 #ifdef FUSION_CORE_SHMPOOLS
      void *shared_area;
 #else

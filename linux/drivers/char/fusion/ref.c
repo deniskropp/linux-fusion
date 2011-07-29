@@ -28,6 +28,7 @@
 #include <linux/fusion.h>
 
 #include "fusiondev.h"
+#include "fusionee.h"
 #include "list.h"
 #include "call.h"
 #include "ref.h"
@@ -142,9 +143,9 @@ void fusion_ref_deinit(FusionDev * dev)
 
 /**********************************************************************************************************************/
 
-int fusion_ref_new(FusionDev * dev, int *ret_id)
+int fusion_ref_new(FusionDev * dev, Fusionee *fusionee, int *ret_id)
 {
-     return fusion_entry_create(&dev->ref, ret_id, NULL);
+     return fusion_entry_create(&dev->ref, ret_id, NULL, fusionee_id(fusionee));
 }
 
 int fusion_ref_up(FusionDev * dev, int id, FusionID fusion_id)

@@ -25,7 +25,7 @@ void fusion_property_deinit(FusionDev * dev);
 
 /* public API */
 
-int fusion_property_new(FusionDev * dev, int *ret_id);
+int fusion_property_new(FusionDev * dev, Fusionee *fusionee, int *ret_id);
 
 int fusion_property_lease(FusionDev * dev, int id, int fusion_id);
 

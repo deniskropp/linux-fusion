@@ -40,7 +40,7 @@ void fusion_shmpool_deinit(FusionDev * dev);
 
 /* public API */
 
-int fusion_shmpool_new(FusionDev * dev, FusionSHMPoolNew * pool);
+int fusion_shmpool_new(FusionDev * dev, Fusionee *fusionee, FusionSHMPoolNew * pool);
 
 int fusion_shmpool_attach(FusionDev * dev,
                           FusionSHMPoolAttach * attach, FusionID fusion_id);

@@ -46,6 +46,13 @@ typedef struct {
      struct timeval now; /* temporary for /proc code (seq start/show) */
 } FusionEntries;
 
+typedef struct {
+     DirectLink     link;
+
+     FusionID       fusion_id;
+     unsigned int   permissions;
+} FusionEntryPermissionsItem;
+
 struct __FD_FusionEntry {
      FusionLink link;
 
@@ -60,6 +67,10 @@ struct __FD_FusionEntry {
      struct timeval last_lock;
 
      char name[FUSION_ENTRY_INFO_NAME_LENGTH];
+
+     DirectLink *permissions;
+
+     FusionID    creator;
 };
 
 /* Entries Init & DeInit */
@@ -80,7 +91,7 @@ void fusion_entries_destroy_proc_entry(FusionDev * dev, const char *name);
 
 /* Create & Destroy */
 
-int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx);
+int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx, FusionID fusion_id);
 
 int fusion_entry_destroy(FusionEntries * entries, int id);
 
@@ -92,6 +103,17 @@ int fusion_entry_set_info(FusionEntries * entries,
                           const FusionEntryInfo * info);
 
 int fusion_entry_get_info(FusionEntries * entries, FusionEntryInfo * info);
+
+/* Permissions */
+
+int fusion_entry_add_permissions  ( FusionEntries                *entries,
+                                    const FusionEntryPermissions *permissions,
+                                    Fusionee                     *fusionee );
+
+int fusion_entry_check_permissions( FusionEntries                *entries,
+                                    int                           entry_id,
+                                    FusionID                      fusion_id,
+                                    unsigned int                  nr );
 
 /* Lookup */
 

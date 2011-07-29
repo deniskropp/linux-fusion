@@ -195,12 +195,12 @@ void fusion_shmpool_deinit(FusionDev * dev)
 
 /******************************************************************************/
 
-int fusion_shmpool_new(FusionDev * dev, FusionSHMPoolNew * pool)
+int fusion_shmpool_new(FusionDev * dev, Fusionee *fusionee, FusionSHMPoolNew * pool)
 {
      if (pool->max_size <= 0)
           return -EINVAL;
 
-     return fusion_entry_create(&dev->shmpool, &pool->pool_id, pool);
+     return fusion_entry_create(&dev->shmpool, &pool->pool_id, pool, fusionee_id(fusionee));
 }
 
 int

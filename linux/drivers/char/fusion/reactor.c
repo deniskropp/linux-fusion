@@ -131,9 +131,9 @@ void fusion_reactor_deinit(FusionDev * dev)
 
 /******************************************************************************/
 
-int fusion_reactor_new(FusionDev * dev, int *ret_id)
+int fusion_reactor_new(FusionDev * dev, Fusionee *fusionee, int *ret_id)
 {
-     return fusion_entry_create(&dev->reactor, ret_id, NULL);
+     return fusion_entry_create(&dev->reactor, ret_id, NULL, fusionee_id(fusionee));
 }
 
 int

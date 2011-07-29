@@ -29,6 +29,7 @@
 #include <linux/fusion.h>
 
 #include "fusiondev.h"
+#include "fusionee.h"
 #include "entries.h"
 
 
@@ -216,7 +217,7 @@ void fusion_entries_destroy_proc_entry(FusionDev * dev, const char *name)
      remove_proc_entry(name, fusion_proc_dir[dev->index]);
 }
 
-int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx)
+int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx, FusionID fusion_id)
 {
      int ret;
      FusionEntry *entry;
@@ -236,6 +237,7 @@ int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx)
      entry->entries = entries;
      entry->id = ++entries->ids;
      entry->pid = fusion_core_pid( fusion_core );
+     entry->creator = fusion_id;
 
      fusion_core_wq_init( fusion_core, &entry->wait);
 
@@ -283,10 +285,14 @@ int fusion_entry_destroy(FusionEntries * entries, int id)
 void fusion_entry_destroy_locked(FusionEntries * entries, FusionEntry * entry)
 {
      FusionEntryClass *class;
+     FusionEntryPermissionsItem *item, *next;
 
      FUSION_ASSERT(entries != NULL);
 
      class = entry_classes[entries->dev->index][entries->class_index];
+
+     direct_list_foreach_safe (item, next, entry->permissions)
+          fusion_core_free( fusion_core, item );
 
      /* Remove the entry from the list. */
      fusion_list_remove(&entries->list, &entry->link);
@@ -334,6 +340,73 @@ int fusion_entry_get_info(FusionEntries * entries, FusionEntryInfo * info)
      snprintf(info->name, FUSION_ENTRY_INFO_NAME_LENGTH, entry->name);
 
      return 0;
+}
+
+int
+fusion_entry_add_permissions( FusionEntries                *entries,
+                              const FusionEntryPermissions *permissions,
+                              Fusionee                     *fusionee )
+{
+     int                         ret;
+     FusionEntry                *entry;
+     FusionEntryPermissionsItem *item;
+
+     FUSION_ASSERT( entries != NULL );
+     FUSION_ASSERT( permissions != NULL );
+
+     ret = fusion_entry_lookup( entries, permissions->id, &entry );
+     if (ret)
+          return ret;
+
+     if (fusionee_id( fusionee ) != FUSION_ID_MASTER && fusionee_id( fusionee ) != entry->creator)
+          return -EPERM;
+
+     direct_list_foreach (item, entry->permissions) {
+          if (item->fusion_id == permissions->fusion_id) {
+               item->permissions |= permissions->permissions;
+               return 0;
+          }
+     }
+
+     item = fusion_core_malloc( fusion_core, sizeof(FusionEntryPermissionsItem) );
+     if (!item)
+          return -ENOMEM;
+
+     item->fusion_id   = permissions->fusion_id;
+     item->permissions = permissions->permissions;
+
+     direct_list_append( &entry->permissions, &item->link );
+
+     return 0;
+}
+
+int
+fusion_entry_check_permissions( FusionEntries *entries,
+                                int            entry_id,
+                                FusionID       fusion_id,
+                                unsigned int   nr )
+{
+     int                         ret;
+     FusionEntry                *entry;
+     FusionEntryPermissionsItem *item;
+
+     FUSION_ASSERT( entries != NULL );
+
+     ret = fusion_entry_lookup( entries, entry_id, &entry );
+     if (ret)
+          return ret;
+
+     if (entry->creator == fusion_id)
+          return 0;
+
+     direct_list_foreach (item, entry->permissions) {
+          if (!item->fusion_id || item->fusion_id == fusion_id) {
+               if (item->permissions & (1 << nr))
+                    return 0;
+          }
+     }
+
+     return -EPERM;
 }
 
 
