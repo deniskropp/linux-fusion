@@ -183,7 +183,7 @@ static int fusion_entries_open(struct inode *inode, struct file *file)
      struct seq_file *sf;
      int ret;
 
-     ret = seq_open(file, &fusion_entries_seq_ops);
+     ret = seq_open(file, (struct seq_operations*) &fusion_entries_seq_ops);
      if (ret < 0)
           return ret;
 
@@ -320,7 +320,7 @@ int fusion_entry_set_info(FusionEntries * entries, const FusionEntryInfo * info)
      if (ret)
           return ret;
 
-     snprintf(entry->name, FUSION_ENTRY_INFO_NAME_LENGTH, info->name);
+     snprintf(entry->name, FUSION_ENTRY_INFO_NAME_LENGTH, "%s", info->name);
 
      return 0;
 }
@@ -337,7 +337,7 @@ int fusion_entry_get_info(FusionEntries * entries, FusionEntryInfo * info)
      if (ret)
           return ret;
 
-     snprintf(info->name, FUSION_ENTRY_INFO_NAME_LENGTH, entry->name);
+     snprintf(info->name, FUSION_ENTRY_INFO_NAME_LENGTH, "%s", entry->name);
 
      return 0;
 }
