@@ -78,7 +78,7 @@ fusion_core_malloc( FusionCore *core,
 {
      D_MAGIC_ASSERT( core, FusionCore );
 
-     return kmalloc( size, GFP_ATOMIC );
+     return kzalloc( size, GFP_KERNEL );
 }
 
 void
