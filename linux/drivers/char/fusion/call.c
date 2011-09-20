@@ -670,8 +670,8 @@ int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
           if (ret)
                return ret;
 
-          /* Check if we own the call. */
-          if (call->fusionee != fusionee)
+          /* in secure mode, check if we own the call. */
+          if (dev->secure && call->fusionee != fusionee)
                return -EIO;
 
           /* If an execution is pending... */
