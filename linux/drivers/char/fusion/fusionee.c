@@ -510,7 +510,6 @@ fusionee_send_message(FusionDev * dev,
      Packet                  *packet;
      Fusionee                *fusionee;
      size_t                   size;
-     const FusionCallMessage *call = msg_data;
 
      ret = lookup_fusionee(dev, recipient, &fusionee);
      if (ret)
@@ -562,11 +561,8 @@ fusionee_send_message(FusionDev * dev,
           atomic_long_inc(&sender->snd_total);
 
 
-     if (msg_type != FMT_CALL || call->serial || !sender) {
-          packet->flush = true;
-
-          fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
-     }
+     packet->flush = true;
+     fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
 
      return 0;
 }
@@ -584,10 +580,9 @@ fusionee_send_message2(FusionDev * dev,
                        void *callback_ctx, int callback_param,
                        const void *extra_data, unsigned int extra_size )
 {
-     int                      ret;
-     Packet                  *packet;
-     size_t                   size;
-     const FusionCallMessage *call = msg_data;
+     int     ret;
+     Packet *packet;
+     size_t  size;
 
      FUSION_DEBUG("fusionee_send_message2 (%ld -> %ld, type %d, id %d, size %d, extra %d)\n",
                   sender ? sender->id : 0, fusionee->id, msg_type, msg_id, msg_size, extra_size);
@@ -634,12 +629,8 @@ fusionee_send_message2(FusionDev * dev,
      if (sender)
           atomic_long_inc(&sender->snd_total);
 
-
-     if ((msg_type != FMT_CALL && msg_type != FMT_CALL3) || call->serial || !sender) {
-          packet->flush = true;
-
-          fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
-     }
+     packet->flush = true;
+     fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
 
      return 0;
 }
@@ -676,7 +667,7 @@ fusionee_get_messages(FusionDev * dev,
                flush_packets(fusionee, dev, &prev_packets);
           }
           else {
-               fusion_core_wq_wait( fusion_core, &fusionee->wait_receive, 0 );
+               fusion_core_wq_wait( fusion_core, &fusionee->wait_receive, NULL );
 
                if (signal_pending(current))
                     return -EINTR;
