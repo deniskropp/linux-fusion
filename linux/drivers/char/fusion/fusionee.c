@@ -517,7 +517,7 @@ fusionee_send_message(FusionDev * dev,
           return ret;
 
      FUSION_DEBUG("fusionee_send_message (%ld -> %ld, type %d, id %d, size %d, extra %d)\n",
-                  fusionee->id, recipient, msg_type, msg_id, msg_size, extra_size);
+                  fusionee ? fusionee->id : 0, recipient, msg_type, msg_id, msg_size, extra_size);
 
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
