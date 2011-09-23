@@ -19,8 +19,8 @@
 
 /* Fusion supports all API versions up to this version */
 #define FUSION_API_MAJOR_PROVIDED 8
-#define FUSION_API_MINOR_PROVIDED 5
-#define FUSION_API_MICRO_PROVIDED 1
+#define FUSION_API_MINOR_PROVIDED 6
+#define FUSION_API_MICRO_PROVIDED 0
 
 /*
  * Fusion Kernel Device API Version
@@ -85,7 +85,8 @@ typedef enum {
      FMT_CALL,                               /* msg_id is the call id */
      FMT_REACTOR,                            /* msg_id is the reactor id */
      FMT_SHMPOOL,                            /* msg_id is the pool id */
-     FMT_CALL3                               /* msg_id is the call id */
+     FMT_CALL3,                              /* msg_id is the call id */
+     FMT_LEAVE                               /* FusionID in message data */
 } FusionMessageType;
 
 typedef struct {

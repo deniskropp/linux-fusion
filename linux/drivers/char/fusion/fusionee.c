@@ -540,7 +540,7 @@ fusionee_send_message(FusionDev * dev,
 
      ret = Packet_Write( packet, msg_type, msg_id, msg_channel,
                          msg_data, msg_size, extra_data, extra_size,
-                         msg_type != FMT_CALL && msg_type != FMT_CALL3 && msg_type != FMT_SHMPOOL );
+                         msg_type != FMT_CALL && msg_type != FMT_CALL3 && msg_type != FMT_SHMPOOL && msg_type != FMT_LEAVE );
      if (ret)
           return ret;
 
@@ -613,7 +613,7 @@ fusionee_send_message2(FusionDev * dev,
 
      ret = Packet_Write( packet, msg_type, msg_id, msg_channel,
                          msg_data, msg_size, extra_data, extra_size,
-                         msg_type != FMT_CALL && msg_type != FMT_CALL3 && msg_type != FMT_SHMPOOL );
+                         msg_type != FMT_CALL && msg_type != FMT_CALL3 && msg_type != FMT_SHMPOOL && msg_type != FMT_LEAVE );
      if (ret)
           return ret;
 
@@ -921,8 +921,9 @@ fusionee_unref( Fusionee * fusionee )
 
 void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 {
-     FusionFifo prev_packets;
-     FusionFifo packets;
+     FusionFifo  prev_packets;
+     FusionFifo  packets;
+     Fusionee   *other;
 
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
@@ -954,6 +955,10 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 
      /* Free fusionee data. */
      fusionee_unref( fusionee );
+
+     /* Let all others know we're gone... */
+     direct_list_foreach (other, dev->fusionee.list)
+          fusionee_send_message2( dev, NULL, other, FMT_LEAVE, 0, 0, sizeof(FusionID), &fusionee->id, FMC_NONE, NULL, 0, NULL, 0 );
 }
 
 FusionID fusionee_id(const Fusionee * fusionee)
