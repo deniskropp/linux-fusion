@@ -339,10 +339,11 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
      direct_list_foreach(fusionee, dev->fusionee.list) {
           written +=
           sprintf(buf + written,
-                  "(%5d) 0x%08lx (%4d packets waiting, %7ld received, %7ld sent)\n",
+                  "(%5d) 0x%08lx (%4d packets waiting, %7ld received, %7ld sent) - '%s'\n",
                   fusionee->pid, fusionee->id,
                   fusionee->packets.count, atomic_long_read(&fusionee->rcv_total),
-                  atomic_long_read(&fusionee->snd_total));
+                  atomic_long_read(&fusionee->snd_total),
+                  fusionee->exe_file);
           if (written < offset) {
                offset -= written;
                written = 0;
@@ -396,6 +397,35 @@ void fusionee_deinit(FusionDev * dev)
 
 /******************************************************************************/
 
+static void
+put_name_internal( struct dentry *entry,
+                   char          *buf,
+                   unsigned int  *offset )
+{
+     int len = strlen( entry->d_name.name ) + 1;
+
+     if (entry->d_parent != entry)
+          put_name_internal( entry->d_parent, buf, offset );
+
+     if (len > 1 && entry->d_name.name[0] != '/') {
+          if (*offset + len > PATH_MAX-1)
+               return;
+
+          snprintf( buf + *offset, PATH_MAX - *offset, "/%s", entry->d_name.name );
+
+          *offset += len;
+     }
+}
+
+static void
+put_name( struct dentry *entry,
+          char          *buf )
+{
+     unsigned int offset = 0;
+
+     put_name_internal( entry, buf, &offset );
+}
+
 int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 {
      Fusionee *fusionee;
@@ -422,6 +452,8 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
      direct_list_prepend(&dev->fusionee.list, &fusionee->link);
 
      fusionee->fusion_dev = dev;
+
+     put_name( current->mm->exe_file->f_path.dentry, fusionee->exe_file );
 
      D_MAGIC_SET( fusionee, Fusionee );
 
@@ -489,6 +521,21 @@ int fusionee_fork(FusionDev * dev, FusionFork * fork, Fusionee * fusionee)
           return ret;
 
      fork->fusion_id = fusionee->id;
+
+     return 0;
+}
+
+int
+fusionee_get_info(FusionDev * dev, FusionGetFusioneeInfo * get_info)
+{
+     int       ret;
+     Fusionee *fusionee;
+
+     ret = lookup_fusionee(dev, get_info->fusion_id, &fusionee);
+     if (ret)
+          return ret;
+
+     strncpy( get_info->exe_file, fusionee->exe_file, PATH_MAX );
 
      return 0;
 }

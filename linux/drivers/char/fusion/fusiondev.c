@@ -577,6 +577,34 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                     return -EFAULT;
 
                return 0;
+
+          case _IOC_NR(FUSION_GET_FUSIONEE_INFO): {
+               FusionGetFusioneeInfo *get_fusionee_info;
+
+               get_fusionee_info = kmalloc( sizeof(FusionGetFusioneeInfo), GFP_KERNEL );
+               if (!get_fusionee_info)
+                    return -ENOMEM;
+
+               if (unlocked_copy_from_user(get_fusionee_info, (FusionGetFusioneeInfo *) arg, sizeof(FusionGetFusioneeInfo))) {
+                    kfree( get_fusionee_info );
+                    return -EFAULT;
+               }
+
+               ret = fusionee_get_info(dev, get_fusionee_info);
+               if (ret) {
+                    kfree( get_fusionee_info );
+                    return ret;
+               }
+
+               if (unlocked_copy_to_user((FusionGetFusioneeInfo *) arg, get_fusionee_info, sizeof(FusionGetFusioneeInfo))) {
+                    kfree( get_fusionee_info );
+                    return -EFAULT;
+               }
+
+               kfree( get_fusionee_info );
+
+               return 0;
+          }
      }
 
      return -ENOSYS;

@@ -51,6 +51,8 @@ struct __Fusion_Fusionee {
      pid_t dispatcher_pid;
 
      FusionDev *fusion_dev;
+
+     char exe_file[PATH_MAX];
 };
 
 
@@ -77,6 +79,8 @@ void fusionee_ref(Fusionee * fusionee);
 void fusionee_unref(Fusionee * fusionee);
 
 int fusionee_fork(FusionDev * dev, FusionFork * fork, Fusionee * fusionee);
+
+int fusionee_get_info(FusionDev * dev, FusionGetFusioneeInfo * get_info);
 
 int fusionee_send_message(FusionDev * dev,
                           Fusionee * fusionee,

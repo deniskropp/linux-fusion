@@ -17,9 +17,11 @@
 
 #include <asm/ioctl.h>
 
+#include <linux/limits.h>
+
 /* Fusion supports all API versions up to this version */
 #define FUSION_API_MAJOR_PROVIDED 8
-#define FUSION_API_MINOR_PROVIDED 6
+#define FUSION_API_MINOR_PROVIDED 7
 #define FUSION_API_MICRO_PROVIDED 0
 
 /*
@@ -371,6 +373,14 @@ typedef struct {
      ((p) & (1 << (_IOC_NR(ioc))))
 
 
+
+typedef struct {
+     FusionID  fusion_id;
+
+     char      exe_file[PATH_MAX];
+} FusionGetFusioneeInfo;
+
+
 #define FUSION_ENTER                         _IOR(FT_LOUNGE,    0x00, FusionEnter)
 #define FUSION_UNBLOCK                       _IO (FT_LOUNGE,    0x01)
 #define FUSION_KILL                          _IOW(FT_LOUNGE,    0x02, FusionKill)
@@ -385,6 +395,8 @@ typedef struct {
 #define FUSION_ENTRY_ADD_PERMISSIONS         _IOW(FT_LOUNGE,    0x07, FusionEntryPermissions)
 
 #define FUSION_SHM_GET_BASE                  _IOR(FT_LOUNGE,    0x08, unsigned long)
+
+#define FUSION_GET_FUSIONEE_INFO             _IOR(FT_LOUNGE,    0x09, FusionGetFusioneeInfo)
 
 
 #define FUSION_SEND_MESSAGE                  _IOW(FT_MESSAGING, 0x00, FusionSendMessage)
