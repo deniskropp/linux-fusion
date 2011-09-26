@@ -1,3 +1,96 @@
+commit feb42b26350c4f506ec6de9409fb3a1373c1595f
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Sep 26 11:23:29 2011 +0200
+
+    debian: new upstream release
+
+commit 873851e689c604dd9da34d1566a5e4765036b595
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Sep 24 13:18:34 2011 +0200
+
+    Fusion: Add FUSION_GET_FUSIONEE_INFO to retrieve the executable file name of a Fusionee.
+
+commit e134028a1302a4de62b3b423909247735f0ff644
+Merge: afb14d3 32493bc
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Sep 24 01:13:08 2011 +0200
+
+    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+    
+    Conflicts:
+    	linux/include/linux/fusion.h
+
+commit afb14d33520d943184391f7f7c6c99e9aaced9ce
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Sep 24 01:11:51 2011 +0200
+
+    Fusion: [8.6.0] Add FMT_LEAVE with the FusionID of the leaving Fusionee sent to everyone else.
+
+commit 6ad485032c5cbe82f8f260e204e3504c8db5b826
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Sep 23 16:48:40 2011 +0200
+
+    fusionee: fix crash in debug message
+
+commit 32493bc5afc81990e0f3812157769aee5b11d6a5
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Sep 20 13:34:23 2011 +0200
+
+    fusion: change version to 8.5.2 (not yet released)
+
+commit 5c64b8adcab658711f27fcdea76e0fec3793188c
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Sep 20 12:59:03 2011 +0200
+
+    fusion: always wake up wait queue on send_message
+
+commit cc58c7298d7f0cd47831d878e9660080cfadcf08
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Sep 20 11:25:18 2011 +0200
+
+    fusion/call: in non-secure mode allow destruction of calls from non-owner
+    
+    This patch will be required for DirectFB 1.6.0-pre1 and DirectFB 1.4.15 running
+    in non-secure mode.
+
+commit ff808ede16ecfb0ffb3e91dbb1ffcf9c078a8477
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Aug 29 05:12:39 2011 +0200
+
+    Core: fusion_core_malloc() uses kzalloc() instead of kmalloc() now
+    
+    All memset()s after allocations should be removed.
+
+commit 59714620dddf7d2fe8a2aa1602c25bac70ec45de
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Aug 23 10:25:53 2011 +0200
+
+    Core: Include <linux/semaphore.h> from 2.6.26 onwards, before include <asm/semaphore.h>.
+
+commit e07eb16a6737d1579bfd1172a96f04f29e818103
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Aug 23 10:19:01 2011 +0200
+
+    entries: Fix some warnings.
+
+commit 5136a6af316a0e79fdbda2752afdbda156879bbe
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Aug 23 10:02:41 2011 +0200
+
+    Fusionee: Also add check for FMT_CALL3 to fusionee_send_message().
+
+commit c1c31fab79e0970055cd9d00449ccd6753681019
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Jul 29 23:46:56 2011 +0200
+
+    fusionee: Only master is allowed to call FUSION_KILL, thanks to Timothy Strelchun!
+
+commit 8140b2b6cdd574357433ab1944f5c7dfde9763a7
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jul 29 18:31:21 2011 +0200
+
+    fusion 8.5.1
+
 commit ca6ec4e7812841f1ba74bc0aa84fe20a2c232aed
 Author: Andreas Shimokawa <andi@directfb.org>
 Date:   Fri Jul 29 18:19:08 2011 +0200
