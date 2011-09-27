@@ -852,7 +852,7 @@ fusionee_sync( FusionDev *dev,
 {
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
-     while (fusionee->packets.count) {
+     while (fusionee->packets.count || fusionee->prev_packets.count) {
           fusion_core_wq_wait( fusion_core, &fusionee->wait_process, NULL );
 
           if (signal_pending(current))
