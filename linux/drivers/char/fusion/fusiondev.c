@@ -650,6 +650,7 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
      FusionCallExecute3 execute3;
      FusionCallReturn   call_ret;
      FusionCallReturn3  call_ret3;
+     FusionCallGetOwner get_owner;
      FusionID           fusion_id = fusionee_id(fusionee);
 
      switch (_IOC_NR(cmd)) {
@@ -726,6 +727,20 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                     return -EFAULT;
 
                return fusion_call_return3(dev, fusion_id, &call_ret3);
+
+          case _IOC_NR(FUSION_CALL_GET_OWNER):
+               if (unlocked_copy_from_user
+                   (&get_owner, (FusionCallGetOwner *) arg, sizeof(get_owner)))
+                    return -EFAULT;
+
+               ret = fusion_call_get_owner(dev, get_owner.call_id, &get_owner.fusion_id);
+               if (ret)
+                    return ret;
+
+               if (unlocked_copy_to_user
+                   ((FusionCallGetOwner *) arg, &get_owner, sizeof(get_owner)))
+                    return -EFAULT;
+               return 0;
      }
 
      return -ENOSYS;

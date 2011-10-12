@@ -21,7 +21,7 @@
 
 /* Fusion supports all API versions up to this version */
 #define FUSION_API_MAJOR_PROVIDED 8
-#define FUSION_API_MINOR_PROVIDED 7
+#define FUSION_API_MINOR_PROVIDED 8
 #define FUSION_API_MICRO_PROVIDED 0
 
 /*
@@ -211,6 +211,12 @@ typedef struct {
      void                    *ptr;           /* pointer to return buffer */
      unsigned int             length;        /* length of return buffer */
 } FusionCallReturn3;
+
+typedef struct {
+     int                      call_id;       /* [input] call from which to get the owner */
+
+     FusionID                 fusion_id;     /* [output] owner of the call */
+} FusionCallGetOwner;
 
 typedef struct {
      void                    *handler;       /* function pointer of handler to call */
@@ -408,6 +414,7 @@ typedef struct {
 #define FUSION_CALL_EXECUTE2                 _IOW(FT_CALL,      0x04, FusionCallExecute2)
 #define FUSION_CALL_EXECUTE3                 _IOW(FT_CALL,      0x05, FusionCallExecute3)
 #define FUSION_CALL_RETURN3                  _IOW(FT_CALL,      0x06, FusionCallReturn3)
+#define FUSION_CALL_GET_OWNER                _IOW(FT_CALL,      0x07, FusionCallGetOwner)
 
 #define FUSION_REF_NEW                       _IOW(FT_REF,       0x00, int)
 #define FUSION_REF_UP                        _IOW(FT_REF,       0x01, int)

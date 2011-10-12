@@ -653,6 +653,21 @@ fusion_call_return3(FusionDev * dev, int fusion_id, FusionCallReturn3 * call_ret
      return -ENOMSG;
 }
 
+int fusion_call_get_owner(FusionDev * dev, int call_id, FusionID *ret_fusion_id)
+{
+     int         ret;
+     FusionCall *call;
+
+     /* Lookup and lock call. */
+     ret = fusion_call_lookup(&dev->call, call_id, &call);
+     if (ret)
+          return ret;
+
+     *ret_fusion_id = call->entry.creator;
+
+     return 0;
+}
+
 int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
 {
      int ret;

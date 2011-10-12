@@ -43,6 +43,8 @@ int fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,   /* NULL if call
 int fusion_call_return3(FusionDev * dev,
                         int fusion_id, FusionCallReturn3 * call_ret);
 
+int fusion_call_get_owner(FusionDev * dev, int call_id, FusionID *ret_fusion_id);
+
 int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id);
 
 /* internal functions */
