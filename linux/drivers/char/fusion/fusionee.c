@@ -255,7 +255,8 @@ Fusionee_GetPacket( Fusionee  *fusionee,
 
      FUSION_DEBUG( "%s( %p )\n", __FUNCTION__, fusionee );
 
-     FUSION_ASSERT( size <= FUSION_MAX_PACKET_SIZE );
+     if (size > FUSION_MAX_PACKET_SIZE)
+          return -E2BIG;
 
      packet = (Packet*) direct_list_last( fusionee->packets.items );
 
