@@ -626,7 +626,8 @@ fusionee_send_message2(FusionDev * dev,
                        const void *msg_data,
                        FusionMessageCallback callback,
                        void *callback_ctx, int callback_param,
-                       const void *extra_data, unsigned int extra_size )
+                       const void *extra_data, unsigned int extra_size,
+                       bool flush)
 {
      int     ret;
      Packet *packet;
@@ -677,8 +678,10 @@ fusionee_send_message2(FusionDev * dev,
      if (sender)
           atomic_long_inc(&sender->snd_total);
 
-     packet->flush = true;
-     fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+     if (flush) {
+          packet->flush = true;
+          fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+     }
 
      return 0;
 }
@@ -997,7 +1000,7 @@ void fusionee_destroy(FusionDev * dev, Fusionee * fusionee)
 
      /* Let all others know we're gone... */
      direct_list_foreach (other, dev->fusionee.list)
-          fusionee_send_message2( dev, NULL, other, FMT_LEAVE, 0, 0, sizeof(FusionID), &fusionee->id, FMC_NONE, NULL, 0, NULL, 0 );
+          fusionee_send_message2( dev, NULL, other, FMT_LEAVE, 0, 0, sizeof(FusionID), &fusionee->id, FMC_NONE, NULL, 0, NULL, 0, true );
 }
 
 FusionID fusionee_id(const Fusionee * fusionee)

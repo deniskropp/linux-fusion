@@ -104,7 +104,8 @@ int fusionee_send_message2(FusionDev * dev,
                            const void *msg_data,
                            FusionMessageCallback callback,
                            void *callback_ctx, int callback_param,
-                           const void *extra_data, unsigned int extra_size);
+                           const void *extra_data, unsigned int extra_size,
+                           bool flush);
 
 int fusionee_get_messages(FusionDev * dev,
                           Fusionee * fusionee,

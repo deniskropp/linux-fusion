@@ -206,6 +206,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
      FusionCallExecution *execution = NULL;
      FusionCallMessage message;
      unsigned int serial;
+     bool flush = true;
 
      FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
 
@@ -228,6 +229,8 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 
           FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
      }
+     else if (execute->flags & FCEF_QUEUE)
+          flush = false;
 
      /* Fill call message. */
      message.handler = call->handler;
@@ -245,7 +248,8 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
      /* Put message into queue of callee. */
      ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
                                   call->entry.id, 0, sizeof(message),
-                                  &message, FMC_NONE, NULL, 1, NULL, 0);
+                                  &message, FMC_NONE, NULL, 1, NULL, 0,
+                                  flush);
      if (ret) {
           FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
           if (execution) {
@@ -306,6 +310,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
      FusionCallExecution *execution = NULL;
      FusionCallMessage message;
      unsigned int serial;
+     bool flush = true;
 
      FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
 
@@ -328,6 +333,8 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 
           FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
      }
+     else if (execute->flags & FCEF_QUEUE)
+          flush = false;
 
      /* Fill call message. */
      message.handler = call->handler;
@@ -345,7 +352,8 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
      /* Put message into queue of callee. */
      ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
                                   call->entry.id, 0, sizeof(FusionCallMessage),
-                                  &message, FMC_NONE, NULL, 1, execute->ptr, execute->length);
+                                  &message, FMC_NONE, NULL, 1, execute->ptr, execute->length,
+                                  flush);
      if (ret) {
           FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
           if (execution) {
@@ -469,6 +477,7 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
      FusionCallExecution *execution = NULL;
      FusionCallMessage3 message;
      unsigned int serial;
+     bool flush = true;
 
      FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
 
@@ -491,6 +500,8 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
 
           FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
      }
+     else if (execute->flags & FCEF_QUEUE)
+          flush = false;
 
      /* Fill call message. */
      message.handler = call->handler;
@@ -510,7 +521,8 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
      /* Put message into queue of callee. */
      ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL3,
                                   call->entry.id, 0, sizeof(FusionCallMessage3),
-                                  &message, FMC_NONE, NULL, 1, execute->ptr, execute->length);
+                                  &message, FMC_NONE, NULL, 1, execute->ptr, execute->length,
+                                  flush);
      if (ret) {
           FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
           if (execution) {
