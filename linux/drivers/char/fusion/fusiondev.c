@@ -64,6 +64,17 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Denis Oliver Kropp <dok@directfb.org>");
 
+unsigned long fusion_shm_base = FUSION_SHM_BASE_DEFAULT;
+unsigned long fusion_shm_size = FUSION_SHM_SIZE_DEFAULT;
+
+module_param( fusion_shm_base, ulong, 0 );
+MODULE_PARM_DESC( fusion_shm_base, "Shared memory address space base" );
+
+module_param( fusion_shm_size, ulong, 0 );
+MODULE_PARM_DESC( fusion_shm_size, "Shared memory address space size" );
+
+
+
 struct proc_dir_entry *proc_fusion_dir;
 
 static int fusion_major = FUSION_MAJOR;
@@ -573,7 +584,7 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                }
 
           case _IOC_NR(FUSION_SHM_GET_BASE):
-               if (put_user((unsigned long)FUSION_SHM_BASE, (unsigned long *)arg))
+               if (put_user((unsigned long)fusion_shm_base, (unsigned long *)arg))
                     return -EFAULT;
 
                return 0;
@@ -1162,7 +1173,7 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
                return fusion_shmpool_destroy(dev, id);
 
           case _IOC_NR(FUSION_SHMPOOL_GET_BASE):
-               if (put_user((unsigned long)FUSION_SHM_BASE, (unsigned long *)arg))
+               if (put_user((unsigned long)fusion_shm_base, (unsigned long *)arg))
                     return -EFAULT;
 
                return 0;
@@ -1524,7 +1535,7 @@ int __init fusion_init(void)
 
           memset( shared, 0, sizeof(FusionShared) );
 
-          shared->addr_base = FUSION_SHM_BASE + 0x80000;
+          shared->addr_base = (void*) fusion_shm_base + 0x80000;
 
           fusion_core_set_pointer( fusion_core, 0, shared );
      }

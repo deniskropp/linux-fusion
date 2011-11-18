@@ -98,4 +98,8 @@ struct __Fusion_FusionShared {
 extern FusionCore            *fusion_core;
 extern struct proc_dir_entry *fusion_proc_dir[NUM_MINORS];
 
+
+extern unsigned long fusion_shm_base;
+extern unsigned long fusion_shm_size;
+
 #endif

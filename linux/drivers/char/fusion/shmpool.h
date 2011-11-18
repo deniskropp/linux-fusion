@@ -30,8 +30,13 @@
 #define FUSION_SHM_BASE_64	0x523000000000LL	/* virtual base address */
 #define FUSION_SHM_SIZE_64	0x001000000000LL	/* size of virtual address space */
 
-#define FUSION_SHM_BASE ((void*)(sizeof(void*)==4 ? (FUSION_SHM_BASE_32) : (FUSION_SHM_BASE_64)))
-#define FUSION_SHM_SIZE (sizeof(void*)==4 ? (FUSION_SHM_SIZE_32) : (FUSION_SHM_SIZE_64))
+#ifndef FUSION_SHM_BASE_DEFAULT
+#define FUSION_SHM_BASE_DEFAULT (sizeof(void*)==4 ? (FUSION_SHM_BASE_32) : (FUSION_SHM_BASE_64))
+#endif
+
+#ifndef FUSION_SHM_SIZE_DEFAULT
+#define FUSION_SHM_SIZE_DEFAULT (sizeof(void*)==4 ? (FUSION_SHM_SIZE_32) : (FUSION_SHM_SIZE_64))
+#endif
 
 /* module init/cleanup */
 

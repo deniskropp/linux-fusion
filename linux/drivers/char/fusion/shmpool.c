@@ -106,7 +106,7 @@ fusion_shmpool_construct( FusionEntry * entry, void *ctx, void *create_ctx )
      FusionSHMPoolNew *poolnew = create_ctx;
      FusionShared     *shared  = dev->shared;
 
-     if (shared->addr_base + poolnew->max_size >= FUSION_SHM_BASE + FUSION_SHM_SIZE) {
+     if ((ulong) shared->addr_base + poolnew->max_size >= fusion_shm_base + fusion_shm_size) {
           printk(KERN_WARNING
                  "%s: virtual address space exhausted! (FIXME)\n",
                  __FUNCTION__);
@@ -149,7 +149,7 @@ fusion_shmpool_destruct( FusionEntry * entry, void *ctx )
      fusion_core_free(fusion_core, shmpool->kernel_base);
 #endif
 
-     shared->addr_base = FUSION_SHM_BASE + 0x80000;
+     shared->addr_base = (void*) fusion_shm_base + 0x80000;
 
      fusion_list_foreach(addr_entry, shared->addr_entries) {
           if (addr_entry->next_base > shared->addr_base)
