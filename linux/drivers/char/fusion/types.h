@@ -31,6 +31,9 @@ typedef void (*MessageCallbackFunc)( FusionDev * dev, int msg_id, void *ctx, int
 
 
 
-typedef struct __Fusion_FusionUDP FusionUDP;
+typedef struct __Fusion_FusionUDP  FusionUDP;
+
+
+typedef struct __Fusion_FusionHash FusionHash;
 
 #endif

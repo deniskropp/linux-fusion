@@ -17,6 +17,8 @@
 
 #include <linux/kernel.h>
 
+#define D_ARRAY_SIZE(array)        ((int)(sizeof(array) / sizeof((array)[0])))
+
 #define FUSION_ASSERT(exp)    do { if (!(exp)) { printk( KERN_ERR "linux-fusion: Assertion [ " #exp " ] failed! (%s:%d)\n", __FILE__, __LINE__ ); *(char*) 0 = 0; } } while (0)
 #define FUSION_ASSUME(exp)    do { if (!(exp)) printk( KERN_ERR "linux-fusion: Assumption [ " #exp " ] failed! (%s:%d)\n", __FILE__, __LINE__ ); } while (0)
 

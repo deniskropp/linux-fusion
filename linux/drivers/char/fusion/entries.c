@@ -31,6 +31,7 @@
 #include "fusiondev.h"
 #include "fusionee.h"
 #include "entries.h"
+#include "hash.h"
 
 
 static FusionEntryClass *entry_classes[NUM_MINORS][NUM_CLASSES];
@@ -60,6 +61,8 @@ fusion_entries_init( FusionEntries    *entries,
      }
 
      entry_classes[dev->index][entries->class_index] = class;
+
+     fusion_hash_create( FHT_INT, FHT_PTR, 17, &entries->hash );
 }
 
 void fusion_entries_deinit(FusionEntries * entries)
@@ -67,19 +70,21 @@ void fusion_entries_deinit(FusionEntries * entries)
      FUSION_ASSERT(entries != NULL);
 
      if (!entries->dev->refs) {
-          FusionLink *tmp;
-          FusionEntry *entry;
-          FusionEntryClass *class;
+          FusionHashIterator  it;
+          FusionEntry        *entry;
+          FusionEntryClass   *class;
 
           class = entry_classes[entries->dev->index][entries->class_index];
 
-          fusion_list_foreach_safe(entry, tmp, entries->list) {
+          fusion_hash_foreach (entry, it, entries->hash) {
                if (class->Destroy)
                     class->Destroy(entry, entries->ctx);
 
                fusion_core_free( fusion_core, entry);
           }
      }
+
+     fusion_hash_destroy( entries->hash );
 }
 
 /* reading PROC entries */
@@ -94,19 +99,19 @@ static void *fusion_entries_seq_start(struct seq_file *f, loff_t * pos)
 
      entries = f->private;
 
-     fusion_core_lock( fusion_core );
-
-     entry = (void *)(entries->list);
-     while (i && entry) {
-          entry = (void *)(entry->link.next);
-          i--;
-     }
-
      FUSION_ASSERT(entries != NULL);
 
      class = entry_classes[entries->dev->index][entries->class_index];
      if (!class->Print)
           return NULL;
+
+
+     fusion_core_lock( fusion_core );
+
+     entry = fusion_hash_iterator_init( &entries->it, entries->hash );
+
+     while (i < entries->it.index)
+          entry = fusion_hash_iterator_next( &entries->it );
 
      do_gettimeofday(&entries->now);
 
@@ -116,18 +121,22 @@ static void *fusion_entries_seq_start(struct seq_file *f, loff_t * pos)
 static void *fusion_entries_seq_next(struct seq_file *f, void *v, loff_t * pos)
 {
      FusionEntry *entry = v;
+     FusionEntries *entries;
 
-     (*pos)++;
-     return entry->link.next;
+     entries = f->private;
+
+     FUSION_ASSERT(entries != NULL);
+
+     while (entry && (*pos) == entries->it.index)
+          entry = fusion_hash_iterator_next( &entries->it );
+
+     (*pos) = entries->it.index;
+
+     return entry;
 }
 
 static void fusion_entries_seq_stop(struct seq_file *f, void *v)
 {
-     FusionEntries *entries;
-
-     entries = f->private;
-     (void)v;
-
      fusion_core_unlock( fusion_core );
 }
 
@@ -139,34 +148,37 @@ int fusion_entries_show(struct seq_file *p, void *v)
 
      entries = p->private;
 
-     entry = v;
+     for (entry = v; entry; entry = fusion_hash_iterator_next( &entries->it )) {
+          class = entry_classes[entries->dev->index][entries->class_index];
 
-     class = entry_classes[entries->dev->index][entries->class_index];
+          if (entry->last_lock.tv_sec) {
+               int diff = ((entry->entries->now.tv_sec - entry->last_lock.tv_sec) * 1000 +
+                           (entry->entries->now.tv_usec - entry->last_lock.tv_usec) / 1000);
 
-     if (entry->last_lock.tv_sec) {
-          int diff = ((entry->entries->now.tv_sec - entry->last_lock.tv_sec) * 1000 +
-                      (entry->entries->now.tv_usec - entry->last_lock.tv_usec) / 1000);
+               if (diff < 1000) {
+                    seq_printf(p, "%3d  ms  ", diff);
+               } else if (diff < 1000000) {
+                    seq_printf(p, "%3d.%d s  ", diff / 1000,
+                               (diff % 1000) / 100);
+               } else {
+                    diff = (entry->entries->now.tv_sec - entry->last_lock.tv_sec +
+                            (entry->entries->now.tv_usec -
+                             entry->last_lock.tv_usec) / 1000000);
 
-          if (diff < 1000) {
-               seq_printf(p, "%3d  ms  ", diff);
-          } else if (diff < 1000000) {
-               seq_printf(p, "%3d.%d s  ", diff / 1000,
-                          (diff % 1000) / 100);
-          } else {
-               diff = (entry->entries->now.tv_sec - entry->last_lock.tv_sec +
-                       (entry->entries->now.tv_usec -
-                        entry->last_lock.tv_usec) / 1000000);
+                    seq_printf(p, "%3d.%d h  ", diff / 3600,
+                               (diff % 3600) / 360);
+               }
+          } else
+               seq_printf(p, "  -.-    ");
 
-               seq_printf(p, "%3d.%d h  ", diff / 3600,
-                          (diff % 3600) / 360);
-          }
-     } else
-          seq_printf(p, "  -.-    ");
+          seq_printf(p, "(%5d) 0x%08x  ", entry->pid, entry->id);
+          seq_printf(p, "%-24s  ", entry->name[0] ? entry->name : "");
 
-     seq_printf(p, "(%5d) 0x%08x  ", entry->pid, entry->id);
-     seq_printf(p, "%-24s  ", entry->name[0] ? entry->name : "");
+          class->Print(entry, entry->entries->ctx, p);
 
-     class->Print(entry, entry->entries->ctx, p);
+          if (!entries->it.next)
+               break;
+     }
 
      return 0;
 }
@@ -249,7 +261,7 @@ int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx, 
           }
      }
 
-     fusion_list_prepend(&entries->list, &entry->link);
+     fusion_hash_insert( entries->hash, (void*)(long) entry->id, entry );
 
      *ret_id = entry->id;
 
@@ -265,16 +277,9 @@ int fusion_entry_destroy(FusionEntries * entries, int id)
 
      class = entry_classes[entries->dev->index][entries->class_index];
 
-     /* Lookup the entry. */
-     fusion_list_foreach(entry, entries->list) {
-          if (entry->id == id)
-               break;
-     }
-
-     /* Check if no entry was found. */
-     if (!entry) {
+     entry = fusion_hash_lookup( entries->hash, (void*)(long) id );
+     if (!entry)
           return -EINVAL;
-     }
 
      /* Destroy it now. */
      fusion_entry_destroy_locked(entries, entry);
@@ -295,7 +300,7 @@ void fusion_entry_destroy_locked(FusionEntries * entries, FusionEntry * entry)
           fusion_core_free( fusion_core, item );
 
      /* Remove the entry from the list. */
-     fusion_list_remove(&entries->list, &entry->link);
+     fusion_hash_remove( entries->hash, (void*)(long) entry->id, NULL, NULL );
 
      /* Wake up any waiting process. */
      fusion_core_wq_wake( fusion_core, &entry->wait);
@@ -304,8 +309,8 @@ void fusion_entry_destroy_locked(FusionEntries * entries, FusionEntry * entry)
      if (class->Destroy)
           class->Destroy(entry, entries->ctx);
 
-          /* Deallocate the entry. */
-          fusion_core_free( fusion_core, entry);
+     /* Deallocate the entry. */
+     fusion_core_free( fusion_core, entry);
 }
 
 int fusion_entry_set_info(FusionEntries * entries, const FusionEntryInfo * info)
@@ -423,18 +428,9 @@ fusion_entry_lookup(FusionEntries * entries,
      FUSION_ASSERT(ret_entry != NULL);
 
      /* Lookup the entry. */
-     fusion_list_foreach(entry, entries->list) {
-          if (entry->id == id)
-               break;
-     }
-
-     /* Check if no entry was found. */
-     if (!entry) {
+     entry = fusion_hash_lookup( entries->hash, (void*)(long) id );
+     if (!entry)
           return -EINVAL;
-     }
-
-     /* Move the entry to the front of all entries. */
-     fusion_list_move_to_front(&entries->list, &entry->link);
 
      /* Keep timestamp, but use the slightly
         inexact version to avoid performance impacts. */

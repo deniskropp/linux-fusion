@@ -613,13 +613,12 @@ int fusion_skirmish_notify_(FusionDev * dev, int id, FusionID fusion_id)
 
 void fusion_skirmish_dismiss_all(FusionDev * dev, int fusion_id)
 {
-     FusionLink *l;
+     FusionHashIterator  it;
+     FusionSkirmish     *skirmish;
 
      FUSION_DEBUG("%s: fusion_id=%d\n", __FUNCTION__, fusion_id);
 
-     fusion_list_foreach(l, dev->skirmish.list) {
-          FusionSkirmish *skirmish = (FusionSkirmish *) l;
-
+     fusion_hash_foreach (skirmish, it, dev->skirmish.hash) {
           if (skirmish->lock_fid == fusion_id) {
                FUSION_DEBUG( "  -> lock_pid = 0\n" );
 
@@ -659,13 +658,12 @@ void fusion_skirmish_dismiss_all(FusionDev * dev, int fusion_id)
 
 void fusion_skirmish_dismiss_all_from_pid(FusionDev * dev, int pid)
 {
-     FusionLink *l;
+     FusionHashIterator  it;
+     FusionSkirmish     *skirmish;
 
      FUSION_DEBUG("%s: pid=%d\n", __FUNCTION__, pid);
 
-     fusion_list_foreach(l, dev->skirmish.list) {
-          FusionSkirmish *skirmish = (FusionSkirmish *) l;
-
+     fusion_hash_foreach (skirmish, it, dev->skirmish.hash) {
           if (skirmish->lock_pid == pid) {
                FUSION_DEBUG( "  -> lock_pid = 0\n" );
 
@@ -707,13 +705,12 @@ void
 fusion_skirmish_transfer_all(FusionDev * dev,
                              FusionID to, FusionID from, int from_pid, unsigned int serial)
 {
-     FusionLink *l;
+     FusionHashIterator  it;
+     FusionSkirmish     *skirmish;
 
      FUSION_DEBUG("%s: to=%ld, from=%ld, from_pid=%d, serial=%d\n", __FUNCTION__, to, from, from_pid, serial );
 
-     fusion_list_foreach(l, dev->skirmish.list) {
-          FusionSkirmish *skirmish = (FusionSkirmish *) l;
-
+     fusion_hash_foreach (skirmish, it, dev->skirmish.hash) {
           if (skirmish->lock_pid == from_pid) {
                if (skirmish->transfer_to == 0) {
                     FUSION_ASSERT(skirmish->transfer_from == 0);
@@ -761,13 +758,12 @@ fusion_skirmish_transfer_all(FusionDev * dev,
 
 void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid)
 {
-     FusionLink *l;
+     FusionHashIterator  it;
+     FusionSkirmish     *skirmish;
 
      FUSION_DEBUG("%s: from_pid=%d\n", __FUNCTION__, from_pid);
 
-     fusion_list_foreach(l, dev->skirmish.list) {
-          FusionSkirmish *skirmish = (FusionSkirmish *) l;
-
+     fusion_hash_foreach (skirmish, it, dev->skirmish.hash) {
           if ((skirmish->transfer2_to == 0)
               &&  skirmish->transfer_to
               && (skirmish->transfer_from_pid == from_pid) ) {
@@ -813,13 +809,12 @@ void fusion_skirmish_reclaim_all(FusionDev * dev, int from_pid)
 
 void fusion_skirmish_return_all(FusionDev * dev, int from_fusion_id, int to_pid, unsigned int serial)
 {
-     FusionLink *l;
+     FusionHashIterator  it;
+     FusionSkirmish     *skirmish;
 
      FUSION_DEBUG("%s: from_fusion_id=%d, to_pid=%d, serial=%d\n", __FUNCTION__, from_fusion_id, to_pid, serial);
 
-     fusion_list_foreach(l, dev->skirmish.list) {
-          FusionSkirmish *skirmish = (FusionSkirmish *) l;
-
+     fusion_hash_foreach (skirmish, it, dev->skirmish.hash) {
           if (skirmish->transfer2_to == 0) {
                if (skirmish->transfer_to       == from_fusion_id &&
                    skirmish->transfer_from_pid == to_pid         &&
@@ -856,13 +851,12 @@ void fusion_skirmish_return_all(FusionDev * dev, int from_fusion_id, int to_pid,
 
 void fusion_skirmish_return_all_from(FusionDev * dev, int from_fusion_id)
 {
-     FusionLink *l;
+     FusionHashIterator  it;
+     FusionSkirmish     *skirmish;
 
      FUSION_DEBUG("%s: from_fusion_id=%d\n", __FUNCTION__, from_fusion_id);
 
-     fusion_list_foreach(l, dev->skirmish.list) {
-          FusionSkirmish *skirmish = (FusionSkirmish *) l;
-
+     fusion_hash_foreach (skirmish, it, dev->skirmish.hash) {
           if (skirmish->transfer2_to == 0) {
                if (skirmish->transfer_to == from_fusion_id) {
                     FUSION_ASSERT(skirmish->transfer_from != 0);
