@@ -857,6 +857,18 @@ fusionee_sync( FusionDev *dev,
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
      while (fusionee->packets.count || fusionee->prev_packets.count) {
+          if (fusionee->packets.count) {
+               Packet *packet = (Packet*) direct_list_last( fusionee->packets.items );
+
+               D_MAGIC_ASSERT_IF( packet, Packet );
+
+               if (!packet->flush) {
+                    packet->flush = true;
+
+                    fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+               }
+          }
+
           fusion_core_wq_wait( fusion_core, &fusionee->wait_process, NULL );
 
           if (signal_pending(current))
