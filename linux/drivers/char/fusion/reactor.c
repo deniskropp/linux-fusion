@@ -259,6 +259,7 @@ fusion_reactor_dispatch_message_callback(FusionDev * dev, int id, void *ctx, int
                     execute.call_id = dispatch->call_id;
                     execute.call_arg = dispatch->call_arg;
                     execute.call_ptr = dispatch->call_ptr;
+                    execute.flags    = FCEF_ONEWAY;
 
                     fusion_call_execute(dev, NULL, &execute);
 
@@ -351,6 +352,7 @@ fusion_reactor_dispatch(FusionDev * dev, int id, int channel,
           execute.call_id = dispatch->call_id;
           execute.call_arg = dispatch->call_arg;
           execute.call_ptr = dispatch->call_ptr;
+          execute.flags    = FCEF_ONEWAY;
 
           fusion_call_execute(dev, NULL, &execute);
 

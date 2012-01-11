@@ -47,6 +47,8 @@ int fusion_ref_watch(FusionDev * dev, int id, int call_id, int call_arg);
 
 int fusion_ref_inherit(FusionDev * dev, int id, int from);
 
+int fusion_ref_set_sync(FusionDev * dev, int id);
+
 int fusion_ref_destroy(FusionDev * dev, int id);
 
 /* internal functions */

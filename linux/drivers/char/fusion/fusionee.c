@@ -469,7 +469,7 @@ int fusionee_enter(FusionDev * dev, FusionEnter * enter, Fusionee * fusionee)
 
      if (dev->fusionee.last_id || fusionee->force_slave) {
           while (!dev->enter_ok) {
-               fusion_core_wq_wait( fusion_core, &dev->enter_wait, NULL );
+               fusion_core_wq_wait( fusion_core, &dev->enter_wait, NULL, true );
 
                if (signal_pending(current))
                     return -EINTR;
@@ -569,7 +569,7 @@ fusionee_send_message(FusionDev * dev,
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
      while (fusionee->packets.count > 10 && sender) {
-          fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0 );
+          fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0, true );
 
           if (signal_pending(current))
                return -EINTR;
@@ -639,7 +639,7 @@ fusionee_send_message2(FusionDev * dev,
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
      while (fusionee->packets.count > 10 && sender) {
-          fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0 );
+          fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0, true );
 
           if (signal_pending(current))
                return -EINTR;
@@ -718,7 +718,7 @@ fusionee_get_messages(FusionDev * dev,
                flush_packets(fusionee, dev, &prev_packets);
           }
           else {
-               fusion_core_wq_wait( fusion_core, &fusionee->wait_receive, NULL );
+               fusion_core_wq_wait( fusion_core, &fusionee->wait_receive, NULL, true );
 
                if (signal_pending(current))
                     return -EINTR;
@@ -802,7 +802,7 @@ fusionee_wait_processing(FusionDev * dev,
                FUSION_ASSUME(fusionee->dispatcher_pid != fusion_core_pid( fusion_core ));
 
           /* Otherwise unlock and wait. */
-          fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0 );
+          fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0, true );
 
           if (signal_pending(current))
                return -EINTR;
@@ -869,7 +869,7 @@ fusionee_sync( FusionDev *dev,
                }
           }
 
-          fusion_core_wq_wait( fusion_core, &fusionee->wait_process, NULL );
+          fusion_core_wq_wait( fusion_core, &fusionee->wait_process, NULL, true );
 
           if (signal_pending(current))
                return -EINTR;
@@ -937,12 +937,12 @@ fusionee_kill(FusionDev * dev,
                          /* fall through */
 
                     default:
-                         fusion_core_wq_wait( fusion_core, &dev->fusionee.wait, &timeout );
+                         fusion_core_wq_wait( fusion_core, &dev->fusionee.wait, &timeout, true );
                          break;
                }
           }
           else
-               fusion_core_wq_wait( fusion_core, &dev->fusionee.wait, NULL );
+               fusion_core_wq_wait( fusion_core, &dev->fusionee.wait, NULL, true );
 
           if (signal_pending(current))
                return -EINTR;

@@ -431,6 +431,7 @@ typedef struct {
 #define FUSION_REF_DESTROY                   _IOW(FT_REF,       0x0B, int)
 #define FUSION_REF_CATCH                     _IOW(FT_REF,       0x0C, int)
 #define FUSION_REF_THROW                     _IOW(FT_REF,       0x0D, FusionRefThrow)
+#define FUSION_REF_SET_SYNC                  _IOW(FT_REF,       0x0E, int)
 
 #define FUSION_SKIRMISH_NEW                  _IOW(FT_SKIRMISH,  0x00, int)
 #define FUSION_SKIRMISH_PREVAIL              _IOW(FT_SKIRMISH,  0x01, int)

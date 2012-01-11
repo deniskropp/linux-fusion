@@ -61,6 +61,7 @@ struct __Fusion_FusionRef {
      int locked;         /* non-zero fusion id of lock owner */
 
      bool watched;       /* true if watch has been installed */
+     bool syncwatch;     /* true if watch is executed synchronously */
      int call_id;        /* id of call registered with a watch */
      int call_arg;       /* optional call parameter */
 
@@ -422,6 +423,20 @@ int fusion_ref_inherit(FusionDev * dev, int id, int from_id)
      return 0;
 }
 
+int fusion_ref_set_sync(FusionDev * dev, int id)
+{
+     int ret;
+     FusionRef *ref;
+
+     ret = fusion_ref_lookup(&dev->ref, id, &ref);
+     if (ret)
+          return ret;
+
+     ref->syncwatch = true;
+
+     return ret;
+}
+
 int fusion_ref_destroy(FusionDev * dev, int id)
 {
      return fusion_entry_destroy(&dev->ref, id);
@@ -598,8 +613,9 @@ static void notify_ref(FusionDev * dev, FusionRef * ref)
           execute.call_id = ref->call_id;
           execute.call_arg = ref->call_arg;
           execute.call_ptr = NULL;
+          execute.flags = ref->syncwatch ? FCEF_NONE : FCEF_ONEWAY;
 
-          fusion_call_execute(dev, 0, &execute);
+          fusion_call_execute(dev, NULL, &execute);
 
           ref->watched = false;
      }

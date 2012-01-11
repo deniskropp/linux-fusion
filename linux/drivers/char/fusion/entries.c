@@ -465,7 +465,7 @@ int fusion_entry_wait(FusionEntry * entry, int *timeout)
 
      entry->waiters++;
 
-     fusion_core_wq_wait( fusion_core, &entry->wait, timeout );
+     fusion_core_wq_wait( fusion_core, &entry->wait, timeout, true );
 
      entry->waiters--;
 

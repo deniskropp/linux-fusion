@@ -166,7 +166,8 @@ fusion_core_wq_deinit( FusionCore      *core,
 void
 fusion_core_wq_wait( FusionCore      *core,
                      FusionWaitQueue *queue,
-                     int             *timeout_ms )
+                     int             *timeout_ms,
+                     bool             interruptible )
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
      DEFINE_WAIT(wait);
@@ -174,7 +175,7 @@ fusion_core_wq_wait( FusionCore      *core,
      D_MAGIC_ASSERT( core, FusionCore );
      D_MAGIC_ASSERT( queue, FusionWaitQueue );
 
-     prepare_to_wait( &queue->queue, &wait, TASK_INTERRUPTIBLE );
+     prepare_to_wait( &queue->queue, &wait, interruptible ? TASK_INTERRUPTIBLE : TASK_UNINTERRUPTIBLE );
 
      fusion_core_unlock( core );
 
@@ -194,7 +195,7 @@ fusion_core_wq_wait( FusionCore      *core,
 
      init_waitqueue_entry(&wait, current);
 
-     current->state = TASK_INTERRUPTIBLE;
+     current->state = interruptible ? TASK_INTERRUPTIBLE : TASK_UNINTERRUPTIBLE;
 
      write_lock( &queue->queue.lock);
      __add_wait_queue( &queue->queue, &wait);

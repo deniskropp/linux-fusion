@@ -62,7 +62,8 @@ void              fusion_core_wq_deinit( FusionCore      *core,
 
 void              fusion_core_wq_wait  ( FusionCore      *core,
                                          FusionWaitQueue *queue,
-                                         int             *timeout_ms );
+                                         int             *timeout_ms,
+                                         bool             interruptible );
 
 void              fusion_core_wq_wake  ( FusionCore      *core,
                                          FusionWaitQueue *queue );

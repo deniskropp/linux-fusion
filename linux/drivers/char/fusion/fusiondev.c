@@ -848,6 +848,12 @@ ref_ioctl(FusionDev * dev, Fusionee * fusionee,
 
                return fusion_ref_inherit(dev, inherit.id, inherit.from);
 
+          case _IOC_NR(FUSION_REF_SET_SYNC):
+               if (get_user(id, (int *)arg))
+                    return -EFAULT;
+
+               return fusion_ref_set_sync(dev, id);
+
           case _IOC_NR(FUSION_REF_DESTROY):
                if (get_user(id, (int *)arg))
                     return -EFAULT;
