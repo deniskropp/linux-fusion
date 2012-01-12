@@ -558,10 +558,10 @@ static void clear_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id)
           LocalRef *local = (LocalRef *) l;
 
           if (local->fusion_id == fusion_id) {
+               fusion_list_remove(&ref->local_refs, l);
+
                if (local->refs)
                     propagate_local(dev, ref, -local->refs);
-
-               fusion_list_remove(&ref->local_refs, l);
 
                fusion_core_free( fusion_core, l);
                break;
