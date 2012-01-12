@@ -306,21 +306,24 @@ int fusion_shmpool_destroy(FusionDev * dev, int id)
 
 void fusion_shmpool_detach_all(FusionDev * dev, FusionID fusion_id)
 {
-     FusionHashIterator  it;
-     FusionSHMPool      *shmpool;
+     FusionLink *l;
 
-     fusion_hash_foreach (shmpool, it, dev->shmpool.hash)
+     fusion_list_foreach(l, dev->shmpool.list) {
+          FusionSHMPool *shmpool = (FusionSHMPool *) l;
+
           remove_node(shmpool, fusion_id);
+     }
 }
 
 int
 fusion_shmpool_fork_all(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 {
-     int                 ret = 0;
-     FusionHashIterator  it;
-     FusionSHMPool      *shmpool;
+     FusionLink *l;
+     int ret = 0;
 
-     fusion_hash_foreach (shmpool, it, dev->shmpool.hash) {
+     fusion_list_foreach(l, dev->shmpool.list) {
+          FusionSHMPool *shmpool = (FusionSHMPool *) l;
+
           ret = fork_node(shmpool, fusion_id, from_id);
           if (ret)
                break;

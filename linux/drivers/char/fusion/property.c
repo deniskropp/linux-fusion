@@ -280,10 +280,11 @@ int fusion_property_destroy(FusionDev * dev, int id)
 
 void fusion_property_cede_all(FusionDev * dev, int fusion_id)
 {
-     FusionHashIterator  it;
-     FusionProperty     *property;
+     FusionLink *l;
 
-     fusion_hash_foreach (property, it, dev->properties.hash) {
+     fusion_list_foreach(l, dev->properties.list) {
+          FusionProperty *property = (FusionProperty *) l;
+
           if (property->fusion_id == fusion_id) {
                property->state = FUSION_PROPERTY_AVAILABLE;
                property->fusion_id = 0;

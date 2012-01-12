@@ -30,7 +30,7 @@
 
 #include "fusiondev.h"
 #include "fusionee.h"
-#include "hash.h"
+#include "list.h"
 #include "skirmish.h"
 #include "call.h"
 
@@ -758,12 +758,16 @@ int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
 
 void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee)
 {
-     FusionCall         *call;
-     FusionHashIterator  it;
+     FusionLink *l;
 
      FUSION_DEBUG( "%s( dev %p, fusion_id %lu )\n", __FUNCTION__, dev, fusionee->id );
 
-     fusion_hash_foreach (call, it, dev->call.hash) {
+     l = dev->call.list;
+
+     while (l) {
+          FusionLink *next = l->next;
+          FusionCall *call = (FusionCall *) l;
+
           if (call->fusionee == fusionee) {
                FusionCallExecution *execution;
 
@@ -778,6 +782,8 @@ void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee)
                fusion_entry_destroy_locked(call->entry.entries,
                                            &call->entry);
           }
+
+          l = next;
      }
 }
 

@@ -395,7 +395,7 @@ int fusion_ref_watch(FusionDev * dev, int id, int call_id, int call_arg)
 
 int fusion_ref_inherit(FusionDev * dev, int id, int from_id)
 {
-     int        ret;
+     int ret;
      FusionRef *ref;
      FusionRef *from = NULL;
 
@@ -406,9 +406,12 @@ int fusion_ref_inherit(FusionDev * dev, int id, int from_id)
      if (ref->inherited)
           return -EBUSY;
 
-     ret = fusion_ref_lookup(&dev->ref, from_id, &from);
-     if (ret)
-          return ret;
+     fusion_list_foreach(from, dev->ref.list) {
+          if (from->entry.id == from_id)
+               break;
+     }
+     if (!from)
+          return -EINVAL;
 
      ret = add_inheritor(ref, from);
      if (ret)
@@ -444,21 +447,19 @@ int fusion_ref_destroy(FusionDev * dev, int id)
 
 void fusion_ref_clear_all_local(FusionDev * dev, FusionID fusion_id)
 {
-     FusionHashIterator  it;
-     FusionRef          *ref;
+     FusionRef *ref;
 
-     fusion_hash_foreach (ref, it, dev->ref.hash)
-          clear_local(dev, ref, fusion_id);
+     fusion_list_foreach(ref, dev->ref.list)
+     clear_local(dev, ref, fusion_id);
 }
 
 int
 fusion_ref_fork_all_local(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 {
-     FusionHashIterator  it;
-     FusionRef          *ref;
-     int                 ret = 0;
+     FusionRef *ref;
+     int ret = 0;
 
-     fusion_hash_foreach (ref, it, dev->ref.hash) {
+     fusion_list_foreach(ref, dev->ref.list) {
           ret = fork_local(dev, ref, fusion_id, from_id);
           if (ret)
                break;

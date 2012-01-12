@@ -247,11 +247,13 @@ fusion_reactor_detach(FusionDev * dev, int id, int channel, FusionID fusion_id)
 void
 fusion_reactor_dispatch_message_callback(FusionDev * dev, int id, void *ctx, int arg)
 {
-     FusionHashIterator  it;
-     FusionReactor      *reactor;
-     ReactorDispatch    *dispatch = ctx;
+     FusionLink *l;
+     FusionReactor *reactor = NULL;
+     ReactorDispatch *dispatch = ctx;
 
-     fusion_hash_foreach (reactor, it, dev->reactor.hash) {
+     fusion_list_foreach(l, dev->reactor.list) {
+          reactor = (FusionReactor *) l;
+
           if (reactor->entry.id == id) {
                if (!--dispatch->count) {
                     FusionCallExecute execute;
@@ -404,11 +406,11 @@ int fusion_reactor_destroy(FusionDev * dev, int id)
 
 void fusion_reactor_detach_all(FusionDev * dev, FusionID fusion_id)
 {
-     FusionHashIterator  it;
-     FusionReactor      *reactor;
+     FusionLink *l, *n;
 
-     fusion_hash_foreach (reactor, it, dev->reactor.hash) {
+     fusion_list_foreach_safe(l, n, dev->reactor.list) {
           ReactorNode *node;
+          FusionReactor *reactor = (FusionReactor *) l;
 
           fusion_list_foreach(node, reactor->nodes) {
                if (node->fusion_id == fusion_id) {
@@ -429,11 +431,12 @@ void fusion_reactor_detach_all(FusionDev * dev, FusionID fusion_id)
 int
 fusion_reactor_fork_all(FusionDev * dev, FusionID fusion_id, FusionID from_id)
 {
-     int                 ret = 0;
-     FusionHashIterator  it;
-     FusionReactor      *reactor;
+     FusionLink *l;
+     int ret = 0;
 
-     fusion_hash_foreach (reactor, it, dev->reactor.hash) {
+     fusion_list_foreach(l, dev->reactor.list) {
+          FusionReactor *reactor = (FusionReactor *) l;
+
           ret = fork_node(reactor, fusion_id, from_id);
           if (ret)
                break;

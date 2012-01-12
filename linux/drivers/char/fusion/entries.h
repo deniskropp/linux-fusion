@@ -19,7 +19,6 @@
 #include <linux/seq_file.h>
 
 #include "types.h"
-#include "hash.h"
 #include "list.h"
 
 #include "fusioncore.h"
@@ -39,13 +38,12 @@ typedef struct {
      unsigned int class_index;
      void *ctx;
 
-     FusionHash *hash;
+     FusionLink *list;
      int ids;
 
      FusionDev *dev;
 
-     struct timeval     now; /* temporary for /proc code (seq start/show) */
-     FusionHashIterator it;
+     struct timeval now; /* temporary for /proc code (seq start/show) */
 } FusionEntries;
 
 typedef struct {
@@ -56,6 +54,8 @@ typedef struct {
 } FusionEntryPermissionsItem;
 
 struct __FD_FusionEntry {
+     FusionLink link;
+
      FusionEntries *entries;
 
      int id;
