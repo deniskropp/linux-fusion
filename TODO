@@ -16,3 +16,5 @@ Implement user space based skirmish_prevail()/dismiss() for the
 uncontended case, similar to futexes.
 
 Fix types.
+
+Add timeout to throw/catch of refs.
