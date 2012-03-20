@@ -1,3 +1,96 @@
+commit 9de391d789537fb3f6bb2df92c8c358e7386a1db
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Mar 3 13:48:49 2012 +0100
+
+    TODO: add note about throw/catch timeout
+
+commit 89a8f2c2f73dc67420b9cb6e67cd2e09b0e3c187
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Thu Jan 12 14:12:41 2012 +0100
+
+    Revert "Fusion: Finally, switch to using a hash table for entries :)"
+    
+    This reverts commit c6d2cc893e6ddd9b80ac03e4d1070bc90f735250.
+    
+    Conflicts:
+    
+    	linux/drivers/char/fusion/call.c
+
+commit 9ba2eaa0e867fbe1d2f77621146b32e894ab2673
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Jan 12 10:34:27 2012 +0100
+
+    ref: first remove from local ref list, then propagate, fixes a crash due to sync destructor
+
+commit afe5b61e1ba83a1d84ebab1bf1392b035f7866af
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Jan 11 12:11:37 2012 +0100
+
+    fusion: Add FUSION_REF_SET_SYNC to make ref watch a synchronous call, have calls non-interruptible.
+
+commit ff887e36f92dad5a8acdf8ffdbda828d155b82b7
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Dec 27 18:02:41 2011 +0100
+
+    Fusionee: Fix fusionee_sync() that was dead locking when the last packet was not flushed.
+
+commit c6d2cc893e6ddd9b80ac03e4d1070bc90f735250
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Dec 9 13:12:40 2011 +0100
+
+    Fusion: Finally, switch to using a hash table for entries :)
+
+commit 5d0e61cedb11e05ade0c2c326cbf7696ee561210
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Nov 18 11:15:56 2011 +0100
+
+    Options: Add shared memory address space module parameters 'fusion_shm_base' and 'fusion_shm_size'.
+    
+    Keeping the defaults, which can be overridden during build time by defining FUSION_SHM_BASE_DEFAULT and FUSION_SHM_SIZE_DEFAULT.
+
+commit 62218c671d429254587c8f415e0e502fcf68943c
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun Nov 13 13:30:35 2011 +0100
+
+    Call: Add FCEF_QUEUE to not flush the packet (only with FCEF_ONEWAY)
+
+commit c22f8f36fe76c4b5efe8d4d8c011362129c36d35
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Nov 5 20:19:12 2011 +0100
+
+    Fusionee: Don't wait on packet queue length if message is from kernel to prevent dead lock in fusion_ref_down.
+
+commit 8ccb19532affaca945618325df5e6c53eb1f5a82
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Oct 24 16:13:24 2011 +0100
+
+    Fusionee: Changed message size assertion into an error returning checking.
+
+commit 56fa86d6d7821f083906a3c49d0369496510a05a
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Oct 12 20:18:23 2011 +0200
+
+    Call: Add FUSION_CALL_GET_OWNER to get the FusionID of the call creator.
+
+commit 6cd0900b053eee5d3d79e7b92b478aa431021fee
+Merge: 2b51d8e 9eca50b
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Oct 3 22:40:43 2011 +0200
+
+    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+
+commit 2b51d8e2b5d96d4ffb0697f015a6d3dc73c39748
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Sep 27 14:13:08 2011 +0200
+
+    Fusionee: Wait for previous packets as well in fusionee_sync().
+
+commit 9eca50bc4982ed75f7836f4d6ee27d0b4ae2e850
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Sep 26 11:24:31 2011 +0200
+
+    fusion: update changelog
+
 commit feb42b26350c4f506ec6de9409fb3a1373c1595f
 Author: Andreas Shimokawa <andi@directfb.org>
 Date:   Mon Sep 26 11:23:29 2011 +0200
