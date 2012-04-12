@@ -585,7 +585,7 @@ fusion_skirmish_wait_(FusionDev * dev, FusionSkirmishWait * wait,
 
      FUSION_SKIRMISH_LOG("FusionSkirmish: ...done (%d).\n", ret);
 
-     return 0;
+     return ret;
 }
 
 int fusion_skirmish_notify_(FusionDev * dev, int id, FusionID fusion_id)
