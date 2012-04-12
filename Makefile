@@ -13,7 +13,7 @@ FUSIONCORE       ?= single
 
 export FUSIONCORE
 
-CPPFLAGS += $(FUSION_CPPFLAGS) \
+CPPFLAGS += $(FUSION_CPPFLAGS) -DFUSION_CALL_INTERRUPTIBLE \
 	-I`pwd`/linux/drivers/char/fusion \
 	-I`pwd`/linux/drivers/char/fusion/multi \
 	-I`pwd`/linux/drivers/char/fusion/$(FUSIONCORE)
