@@ -63,6 +63,8 @@ struct __FD_FusionEntry {
 
      FusionWaitQueue wait;
      int waiters;
+     int *waiters_list;
+     int  waiters_list_max;
 
      struct timeval last_lock;
 

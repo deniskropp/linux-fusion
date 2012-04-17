@@ -147,8 +147,9 @@ fusion_skirmish_print(FusionEntry * entry, void *ctx, struct seq_file *p)
 {
      FusionSkirmish *skirmish = (FusionSkirmish *) entry;
 
+     int i;
 #ifdef FUSION_DEBUG_SKIRMISH_DEADLOCK
-     int i, n;
+     int n;
 
      for (i = 0, n = 0; i < MAX_PRE_ACQUISITIONS; i++) {
           if (skirmish->pre_acquis[i]) {
@@ -179,12 +180,17 @@ fusion_skirmish_print(FusionEntry * entry, void *ctx, struct seq_file *p)
                 skirmish->transfer2_count,
                 skirmish->transfer2_serial
                );
-     seq_printf(p, ", c:%d, f:0x%08x, p:%d, waiters:%d\n",
+     seq_printf(p, ", c:%d, f:0x%08x, p:%d, waiters:%d",
                 skirmish->lock_count,
                 skirmish->lock_fid,
                 skirmish->lock_pid,
                 skirmish->entry.waiters
                );
+
+     for (i = 0; i < skirmish->entry.waiters; i++)
+          seq_printf(p, " %d", skirmish->entry.waiters_list[i]);
+
+     seq_printf(p, "\n");
 }
 
 FUSION_ENTRY_CLASS(FusionSkirmish, skirmish, NULL, NULL, fusion_skirmish_print)
