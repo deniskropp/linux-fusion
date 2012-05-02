@@ -111,7 +111,8 @@ static void fusion_ref_destruct(FusionEntry * entry, void *ctx)
 
 static void fusion_ref_print(FusionEntry * entry, void *ctx, struct seq_file *p)
 {
-     FusionRef *ref = (FusionRef *) entry;
+     FusionLink *l;
+     FusionRef  *ref = (FusionRef *) entry;
 
      if (ref->locked) {
           seq_printf(p, "%2d %2d (locked by %d)\n", ref->global,
@@ -119,7 +120,16 @@ static void fusion_ref_print(FusionEntry * entry, void *ctx, struct seq_file *p)
           return;
      }
 
-     seq_printf(p, "%2d %2d\n", ref->global, ref->local);
+     seq_printf(p, "%2d %2d", ref->global, ref->local);
+
+     fusion_list_foreach(l, ref->local_refs) {
+          LocalRef *local = (LocalRef *) l;
+
+          if (local->refs)
+               seq_printf(p, "  0x%08lx(%d)", local->fusion_id, local->refs);
+     }
+
+     seq_printf(p, "\n");
 }
 
 FUSION_ENTRY_CLASS(FusionRef, ref, NULL, fusion_ref_destruct, fusion_ref_print);
