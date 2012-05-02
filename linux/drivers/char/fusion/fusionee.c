@@ -538,6 +538,8 @@ fusionee_get_info(FusionDev * dev, FusionGetFusioneeInfo * get_info)
 
      strncpy( get_info->exe_file, fusionee->exe_file, PATH_MAX );
 
+     get_info->pid = fusionee->pid;
+
      return 0;
 }
 
