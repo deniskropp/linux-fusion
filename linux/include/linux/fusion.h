@@ -157,7 +157,9 @@ typedef enum {
      FCEF_NONE                = 0x00000000,
      FCEF_ONEWAY              = 0x00000001,
      FCEF_QUEUE               = 0x00000002,
-     FCEF_ALL                 = 0x00000003
+     FCEF_FOLLOW              = 0x00000004,
+     FCEF_ERROR               = 0x00000008,
+     FCEF_ALL                 = 0x0000000f,
 } FusionCallExecFlags;
 
 typedef struct {

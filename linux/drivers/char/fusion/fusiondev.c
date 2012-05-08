@@ -653,16 +653,17 @@ static int
 call_ioctl(FusionDev * dev, Fusionee * fusionee,
            unsigned int cmd, unsigned long arg)
 {
-     int                id;
-     int                ret;
-     FusionCallNew      call;
-     FusionCallExecute  execute;
-     FusionCallExecute2 execute2;
-     FusionCallExecute3 execute3;
-     FusionCallReturn   call_ret;
-     FusionCallReturn3  call_ret3;
-     FusionCallGetOwner get_owner;
-     FusionID           fusion_id = fusionee_id(fusionee);
+     int                 id;
+     int                 ret;
+     FusionCallNew       call;
+     FusionCallExecute   execute;
+     FusionCallExecute2  execute2;
+     FusionCallExecute3  execute3;
+     FusionCallExecute3 *execute3_bin;
+     FusionCallReturn    call_ret;
+     FusionCallReturn3   call_ret3;
+     FusionCallGetOwner  get_owner;
+     FusionID            fusion_id = fusionee_id(fusionee);
 
      switch (_IOC_NR(cmd)) {
           case _IOC_NR(FUSION_CALL_NEW):
@@ -719,17 +720,27 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                return 0;
 
           case _IOC_NR(FUSION_CALL_EXECUTE3):
-               if (unlocked_copy_from_user
-                   (&execute3, (FusionCallExecute3 *) arg, sizeof(execute3)))
-                    return -EFAULT;
+               execute3_bin = (FusionCallExecute3 *) arg;
 
-               ret = fusion_call_execute3(dev, fusionee, &execute3);
-               if (ret)
-                    return ret;
+               while (1) {
+                    if (unlocked_copy_from_user(&execute3, execute3_bin, sizeof(execute3)))
+                         return -EFAULT;
 
-               if (unlocked_copy_to_user
-                   ((FusionCallExecute3 *) arg, &execute3, sizeof(execute3)))
-                    return -EFAULT;
+                    ret = fusion_call_execute3(dev, fusionee, &execute3);
+                    if (ret) {
+                         execute3.flags |= FCEF_ERROR;
+                         unlocked_copy_to_user(execute3_bin, &execute3, sizeof(execute3));
+                         return ret;
+                    }
+
+                    if (unlocked_copy_to_user(execute3_bin, &execute3, sizeof(execute3)))
+                         return -EFAULT;
+
+                    if (!(execute3_bin->flags & FCEF_FOLLOW))
+                         break;
+
+                    execute3_bin++;
+               }
                return 0;
 
           case _IOC_NR(FUSION_CALL_RETURN3):
