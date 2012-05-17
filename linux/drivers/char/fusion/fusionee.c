@@ -303,7 +303,7 @@ Fusionee_PutPacket( Fusionee *fusionee,
      D_ASSERT( packet->link.prev == NULL );
      D_ASSERT( packet->link.next == NULL );
 
-     if (fusionee->free_packets.count > 10)
+     if (fusionee->free_packets.count > 11)
           Packet_Free( packet );
      else {
           packet->size  = 0;
