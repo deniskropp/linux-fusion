@@ -1,3 +1,86 @@
+commit 5798f9701450204d062f56b4d8e9e9dff24ebc42
+Author: Marek Pikarski <mass@directfb.org>
+Date:   Tue May 22 10:25:35 2012 +0200
+
+    Print out version when loading and fix a warning (thanks to bc).
+
+commit c1ffbe464a9a4f2215a35bc8e8b6132542cde262
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri May 18 01:01:22 2012 +0200
+
+    Fusionee: Keep up to 11 free packets.
+
+commit 612b4a464f5649359d3aaa4173ec692e51ee7c6b
+Author: Marek Pikarski <mass@directfb.org>
+Date:   Tue May 8 15:16:47 2012 +0200
+
+    fusion: added FOLLOW and ERROR flags for FusionExecute3, ioctl processes a whole bunch of calls instead of one
+
+commit 38c5a86877435c2cdb45eb83639571d657819e6f
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed May 2 17:18:15 2012 +0200
+
+    version 8.9.0
+
+commit 61014197701a21282372ac3b48d8af06021cb727
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed May 2 17:12:21 2012 +0200
+
+    Fusionee: Add pid to Fusionee info.
+
+commit f1b358ee45392fb9f6956ddda046d12cc063c6db
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed May 2 13:57:48 2012 +0200
+
+    Ref: Print Fusionees having local refs.
+
+commit 427442c067a6eb433ede1229154c0143dce61c32
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Apr 30 21:43:21 2012 +0200
+
+    Fusionee: Don't block on packet count when sending messages within the dispatcher.
+    
+    This fixes a deadlock happening with too many secure fusion clients.
+
+commit c98f0b834fe00aae5e790dcb599bb3a5ddaf4ce1
+Merge: eb1194a ed644da
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Apr 30 21:21:18 2012 +0200
+
+    Merge branch 'master' of git+ssh://git.directfb.org/git/directfb/core/linux-fusion
+
+commit eb1194a044f9d36ecd441db97e5e0147bb8d321f
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Apr 17 15:55:04 2012 +0200
+
+    skirmish: keep a list of waiters (thread ids) for /proc
+
+commit ed644da63f4ae1e0cc10bc9aa5e456e3da878dc5
+Author: Marek Pikarski <mass@directfb.org>
+Date:   Thu Apr 12 18:17:02 2012 +0200
+
+    fusion: make fusion calls interruptible (e.g. to make debugger work)
+
+commit 19061b0e1614f30a5541d899f3e3573114ee8054
+Author: Marek Pikarski <mass@directfb.org>
+Date:   Thu Apr 12 18:08:33 2012 +0200
+
+    fusion: fix return value of skirmish_wait() which returned 0 even if timeout occured
+    
+    Thanks to the broadcom team for reporting!
+
+commit cef19eb49eadae3fb1590903114206a6240da711
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Mar 20 16:13:07 2012 +0100
+
+    debian: update version to 8.8.1
+
+commit 4d6177ca4746bef0de02175c9f37898eb62803f0
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Mar 20 15:59:37 2012 +0100
+
+    update changelog
+
 commit 9de391d789537fb3f6bb2df92c8c358e7386a1db
 Author: Denis Oliver Kropp <dok@directfb.org>
 Date:   Sat Mar 3 13:48:49 2012 +0100

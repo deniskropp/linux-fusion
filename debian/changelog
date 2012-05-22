@@ -1,3 +1,9 @@
+linux-fusion (8.9.0-1) unstable; urgency=high
+
+  * new upstream version (8.9.0)
+
+ -- Andreas Shimokawa <andi@directfb.org>  Tue, 22 May 2012 18:24:35 +0200
+
 linux-fusion (8.8.1-1) unstable; urgency=high
 
   * new upstream version (8.8.1)
