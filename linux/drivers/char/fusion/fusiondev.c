@@ -1401,7 +1401,7 @@ static int fusion_mmap(struct file *file, struct vm_area_struct *vma)
                return -ENOMEM;
           }
 
-          SetPageReserved(virt_to_page(dev->shared_area));
+          SetPageReserved(virt_to_page((void*)dev->shared_area));
      }
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
      ret = remap_pfn_range(vma, vma->vm_start,
@@ -1534,7 +1534,10 @@ int __init fusion_init(void)
 {
      int ret;
 
-     printk( KERN_INFO "%s()\n", __FUNCTION__ );
+     printk( KERN_INFO "Starting fusion driver v%d.%d.%d\n",
+             FUSION_API_MAJOR_PROVIDED,
+             FUSION_API_MINOR_PROVIDED,
+             FUSION_API_MICRO_PROVIDED);
 
      fusion_core_enter( cpu, &fusion_core );
 
