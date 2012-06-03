@@ -44,6 +44,8 @@ typedef struct {
      FusionDev *dev;
 
      struct timeval now; /* temporary for /proc code (seq start/show) */
+
+     FusionHash *hash;
 } FusionEntries;
 
 typedef struct {

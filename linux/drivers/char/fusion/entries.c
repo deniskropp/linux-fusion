@@ -31,6 +31,7 @@
 #include "fusiondev.h"
 #include "fusionee.h"
 #include "entries.h"
+#include "hash.h"
 
 
 static FusionEntryClass *entry_classes[NUM_MINORS][NUM_CLASSES];
@@ -60,6 +61,8 @@ fusion_entries_init( FusionEntries    *entries,
      }
 
      entry_classes[dev->index][entries->class_index] = class;
+
+     fusion_hash_create( FHT_INT, FHT_PTR, 17, &entries->hash );
 }
 
 void fusion_entries_deinit(FusionEntries * entries)
@@ -80,6 +83,8 @@ void fusion_entries_deinit(FusionEntries * entries)
                fusion_core_free( fusion_core, entry);
           }
      }
+
+     fusion_hash_destroy( entries->hash );
 }
 
 /* reading PROC entries */
@@ -251,6 +256,8 @@ int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx, 
 
      fusion_list_prepend(&entries->list, &entry->link);
 
+     fusion_hash_insert( entries->hash, (void*)(long) entry->id, entry );
+
      *ret_id = entry->id;
 
      return 0;
@@ -266,15 +273,9 @@ int fusion_entry_destroy(FusionEntries * entries, int id)
      class = entry_classes[entries->dev->index][entries->class_index];
 
      /* Lookup the entry. */
-     fusion_list_foreach(entry, entries->list) {
-          if (entry->id == id)
-               break;
-     }
-
-     /* Check if no entry was found. */
-     if (!entry) {
+     entry = fusion_hash_lookup( entries->hash, (void*)(long) id );
+     if (!entry)
           return -EINVAL;
-     }
 
      /* Destroy it now. */
      fusion_entry_destroy_locked(entries, entry);
@@ -299,6 +300,8 @@ void fusion_entry_destroy_locked(FusionEntries * entries, FusionEntry * entry)
 
      /* Remove the entry from the list. */
      fusion_list_remove(&entries->list, &entry->link);
+
+     fusion_hash_remove( entries->hash, (void*)(long) entry->id, NULL, NULL );
 
      /* Wake up any waiting process. */
      fusion_core_wq_wake( fusion_core, &entry->wait);
@@ -426,18 +429,12 @@ fusion_entry_lookup(FusionEntries * entries,
      FUSION_ASSERT(ret_entry != NULL);
 
      /* Lookup the entry. */
-     fusion_list_foreach(entry, entries->list) {
-          if (entry->id == id)
-               break;
-     }
-
-     /* Check if no entry was found. */
-     if (!entry) {
+     entry = fusion_hash_lookup( entries->hash, (void*)(long) id );
+     if (!entry)
           return -EINVAL;
-     }
 
      /* Move the entry to the front of all entries. */
-     fusion_list_move_to_front(&entries->list, &entry->link);
+//     fusion_list_move_to_front(&entries->list, &entry->link);
 
      /* Keep timestamp, but use the slightly
         inexact version to avoid performance impacts. */
