@@ -21,7 +21,7 @@
 
 /* Fusion supports all API versions up to this version */
 #define FUSION_API_MAJOR_PROVIDED 8
-#define FUSION_API_MINOR_PROVIDED 9
+#define FUSION_API_MINOR_PROVIDED 10
 #define FUSION_API_MICRO_PROVIDED 0
 
 /*
@@ -159,7 +159,8 @@ typedef enum {
      FCEF_QUEUE               = 0x00000002,
      FCEF_FOLLOW              = 0x00000004,
      FCEF_ERROR               = 0x00000008,
-     FCEF_ALL                 = 0x0000000f,
+     FCEF_RESUMABLE           = 0x00000010,
+     FCEF_ALL                 = 0x0000001f,
 } FusionCallExecFlags;
 
 typedef struct {
@@ -171,6 +172,7 @@ typedef struct {
      void                    *call_ptr;      /* optional pointer argument (shared memory) */
 
      FusionCallExecFlags      flags;         /* execution flags */
+     unsigned int             serial;        /* with FCEF_RESUMABLE used for EINTR handling, intialise with zero!!! */
 } FusionCallExecute;
 
 typedef struct {
@@ -183,6 +185,7 @@ typedef struct {
      unsigned int             length;
 
      FusionCallExecFlags      flags;         /* execution flags */
+     unsigned int             serial;        /* with FCEF_RESUMABLE used for EINTR handling, intialise with zero!!! */
 } FusionCallExecute2;
 
 typedef struct {
@@ -196,6 +199,7 @@ typedef struct {
      unsigned int             ret_length;    /* maximum (input) and actual (output) length of return buffer */
 
      FusionCallExecFlags      flags;         /* execution flags */
+     unsigned int             serial;        /* with FCEF_RESUMABLE used for EINTR handling, intialise with zero!!! */
 } FusionCallExecute3;
 
 typedef struct {

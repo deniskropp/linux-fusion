@@ -218,83 +218,102 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 
      FUSION_DEBUG( "  -> call %u '%s'\n", call->entry.id, call->entry.name );
 
-     do {
-          serial = ++call->serial;
-     } while (!serial);
-
-     /* Add execution to receive the result. */
-     if (!(execute->flags & FCEF_ONEWAY)) {
-          execution = add_execution(call, fusionee, serial, 0);
-          if (!execution)
-               return -ENOMEM;
-
-          FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
-     }
-     else if (execute->flags & FCEF_QUEUE)
-          flush = false;
-
-     /* Fill call message. */
-     message.handler = call->handler;
-     message.ctx = call->ctx;
-
-     message.caller = fusionee ? fusionee_id(fusionee) : 0;
-
-     message.call_arg = execute->call_arg;
-     message.call_ptr = execute->call_ptr;
-
-     message.serial = execution ? serial : 0;
-
-     FUSION_DEBUG( "  -> sending call message, caller %u\n", message.caller );
-
-     /* Put message into queue of callee. */
-     ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
-                                  call->entry.id, 0, sizeof(message),
-                                  &message, FMC_NONE, NULL, 1, NULL, 0,
-                                  flush);
-     if (ret) {
-          FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
-          if (execution) {
-               remove_execution(call, execution);
-               fusion_core_free( fusion_core, execution);
+     if (execute->flags & FCEF_RESUMABLE && execute->serial != 0) {
+          /* Search for execution, starting with oldest. */
+          direct_list_foreach (execution, call->executions) {
+               if (execution->serial == execute->serial)
+                    break;
           }
-          return ret;
-     }
 
-     call->count++;
+          if (!execution)
+               return -EIDRM;
+     }
+     else {
+          do {
+               serial = ++call->serial;
+          } while (!serial);
+
+          /* Add execution to receive the result. */
+          if (!(execute->flags & FCEF_ONEWAY)) {
+               execution = add_execution(call, fusionee, serial, 0);
+               if (!execution)
+                    return -ENOMEM;
+
+               FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
+          }
+          else if (execute->flags & FCEF_QUEUE)
+               flush = false;
+
+          /* Fill call message. */
+          message.handler = call->handler;
+          message.ctx = call->ctx;
+
+          message.caller = fusionee ? fusionee_id(fusionee) : 0;
+
+          message.call_arg = execute->call_arg;
+          message.call_ptr = execute->call_ptr;
+
+          message.serial = execution ? serial : 0;
+
+          FUSION_DEBUG( "  -> sending call message, caller %u\n", message.caller );
+
+          /* Put message into queue of callee. */
+          ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
+                                       call->entry.id, 0, sizeof(message),
+                                       &message, FMC_NONE, NULL, 1, NULL, 0,
+                                       flush);
+          if (ret) {
+               FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
+               if (execution) {
+                    remove_execution(call, execution);
+                    fusion_core_free( fusion_core, execution);
+               }
+               return ret;
+          }
+
+          call->count++;
+     }
 
      /* When waiting for a result... */
      if (execution) {
           FUSION_DEBUG( "  -> message sent, transfering all skirmishs...\n" );
 
           /* Transfer held skirmishs (locks). */
-          if (fusionee)
+          if (fusionee && (!(execute->flags & FCEF_RESUMABLE) || execute->serial == 0))
                fusion_skirmish_transfer_all(dev, call->fusionee->id,
                                             fusionee_id(fusionee),
                                             fusion_core_pid( fusion_core ),
-                                            serial);
+                                            execution->serial);
 
-          /* Unlock call and wait for execution result. TODO: add timeout? */
+          while (!execution->executed) {
+               /* Unlock call and wait for execution result. TODO: add timeout? */
 
-          FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
+               FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
 
 #ifdef FUSION_CALL_INTERRUPTIBLE
-          fusion_core_wq_wait( fusion_core, &execution->wait, 0, true );
+               fusion_core_wq_wait( fusion_core, &execution->wait, 0, true );
 
-          if (signal_pending(current)) {
-               FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
-               /* Indicate that a signal was received and execution won't be freed by caller. */
-               execution->signalled = true;
+               if (signal_pending(current)) {
+                    FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
 
-               printk( KERN_EMERG "NDC signal_pending(current) -> exit from fusion_call_execute() without reclaiming our skirmishes. current->pid=%d, fid=0x%08x, call->fusion_id=%ld\n",
-                       current->pid,
-                       fusionee ? (int)(fusionee_id(fusionee)) : 0,
-                       call->fusionee->id );
+                    execute->serial = execution->serial;
 
-               return -EINTR;
-          }
+                    /* Indicate that a signal was received and execution won't be freed by caller. */
+                    if (!(execute->flags & FCEF_RESUMABLE)) {
+                         execution->signalled = true;
+
+                         printk( KERN_EMERG "FusionIPC: Warning signal_pending(current) -> exit from fusion_call_execute() without FCEF_RESUMABLE. current->pid=%d, fid=0x%08x, call->fusion_id=%ld\n",
+                                 current->pid,
+                                 fusionee ? (int)(fusionee_id(fusionee)) : 0,
+                                 call->fusionee->id );
+                    }
+
+                    return -EINTR;
+               }
 #else
-          fusion_core_wq_wait( fusion_core, &execution->wait, 0, false );
+               fusion_core_wq_wait( fusion_core, &execution->wait, 0, false );
 #endif
+          }
 
           /* Return result to calling process. */
           execute->ret_val = execution->ret_val;
@@ -335,83 +354,102 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 
      FUSION_DEBUG( "  -> call %u '%s'\n", call->entry.id, call->entry.name );
 
-     do {
-          serial = ++call->serial;
-     } while (!serial);
-
-     /* Add execution to receive the result. */
-     if (!(execute->flags & FCEF_ONEWAY)) {
-          execution = add_execution(call, fusionee, serial, 0);
-          if (!execution)
-               return -ENOMEM;
-
-          FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
-     }
-     else if (execute->flags & FCEF_QUEUE)
-          flush = false;
-
-     /* Fill call message. */
-     message.handler = call->handler;
-     message.ctx = call->ctx;
-
-     message.caller = fusionee ? fusionee_id(fusionee) : 0;
-
-     message.call_arg = execute->call_arg;
-     message.call_ptr = NULL;
-
-     message.serial = execution ? serial : 0;
-
-     FUSION_DEBUG( "  -> sending call message, caller %u\n", message.caller );
-
-     /* Put message into queue of callee. */
-     ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
-                                  call->entry.id, 0, sizeof(FusionCallMessage),
-                                  &message, FMC_NONE, NULL, 1, execute->ptr, execute->length,
-                                  flush);
-     if (ret) {
-          FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
-          if (execution) {
-               remove_execution(call, execution);
-               fusion_core_free( fusion_core, execution);
+     if (execute->flags & FCEF_RESUMABLE && execute->serial != 0) {
+          /* Search for execution, starting with oldest. */
+          direct_list_foreach (execution, call->executions) {
+               if (execution->serial == execute->serial)
+                    break;
           }
-          return ret;
-     }
 
-     call->count++;
+          if (!execution)
+               return -EIDRM;
+     }
+     else {
+          do {
+               serial = ++call->serial;
+          } while (!serial);
+
+          /* Add execution to receive the result. */
+          if (!(execute->flags & FCEF_ONEWAY)) {
+               execution = add_execution(call, fusionee, serial, 0);
+               if (!execution)
+                    return -ENOMEM;
+
+               FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
+          }
+          else if (execute->flags & FCEF_QUEUE)
+               flush = false;
+
+          /* Fill call message. */
+          message.handler = call->handler;
+          message.ctx = call->ctx;
+
+          message.caller = fusionee ? fusionee_id(fusionee) : 0;
+
+          message.call_arg = execute->call_arg;
+          message.call_ptr = NULL;
+
+          message.serial = execution ? serial : 0;
+
+          FUSION_DEBUG( "  -> sending call message, caller %u\n", message.caller );
+
+          /* Put message into queue of callee. */
+          ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
+                                       call->entry.id, 0, sizeof(FusionCallMessage),
+                                       &message, FMC_NONE, NULL, 1, execute->ptr, execute->length,
+                                       flush);
+          if (ret) {
+               FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
+               if (execution) {
+                    remove_execution(call, execution);
+                    fusion_core_free( fusion_core, execution);
+               }
+               return ret;
+          }
+
+          call->count++;
+     }
 
      /* When waiting for a result... */
      if (execution) {
           FUSION_DEBUG( "  -> message sent, transfering all skirmishs...\n" );
 
           /* Transfer held skirmishs (locks). */
-          if (fusionee)
+          if (fusionee && (!(execute->flags & FCEF_RESUMABLE) || execute->serial == 0))
                fusion_skirmish_transfer_all(dev, call->fusionee->id,
                                             fusionee_id(fusionee),
                                             fusion_core_pid( fusion_core ),
-                                            serial);
+                                            execution->serial);
 
-          /* Unlock call and wait for execution result. TODO: add timeout? */
+          while (!execution->executed) {
+               /* Unlock call and wait for execution result. TODO: add timeout? */
 
-          FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
+               FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
 
 #ifdef FUSION_CALL_INTERRUPTIBLE
-          fusion_core_wq_wait( fusion_core, &execution->wait, 0, true );
+               fusion_core_wq_wait( fusion_core, &execution->wait, 0, true );
 
-          if (signal_pending(current)) {
-               FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
-               /* Indicate that a signal was received and execution won't be freed by caller. */
-               execution->signalled = true;
+               if (signal_pending(current)) {
+                    FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
 
-               printk( KERN_EMERG "NDC signal_pending(current) -> exit from fusion_call_execute() without reclaiming our skirmishes. current->pid=%d, fid=0x%08x, call->fusion_id=%ld\n",
-                       current->pid,
-                       fusionee ? (int)(fusionee_id(fusionee)) : 0,
-                       call->fusionee->id );
+                    execute->serial = execution->serial;
 
-               return -EINTR;
-          }
+                    /* Indicate that a signal was received and execution won't be freed by caller. */
+                    if (!(execute->flags & FCEF_RESUMABLE)) {
+                         execution->signalled = true;
+
+                         printk( KERN_EMERG "FusionIPC: Warning signal_pending(current) -> exit from fusion_call_execute() without FCEF_RESUMABLE. current->pid=%d, fid=0x%08x, call->fusion_id=%ld\n",
+                                 current->pid,
+                                 fusionee ? (int)(fusionee_id(fusionee)) : 0,
+                                 call->fusionee->id );
+                    }
+
+                    return -EINTR;
+               }
 #else
-          fusion_core_wq_wait( fusion_core, &execution->wait, 0, false );
+               fusion_core_wq_wait( fusion_core, &execution->wait, 0, false );
 #endif
+          }
 
           /* Return result to calling process. */
           execute->ret_val = execution->ret_val;
@@ -515,85 +553,104 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
 
      FUSION_DEBUG( "  -> call %u '%s'\n", call->entry.id, call->entry.name );
 
-     do {
-          serial = ++call->serial;
-     } while (!serial);
-
-     /* Add execution to receive the result. */
-     if (!(execute->flags & FCEF_ONEWAY)) {
-          execution = add_execution(call, fusionee, serial, execute->ret_length);
-          if (!execution)
-               return -ENOMEM;
-
-          FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
-     }
-     else if (execute->flags & FCEF_QUEUE)
-          flush = false;
-
-     /* Fill call message. */
-     message.handler = call->handler;
-     message.ctx = call->ctx;
-
-     message.caller = fusionee ? fusionee_id(fusionee) : 0;
-
-     message.call_arg    = execute->call_arg;
-     message.call_ptr    = NULL;
-     message.call_length = execute->length;
-     message.ret_length  = execute->ret_length;
-
-     message.serial = execution ? serial : 0;
-
-     FUSION_DEBUG( "  -> sending call message, caller %u, ptr %p, length %u\n", message.caller, execute->ptr, execute->length );
-
-     /* Put message into queue of callee. */
-     ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL3,
-                                  call->entry.id, 0, sizeof(FusionCallMessage3),
-                                  &message, FMC_NONE, NULL, 1, execute->ptr, execute->length,
-                                  flush);
-     if (ret) {
-          FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
-          if (execution) {
-               remove_execution(call, execution);
-               fusion_core_free( fusion_core, execution);
+     if (execute->flags & FCEF_RESUMABLE && execute->serial != 0) {
+          /* Search for execution, starting with oldest. */
+          direct_list_foreach (execution, call->executions) {
+               if (execution->serial == execute->serial)
+                    break;
           }
-          return ret;
-     }
 
-     call->count++;
+          if (!execution)
+               return -EIDRM;
+     }
+     else {
+          do {
+               serial = ++call->serial;
+          } while (!serial);
+
+          /* Add execution to receive the result. */
+          if (!(execute->flags & FCEF_ONEWAY)) {
+               execution = add_execution(call, fusionee, serial, execute->ret_length);
+               if (!execution)
+                    return -ENOMEM;
+
+               FUSION_DEBUG( "  -> execution %p, serial %u\n", execution, execution->serial );
+          }
+          else if (execute->flags & FCEF_QUEUE)
+               flush = false;
+
+          /* Fill call message. */
+          message.handler = call->handler;
+          message.ctx = call->ctx;
+
+          message.caller = fusionee ? fusionee_id(fusionee) : 0;
+
+          message.call_arg    = execute->call_arg;
+          message.call_ptr    = NULL;
+          message.call_length = execute->length;
+          message.ret_length  = execute->ret_length;
+
+          message.serial = execution ? serial : 0;
+
+          FUSION_DEBUG( "  -> sending call message, caller %u, ptr %p, length %u\n", message.caller, execute->ptr, execute->length );
+
+          /* Put message into queue of callee. */
+          ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL3,
+                                       call->entry.id, 0, sizeof(FusionCallMessage3),
+                                       &message, FMC_NONE, NULL, 1, execute->ptr, execute->length,
+                                       flush);
+          if (ret) {
+               FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
+               if (execution) {
+                    remove_execution(call, execution);
+                    fusion_core_free( fusion_core, execution);
+               }
+               return ret;
+          }
+
+          call->count++;
+     }
 
      /* When waiting for a result... */
      if (execution) {
           FUSION_DEBUG( "  -> message sent, transfering all skirmishs...\n" );
 
           /* Transfer held skirmishs (locks). */
-          if (fusionee)
+          if (fusionee && (!(execute->flags & FCEF_RESUMABLE) || execute->serial == 0))
                fusion_skirmish_transfer_all(dev, call->fusionee->id,
                                             fusionee_id(fusionee),
                                             fusion_core_pid( fusion_core ),
-                                            serial);
+                                            execution->serial);
 
-          /* Unlock call and wait for execution result. TODO: add timeout? */
+          while (!execution->executed) {
+               /* Unlock call and wait for execution result. TODO: add timeout? */
 
-          FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
+               FUSION_DEBUG( "  -> skirmishs transferred, sleeping on call...\n" );
 
 #ifdef FUSION_CALL_INTERRUPTIBLE
-          fusion_core_wq_wait( fusion_core, &execution->wait, 0, true );
+               fusion_core_wq_wait( fusion_core, &execution->wait, 0, true );
 
-          if (signal_pending(current)) {
-               FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
-               /* Indicate that a signal was received and execution won't be freed by caller. */
-               execution->signalled = true;
+               if (signal_pending(current)) {
+                    FUSION_DEBUG( "  -> woke up, SIGNAL PENDING!\n" );
 
-               printk( KERN_EMERG "NDC signal_pending(current) -> exit from fusion_call_execute() without reclaiming our skirmishes. current->pid=%d, fid=0x%08x, call->fusion_id=%ld\n",
-                       current->pid,
-                       fusionee ? (int)(fusionee_id(fusionee)) : 0,
-                       call->fusionee->id );
+                    execute->serial = execution->serial;
 
-               return -EINTR;
-          }
+                    /* Indicate that a signal was received and execution won't be freed by caller. */
+                    if (!(execute->flags & FCEF_RESUMABLE)) {
+                         execution->signalled = true;
+
+                         printk( KERN_EMERG "FusionIPC: Warning signal_pending(current) -> exit from fusion_call_execute() without FCEF_RESUMABLE. current->pid=%d, fid=0x%08x, call->fusion_id=%ld\n",
+                                 current->pid,
+                                 fusionee ? (int)(fusionee_id(fusionee)) : 0,
+                                 call->fusionee->id );
+                    }
+
+                    return -EINTR;
+               }
 #else
-          fusion_core_wq_wait( fusion_core, &execution->wait, 0, false );
+               fusion_core_wq_wait( fusion_core, &execution->wait, 0, false );
 #endif
+          }
 
           /* Return result to calling process. */
           if (execution->ret_length) {

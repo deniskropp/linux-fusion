@@ -689,7 +689,7 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                if (ret)
                     return ret;
 
-               if (put_user(execute.ret_val, (int *)arg))
+               if (unlocked_copy_to_user((FusionCallExecute *) arg, &execute, sizeof(execute)))
                     return -EFAULT;
                return 0;
 
@@ -715,7 +715,7 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                if (ret)
                     return ret;
 
-               if (put_user(execute2.ret_val, (int *)arg))
+               if (unlocked_copy_to_user((FusionCallExecute2 *) arg, &execute2, sizeof(execute2)))
                     return -EFAULT;
                return 0;
 
