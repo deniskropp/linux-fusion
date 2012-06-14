@@ -1,3 +1,45 @@
+commit d71a1c093828c84c9f557d469084357b10a8e10c
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Jun 14 17:43:20 2012 +0200
+
+    8.10.1
+
+commit af21899f0df381766375f8dcf73dfd0ee1c72740
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Jun 14 17:39:06 2012 +0200
+
+    force async calls when cleaning up refs
+
+commit 6558bfd092436b3f6767ede000ef67c5c22eeedc
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Jun 14 17:27:32 2012 +0200
+
+    use vmalloc
+
+commit 732e94e5f95888483de296d44d7b8e6d6757629a
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Jun 6 13:00:33 2012 +0200
+
+    Fusion: Kill all slaves when master exits the world.
+
+commit 88d5a78ef5bed2e0cf14e50a0ff96d437e0fc9af
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Jun 4 01:14:05 2012 +0200
+
+    Fusion: Reintroduce hash table, but as a fast path, keeping most of the code untouched.
+
+commit 1f6a0a4754bba146d4c23796d128ad75f4492106
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Jun 4 00:55:55 2012 +0200
+
+    Call: Add FCEF_RESUMABLE and add serial to each FusionCallExecute implementing resumable calls (on EINTR).
+
+commit 3ee0e036204e81f14ee39f21b2886a7f8174f7e8
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue May 22 18:25:59 2012 +0200
+
+    update changelog
+
 commit 5798f9701450204d062f56b4d8e9e9dff24ebc42
 Author: Marek Pikarski <mass@directfb.org>
 Date:   Tue May 22 10:25:35 2012 +0200
