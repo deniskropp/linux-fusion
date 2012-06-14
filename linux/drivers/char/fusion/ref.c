@@ -86,9 +86,9 @@ static int fork_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id,
                       FusionID from_id);
 static void free_all_local(FusionRef * ref);
 
-static int propagate_local(FusionDev * dev, FusionRef * ref, int diff);
+static int propagate_local(FusionDev * dev, FusionRef * ref, int diff, bool async);
 
-static void notify_ref(FusionDev * dev, FusionRef * ref);
+static void notify_ref(FusionDev * dev, FusionRef * ref, bool async);
 
 static int add_inheritor(FusionRef * ref, FusionRef * from);
 static void remove_inheritor(FusionRef * ref, FusionRef * from);
@@ -180,7 +180,7 @@ int fusion_ref_up(FusionDev * dev, int id, FusionID fusion_id)
           if (ret)
                return ret;
 
-          ret = propagate_local(dev, ref, 1);
+          ret = propagate_local(dev, ref, 1, false);
      }
      else
           ref->global ++;
@@ -211,7 +211,7 @@ int fusion_ref_down(FusionDev * dev, int id, FusionID fusion_id)
           if (ret)
                return ret;
 
-          ret = propagate_local(dev, ref, -1);
+          ret = propagate_local(dev, ref, -1, false);
      }
      else {
           if (!ref->global)
@@ -220,7 +220,7 @@ int fusion_ref_down(FusionDev * dev, int id, FusionID fusion_id)
           ref->global --;
 
           if (ref->local + ref->global == 0)
-               notify_ref(dev, ref);
+               notify_ref(dev, ref, false);
      }
 
      return 0;
@@ -254,7 +254,7 @@ int fusion_ref_catch(FusionDev * dev, int id, FusionID fusion_id)
                if (ret)
                     return ret;
 
-               propagate_local( dev, ref, -1 );
+               propagate_local( dev, ref, -1, false );
 
                return 0;
           }
@@ -427,7 +427,7 @@ int fusion_ref_inherit(FusionDev * dev, int id, int from_id)
      if (ret)
           return ret;
 
-     ret = propagate_local(dev, ref, from->local);
+     ret = propagate_local(dev, ref, from->local, false);
      if (ret)
           return ret;
 
@@ -572,7 +572,7 @@ static void clear_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id)
                fusion_list_remove(&ref->local_refs, l);
 
                if (local->refs)
-                    propagate_local(dev, ref, -local->refs);
+                    propagate_local(dev, ref, -local->refs, true);
 
                fusion_core_free( fusion_core, l);
                break;
@@ -616,7 +616,7 @@ static void free_all_local(FusionRef * ref)
      ref->local_refs = NULL;
 }
 
-static void notify_ref(FusionDev * dev, FusionRef * ref)
+static void notify_ref(FusionDev * dev, FusionRef * ref, bool async)
 {
      if (ref->watched) {
           FusionCallExecute execute;
@@ -624,7 +624,7 @@ static void notify_ref(FusionDev * dev, FusionRef * ref)
           execute.call_id = ref->call_id;
           execute.call_arg = ref->call_arg;
           execute.call_ptr = NULL;
-          execute.flags = ref->syncwatch ? FCEF_NONE : FCEF_ONEWAY;
+          execute.flags = (!async && ref->syncwatch) ? FCEF_NONE : FCEF_ONEWAY;
 
           fusion_call_execute(dev, NULL, &execute);
 
@@ -634,7 +634,7 @@ static void notify_ref(FusionDev * dev, FusionRef * ref)
           fusion_core_wq_wake( fusion_core, &ref->entry.wait);
 }
 
-static int propagate_local(FusionDev * dev, FusionRef * ref, int diff)
+static int propagate_local(FusionDev * dev, FusionRef * ref, int diff, bool async)
 {
      FusionLink *l;
 
@@ -642,7 +642,7 @@ static int propagate_local(FusionDev * dev, FusionRef * ref, int diff)
      fusion_list_foreach(l, ref->inheritors) {
           FusionRef *inheritor = ((Inheritor *) l)->ref;
 
-          propagate_local(dev, inheritor, diff);
+          propagate_local(dev, inheritor, diff, async);
      }
 
      /* Apply difference. */
@@ -652,7 +652,7 @@ static int propagate_local(FusionDev * dev, FusionRef * ref, int diff)
 
      /* Notify zero count. */
      if (ref->local + ref->global == 0)
-          notify_ref(dev, ref);
+          notify_ref(dev, ref, async);
 
      return 0;
 }
@@ -696,7 +696,7 @@ static void drop_inheritors(FusionDev * dev, FusionRef * ref)
           FusionLink *next = l->next;
           FusionRef *inheritor = ((Inheritor *) l)->ref;
 
-          propagate_local(dev, inheritor, -ref->local);
+          propagate_local(dev, inheritor, -ref->local, true);
 
           inheritor->inherited = NULL;
 
