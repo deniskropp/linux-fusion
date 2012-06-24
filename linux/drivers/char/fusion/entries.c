@@ -280,9 +280,6 @@ int fusion_entry_destroy(FusionEntries * entries, int id)
      /* Destroy it now. */
      fusion_entry_destroy_locked(entries, entry);
 
-     if (entry->waiters_list)
-          kfree( entry->waiters_list );
-
      return 0;
 }
 
@@ -310,8 +307,11 @@ void fusion_entry_destroy_locked(FusionEntries * entries, FusionEntry * entry)
      if (class->Destroy)
           class->Destroy(entry, entries->ctx);
 
-          /* Deallocate the entry. */
-          fusion_core_free( fusion_core, entry);
+     /* Deallocate the entry. */
+     if (entry->waiters_list)
+          fusion_core_free( fusion_core, entry->waiters_list );
+
+     fusion_core_free( fusion_core, entry );
 }
 
 int fusion_entry_set_info(FusionEntries * entries, const FusionEntryInfo * info)
@@ -471,7 +471,7 @@ int fusion_entry_wait(FusionEntry * entry, int *timeout)
 
      /* Reallocate waiters array if needed */
      if (entry->waiters_list_max == entry->waiters) {
-          int *new_waiters = kmalloc( sizeof(int) * (entry->waiters_list_max + 10), GFP_KERNEL );
+          int *new_waiters = fusion_core_malloc( fusion_core, sizeof(int) * (entry->waiters_list_max + 10) );
 
           if (!new_waiters)
                return -ENOMEM;
@@ -481,7 +481,7 @@ int fusion_entry_wait(FusionEntry * entry, int *timeout)
           if (entry->waiters_list) {
                memcpy( new_waiters, entry->waiters_list, sizeof(int) * entry->waiters );
 
-               kfree( entry->waiters_list );
+               fusion_core_free( fusion_core, entry->waiters_list );
           }
 
           entry->waiters_list = new_waiters;
