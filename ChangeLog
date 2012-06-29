@@ -1,3 +1,39 @@
+commit 59ad13f4e19dbec3ea8c4379611532285adea9fb
+Author: Marek Pikarski <mass@directfb.org>
+Date:   Fri Jun 29 16:05:50 2012 +0200
+
+    Fusion: remove debug message
+
+commit db5358fa5e2f52954a65c15cd4a0d14113ffde72
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jun 29 15:44:15 2012 +0200
+
+    update version to 8.10.2
+
+commit f54d158242aa60f3c27e7ea059371ca9b877e3e7
+Author: Marek Pikarski <mass@directfb.org>
+Date:   Fri Jun 29 15:27:06 2012 +0200
+
+    Fusion: cache up to 10 executions, do not free them, reuse valloc'ed memory
+
+commit 66e94a7367a0dd7da9f441b6b4857c7688e09e7a
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun Jun 24 17:16:33 2012 +0200
+
+    Fusion: Fix severe memory alloc/free bug, moving waiters_list freeing BEFORE entry freeing!
+
+commit 14be1a25cd1009432041e68ff480c33208a55ba7
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Jun 14 17:50:08 2012 +0200
+
+    update
+
+commit bb58f2d3ae3d5402038c4580d3419438408d556a
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Jun 14 17:46:58 2012 +0200
+
+    update ChangeLog
+
 commit d71a1c093828c84c9f557d469084357b10a8e10c
 Author: Denis Oliver Kropp <dok@directfb.org>
 Date:   Thu Jun 14 17:43:20 2012 +0200
