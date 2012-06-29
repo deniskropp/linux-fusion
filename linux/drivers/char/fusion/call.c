@@ -85,6 +85,8 @@ static FusionCallExecution *add_execution(FusionCall * call,
                                           unsigned int ret_size);
 static void remove_execution(FusionCall * call,
                              FusionCallExecution * execution);
+static void free_execution(FusionDev * dev,
+                           FusionCallExecution * execution);
 static void free_all_executions(FusionCall * call);
 
 /******************************************************************************/
@@ -266,7 +268,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
                FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
                if (execution) {
                     remove_execution(call, execution);
-                    fusion_core_free( fusion_core, execution);
+                    free_execution(dev, execution);
                }
                return ret;
           }
@@ -319,7 +321,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
           execute->ret_val = execution->ret_val;
 
           /* Free execution, which has already been removed by callee. */
-          fusion_core_free( fusion_core, execution);
+          free_execution( dev, execution);
 
           FUSION_DEBUG( "  -> woke up, ret val %u, reclaiming skirmishs...\n", execute->ret_val );
 
@@ -402,7 +404,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
                FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
                if (execution) {
                     remove_execution(call, execution);
-                    fusion_core_free( fusion_core, execution);
+                    free_execution( dev, execution);
                }
                return ret;
           }
@@ -455,7 +457,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
           execute->ret_val = execution->ret_val;
 
           /* Free execution, which has already been removed by callee. */
-          fusion_core_free( fusion_core, execution);
+          free_execution( dev, execution);
 
           FUSION_DEBUG( "  -> woke up, ret val %u, reclaiming skirmishs...\n", execute->ret_val );
 
@@ -503,7 +505,7 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
           if (execution->signalled) {
                /* Remove and free execution. */
                remove_execution(call, execution);
-               fusion_core_free( fusion_core, execution);
+               free_execution(dev, execution);
                return -EIDRM;
           }
 
@@ -584,7 +586,7 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
           message.ctx = call->ctx;
 
           message.caller = fusionee ? fusionee_id(fusionee) : 0;
-
+if (execute->ret_length == 130 )FUSION_DEBUG("call_arg=%d\n", execute->call_arg);
           message.call_arg    = execute->call_arg;
           message.call_ptr    = NULL;
           message.call_length = execute->length;
@@ -603,7 +605,7 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
                FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
                if (execution) {
                     remove_execution(call, execution);
-                    fusion_core_free( fusion_core, execution);
+                    free_execution(dev, execution);
                }
                return ret;
           }
@@ -669,7 +671,7 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
           execute->ret_length = execution->ret_length;
 
           /* Free execution, which has already been removed by callee. */
-          fusion_core_free( fusion_core, execution );
+          free_execution( dev, execution );
 
           FUSION_DEBUG( "  -> woke up, ret length %u, reclaiming skirmishs...\n", execute->ret_length );
 
@@ -717,14 +719,14 @@ fusion_call_return3(FusionDev * dev, int fusion_id, FusionCallReturn3 * call_ret
           if (execution->signalled) {
                /* Remove and free execution. */
                remove_execution(call, execution);
-               fusion_core_free( fusion_core, execution);
+               free_execution(dev, execution);
                return -EIDRM;
           }
 
           if (execution->ret_size < call_ret->length) {
                /* Remove and free execution. */
                remove_execution(call, execution);
-               fusion_core_free( fusion_core, execution);
+               free_execution(dev, execution);
                return -E2BIG;
           }
 
@@ -732,7 +734,7 @@ fusion_call_return3(FusionDev * dev, int fusion_id, FusionCallReturn3 * call_ret
           if (copy_from_user( execution + 1, call_ret->ptr, call_ret->length )) {
                /* Remove and free execution. */
                remove_execution(call, execution);
-               fusion_core_free( fusion_core, execution);
+               free_execution(dev, execution);
                return -EFAULT;
           }
 
@@ -856,7 +858,15 @@ static FusionCallExecution *add_execution(FusionCall * call,
      FUSION_DEBUG( "%s( call %p [%u], caller %p [%lu], serial %i )\n", __FUNCTION__, call, call->entry.id, caller, caller ? caller->id : 0, serial );
 
      /* Allocate execution. */
-     execution = fusion_core_malloc( fusion_core, sizeof(FusionCallExecution) + ret_size );
+
+     if (ret_size < 20 && call->entry.entries->dev->execution_free_list_num > 0) {
+          execution = (FusionCallExecution *)call->entry.entries->dev->execution_free_list;
+          direct_list_remove( &call->entry.entries->dev->execution_free_list, &execution->link );
+          call->entry.entries->dev->execution_free_list_num--;
+     }
+     else {
+          execution = fusion_core_malloc( fusion_core, sizeof(FusionCallExecution) + (ret_size > CACHE_EXECUTIONS_DATA_LEN ? ret_size : CACHE_EXECUTIONS_DATA_LEN) );
+     }
      if (!execution)
           return NULL;
 
@@ -877,11 +887,24 @@ static FusionCallExecution *add_execution(FusionCall * call,
      return execution;
 }
 
-static void remove_execution(FusionCall * call, FusionCallExecution * execution)
+static void remove_execution( FusionCall * call, FusionCallExecution * execution )
 {
      FUSION_DEBUG( "%s( call %p [%u], execution %p )\n", __FUNCTION__, call, call->entry.id, execution );
 
-     fusion_list_remove(&call->executions, &execution->link);
+     fusion_list_remove( &call->executions, &execution->link );
+}
+
+static void free_execution( FusionDev * dev, FusionCallExecution * execution )
+{
+     FUSION_DEBUG( "%s( execution %p )\n", __FUNCTION__, execution );
+
+     if (execution->ret_size <= CACHE_EXECUTIONS_DATA_LEN && dev->execution_free_list_num < CACHE_EXECUTIONS_NUM) {
+          direct_list_append( &dev->execution_free_list, &execution->link );
+
+          dev->execution_free_list_num++;
+     }
+     else
+          fusion_core_free( fusion_core, execution );
 }
 
 static void free_all_executions(FusionCall * call)
@@ -896,7 +919,7 @@ static void free_all_executions(FusionCall * call)
           fusion_core_wq_wake( fusion_core,  &execution->wait );
 
           if (!execution->caller)
-               fusion_core_free( fusion_core,  execution );
+               free_execution( call->entry.entries->dev,  execution );
      }
 }
 

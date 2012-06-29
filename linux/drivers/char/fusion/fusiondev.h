@@ -26,6 +26,9 @@
 #define NUM_MINORS  8
 #define NUM_CLASSES 8
 
+#define CACHE_EXECUTIONS_NUM      10
+#define CACHE_EXECUTIONS_DATA_LEN 20
+
 typedef struct __Fusion_FusionShared FusionShared;
 
 struct __Fusion_FusionDev {
@@ -85,7 +88,10 @@ struct __Fusion_FusionDev {
      FusionEntries shmpool;
      FusionEntries skirmish;
 
-     unsigned int next_class_index;
+     FusionLink   *execution_free_list;
+     unsigned int  execution_free_list_num;
+
+     unsigned int  next_class_index;
 };
 
 struct __Fusion_FusionShared {
