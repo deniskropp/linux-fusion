@@ -586,7 +586,7 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
           message.ctx = call->ctx;
 
           message.caller = fusionee ? fusionee_id(fusionee) : 0;
-if (execute->ret_length == 130 )FUSION_DEBUG("call_arg=%d\n", execute->call_arg);
+
           message.call_arg    = execute->call_arg;
           message.call_ptr    = NULL;
           message.call_length = execute->length;
