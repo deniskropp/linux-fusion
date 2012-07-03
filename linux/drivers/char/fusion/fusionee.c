@@ -570,7 +570,7 @@ fusionee_send_message(FusionDev * dev,
 
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
-     while (fusionee->packets.count > 10 && sender && fusion_core_pid(fusion_core) != fusionee->dispatcher_pid) {
+     while (fusionee->packets.count > 10 && sender && fusion_core_pid(fusion_core) != fusionee->dispatcher_pid && msg_type != FMT_LEAVE) {
           fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0, true );
 
           if (signal_pending(current))
@@ -640,7 +640,7 @@ fusionee_send_message2(FusionDev * dev,
 
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
-     while (fusionee->packets.count > 10 && sender && fusion_core_pid(fusion_core) != fusionee->dispatcher_pid) {
+     while (fusionee->packets.count > 10 && sender && fusion_core_pid(fusion_core) != fusionee->dispatcher_pid && msg_type != FMT_LEAVE) {
           fusion_core_wq_wait( fusion_core, &fusionee->wait_process, 0, true );
 
           if (signal_pending(current))
