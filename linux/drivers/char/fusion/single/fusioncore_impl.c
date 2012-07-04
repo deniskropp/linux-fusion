@@ -21,7 +21,6 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
-#include <linux/vmalloc.h>
 
 #include "debug.h"
 
@@ -37,7 +36,7 @@ fusion_core_enter( int          cpu_index,
 
      D_ASSERT( ret_core != NULL );
 
-     core = vmalloc( sizeof(FusionCore) );
+     core = kmalloc( sizeof(FusionCore), GFP_KERNEL );
      if (!core)
           return FC_FAILURE;
 
@@ -60,7 +59,7 @@ fusion_core_exit( FusionCore *core )
 
      D_MAGIC_CLEAR( core );
 
-     vfree( core );
+     kfree( core );
 }
 
 // FIXME: in theory pids could be more than 16bit wide, so we'd have to use a 64bit type here
@@ -77,15 +76,9 @@ void *
 fusion_core_malloc( FusionCore *core,
                     size_t      size )
 {
-     void *ptr;
-
      D_MAGIC_ASSERT( core, FusionCore );
 
-     ptr = vmalloc( size );
-     if (ptr)
-          memset( ptr, 0, size );
-
-     return ptr;
+     return kzalloc( size, GFP_KERNEL );
 }
 
 void
@@ -94,7 +87,7 @@ fusion_core_free( FusionCore *core,
 {
      D_MAGIC_ASSERT( core, FusionCore );
 
-     vfree( ptr );
+     kfree( ptr );
 }
 
 
