@@ -1,3 +1,27 @@
+commit e2b5b82385b732e88bfacd0836853e47656ad335
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Jul 4 18:09:51 2012 +0200
+
+    Revert "use vmalloc"
+    
+    This reverts commit 6558bfd092436b3f6767ede000ef67c5c22eeedc.
+    
+    Source of a crash...
+
+commit 01f911f69cf42bb3ef777eaea61ff3877de2324b
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Jul 3 18:03:45 2012 +0200
+
+    fusionee: send messages immediately if type is FMT_LEAVE.
+    
+    This fixes a list corruption and kernel oops when killing multiple fusionees (eg. when the master shuts down)
+
+commit b9abb8f908dbc3569ee2cb70a3d5fd267154611b
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jun 29 16:10:23 2012 +0200
+
+    update changelog
+
 commit 59ad13f4e19dbec3ea8c4379611532285adea9fb
 Author: Marek Pikarski <mass@directfb.org>
 Date:   Fri Jun 29 16:05:50 2012 +0200
