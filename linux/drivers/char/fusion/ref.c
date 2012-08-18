@@ -305,9 +305,6 @@ int fusion_ref_zero_lock(FusionDev * dev, int id, FusionID fusion_id)
           return ret;
 
      while (true) {
-          if (ref->watched)
-               return -EACCES;
-
           if (ref->locked)
                return ref->locked == fusion_id ? -EIO : -EAGAIN;
 
@@ -627,8 +624,6 @@ static void notify_ref(FusionDev * dev, FusionRef * ref, bool async)
           execute.flags = (!async && ref->syncwatch) ? FCEF_NONE : FCEF_ONEWAY;
 
           fusion_call_execute(dev, NULL, &execute);
-
-          ref->watched = false;
      }
      else
           fusion_core_wq_wake( fusion_core, &ref->entry.wait);
