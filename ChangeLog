@@ -1,3 +1,15 @@
+commit ec7a082c70e19dfb86afad8341d8de30b0283a6e
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Thu Sep 13 14:51:51 2012 +0200
+
+    fix debian changelog format
+
+commit 12d112027029151e6b17afbd93ee250e353e6ae9
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Thu Sep 13 14:47:15 2012 +0200
+
+    update changelog
+
 commit 9f6d855668a57cc7b6d30ea2ca0d7271abece468
 Author: Andreas Shimokawa <andi@directfb.org>
 Date:   Thu Sep 13 14:46:54 2012 +0200
