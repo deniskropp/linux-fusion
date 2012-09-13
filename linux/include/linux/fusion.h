@@ -22,7 +22,7 @@
 /* Fusion supports all API versions up to this version */
 #define FUSION_API_MAJOR_PROVIDED 8
 #define FUSION_API_MINOR_PROVIDED 10
-#define FUSION_API_MICRO_PROVIDED 3
+#define FUSION_API_MICRO_PROVIDED 4
 
 /*
  * Fusion Kernel Device API Version
