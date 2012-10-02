@@ -82,7 +82,7 @@ else
 endif
 
 modules_install: modules
-ifeq ($(K_PATCHLEVEL),4)
+ifeq ($(K_VERSION)$(K_PATCHLEVEL),24)
 	install -d $(INSTALL_MOD_PATH)/lib/modules/$(KERNEL_VERSION)/drivers/char/fusion
 	install -m 644 $(SUB)/fusion.o $(INSTALL_MOD_PATH)/lib/modules/$(KERNEL_VERSION)/drivers/char/fusion
 	rm -f $(INSTALL_MOD_PATH)/lib/modules/$(KERNEL_VERSION)/fusion.o
