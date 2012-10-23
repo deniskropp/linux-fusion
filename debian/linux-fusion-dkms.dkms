@@ -7,6 +7,9 @@ PACKAGE_VERSION="#MODULE_VERSION#"
 BUILT_MODULE_NAME[0]=fusion
 DEST_MODULE_LOCATION[0]="/kernel/drivers/char/"
 BUILT_MODULE_LOCATION[0]="linux/drivers/char/fusion"
+BUILT_MODULE_NAME[1]=linux-one
+DEST_MODULE_LOCATION[1]="/kernel/drivers/char/"
+BUILT_MODULE_LOCATION[1]="one"
 AUTOINSTALL=yes
 
 MAKE[0]="make KERNELDIR=${kernel_source_dir} BUILD_DIR=${dkms_tree}/${PACKAGE_NAME}/${PACKAGE_VERSION}/build"

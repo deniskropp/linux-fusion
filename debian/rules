@@ -57,7 +57,7 @@ install: build
 	dh_installdirs -p$(dkmssource)  usr/src/$(sname)-$(version)
 
 	# Copy only the driver source to the proper location
-	cp -r linux Makefile  \
+	cp -r include one linux Makefile  \
 		debian/$(dkmssource)/usr/src/$(sname)-$(version)
 	# Copy the needed debian/ pieces to the proper location
 
