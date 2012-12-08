@@ -479,6 +479,8 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
      FusionCall *call;
      FusionCallExecution *execution;
 
+     FUSION_DEBUG( "%s( dev %p, fusion_id %d )\n", __FUNCTION__, dev, fusion_id );
+
      if ( (dev->api.major >= 4) && (call_ret->serial == 0) )
           return -EOPNOTSUPP;
 
@@ -486,6 +488,8 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
      ret = fusion_call_lookup(&dev->call, call_ret->call_id, &call);
      if (ret)
           return ret;
+
+     FUSION_DEBUG( "  -> call %u '%s'\n", call->entry.id, call->entry.name );
 
      /* Search for execution, starting with oldest. */
      direct_list_foreach (execution, call->executions) {
@@ -693,6 +697,8 @@ fusion_call_return3(FusionDev * dev, int fusion_id, FusionCallReturn3 * call_ret
      FusionCall *call;
      FusionCallExecution *execution;
 
+     FUSION_DEBUG( "%s( dev %p, fusion_id %d ) <- serial %d\n", __FUNCTION__, dev, fusion_id, call_ret->serial );
+
      if ( (dev->api.major >= 4) && (call_ret->serial == 0) )
           return -EOPNOTSUPP;
 
@@ -700,6 +706,8 @@ fusion_call_return3(FusionDev * dev, int fusion_id, FusionCallReturn3 * call_ret
      ret = fusion_call_lookup(&dev->call, call_ret->call_id, &call);
      if (ret)
           return ret;
+
+     FUSION_DEBUG( "  -> call %u '%s'\n", call->entry.id, call->entry.name );
 
      /* Search for execution, starting with oldest. */
      direct_list_foreach (execution, call->executions) {
