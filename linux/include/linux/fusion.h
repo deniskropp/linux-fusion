@@ -160,7 +160,7 @@ typedef enum {
      FCEF_FOLLOW              = 0x00000004,
      FCEF_ERROR               = 0x00000008,
      FCEF_RESUMABLE           = 0x00000010,
-     FCEF_ALL                 = 0x0000001f,
+     FCEF_ALL                 = 0x0000001f
 } FusionCallExecFlags;
 
 typedef struct {
