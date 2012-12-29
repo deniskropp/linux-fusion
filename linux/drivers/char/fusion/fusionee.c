@@ -815,6 +815,46 @@ fusionee_wait_processing(FusionDev * dev,
      return 0;
 }
 
+int
+fusionee_remove_message_callbacks(Fusionee  *fusionee,
+                                  void      *ctx)
+{
+     Packet          *packet;
+     MessageCallback *callback, *next;
+
+     D_MAGIC_ASSERT( fusionee, Fusionee );
+
+     /* Search all pending packets. */
+     direct_list_foreach (packet, fusionee->packets.items) {
+          D_MAGIC_ASSERT( packet, Packet );
+
+          direct_list_foreach_safe (callback, next, packet->callbacks.items) {
+               if (callback->ctx == ctx) {
+                    fusion_list_remove( &packet->callbacks.items, &callback->link );
+                    packet->callbacks.count--;
+
+                    fusion_core_free( fusion_core, callback );
+               }
+          }
+     }
+
+     /* Search packets being processed right now. */
+     direct_list_foreach (packet, fusionee->prev_packets.items) {
+          D_MAGIC_ASSERT( packet, Packet );
+
+          direct_list_foreach_safe (callback, next, packet->callbacks.items) {
+               if (callback->ctx == ctx) {
+                    fusion_list_remove( &packet->callbacks.items, &callback->link );
+                    packet->callbacks.count--;
+
+                    fusion_core_free( fusion_core, callback );
+               }
+          }
+     }
+
+     return 0;
+}
+
 unsigned int
 fusionee_poll(FusionDev * dev,
               Fusionee * fusionee, struct file *file, poll_table * wait)

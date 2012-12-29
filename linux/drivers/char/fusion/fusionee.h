@@ -118,6 +118,9 @@ int fusionee_wait_processing(FusionDev * dev,
                              int fusion_id,
                              FusionMessageType msg_type, int msg_id);
 
+int fusionee_remove_message_callbacks(Fusionee  *recipient,
+                                      void      *ctx);
+
 unsigned
 int fusionee_poll(FusionDev * dev,
                   Fusionee * fusionee, struct file *file, poll_table * wait);

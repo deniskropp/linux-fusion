@@ -130,9 +130,11 @@ static bool fusion_call_quota_hash_iterator( FusionHash *hash,
      CallQuota  *quota = value;
      FusionCall *call  = ctx;
 
-     if (quota->count >= quota->limit/4)
-          printk( KERN_WARNING "fusion: call quota with count >= limit / 4 during destruction! call_id = %d, fusion_id = %lu, "
-                               "count = %u/%u\n", call->entry.id, quota->fusion_id, quota->count, quota->limit );
+     fusionee_remove_message_callbacks( call->fusionee, quota );
+
+     //if (quota->count >= quota->limit/4)
+     //     printk( KERN_WARNING "fusion: call quota with count >= limit / 4 during destruction! call_id = %d, fusion_id = %lu, "
+     //                          "count = %u/%u\n", call->entry.id, quota->fusion_id, quota->count, quota->limit );
 
      fusion_core_wq_deinit( fusion_core, &quota->wait );
 
