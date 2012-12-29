@@ -43,7 +43,8 @@
 
 
 static MessageCallbackFunc fusion_message_callbacks[] = {
-     [FMC_DISPATCH] = fusion_reactor_dispatch_message_callback
+     [FMC_DISPATCH]   = fusion_reactor_dispatch_message_callback,
+     [FMC_CALL_QUOTA] = fusion_call_quota_message_callback
 };
 
 
@@ -340,10 +341,11 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
      direct_list_foreach(fusionee, dev->fusionee.list) {
           written +=
           sprintf(buf + written,
-                  "(%5d) 0x%08lx (%4d packets waiting, %7ld received, %7ld sent) - '%s'\n",
+                  "(%5d) 0x%08lx (%4d packets waiting, %7ld received, %7ld sent) - wcq 0x%x - '%s'\n",
                   fusionee->pid, fusionee->id,
                   fusionee->packets.count, atomic_long_read(&fusionee->rcv_total),
                   atomic_long_read(&fusionee->snd_total),
+                  fusionee->wait_on_call_quota,
                   fusionee->exe_file);
           if (written < offset) {
                offset -= written;

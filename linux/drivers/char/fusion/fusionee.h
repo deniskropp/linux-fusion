@@ -53,6 +53,8 @@ struct __Fusion_Fusionee {
      FusionDev *fusion_dev;
 
      char exe_file[PATH_MAX];
+
+     int            wait_on_call_quota;
 };
 
 
@@ -60,7 +62,8 @@ struct __Fusion_Fusionee {
 
 typedef enum {
      FMC_NONE,
-     FMC_DISPATCH
+     FMC_DISPATCH,
+     FMC_CALL_QUOTA
 } FusionMessageCallback;
 
 

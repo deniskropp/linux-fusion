@@ -31,6 +31,7 @@
 #include "fusiondev.h"
 #include "fusionee.h"
 #include "list.h"
+#include "hash.h"
 #include "skirmish.h"
 #include "call.h"
 
@@ -69,7 +70,18 @@ typedef struct {
      int count;          /* number of calls ever made */
 
      unsigned int serial;
+
+     FusionHash *quotas;
 } FusionCall;
+
+typedef struct {
+     FusionID            fusion_id;
+
+     unsigned int        count;
+     unsigned int        limit;
+
+     FusionWaitQueue     wait;
+} CallQuota;
 
 /* collection, required for 1-param-only passing */
 struct fusion_construct_ctx {
@@ -103,9 +115,30 @@ fusion_call_construct(FusionEntry * entry, void *ctx, void *create_ctx)
      call->handler = cc->call_new->handler;
      call->ctx = cc->call_new->ctx;
 
+     fusion_hash_create( FHT_PTR, FHT_PTR, 5, &call->quotas );
+
      cc->call_new->call_id = entry->id;
 
      return 0;
+}
+
+static bool fusion_call_quota_hash_iterator( FusionHash *hash,
+                                             void       *key,
+                                             void       *value,
+                                             void       *ctx )
+{
+     CallQuota  *quota = value;
+     FusionCall *call  = ctx;
+
+     if (quota->count >= quota->limit/4)
+          printk( KERN_WARNING "fusion: call quota with count >= limit / 4 during destruction! call_id = %d, fusion_id = %lu, "
+                               "count = %u/%u\n", call->entry.id, quota->fusion_id, quota->count, quota->limit );
+
+     fusion_core_wq_deinit( fusion_core, &quota->wait );
+
+     fusion_core_free( fusion_core, quota );
+
+     return false;
 }
 
 static void fusion_call_destruct(FusionEntry * entry, void *ctx)
@@ -113,6 +146,9 @@ static void fusion_call_destruct(FusionEntry * entry, void *ctx)
      FusionCall *call = (FusionCall *) entry;
 
      free_all_executions(call);
+
+     fusion_hash_iterate( call->quotas, fusion_call_quota_hash_iterator, call );
+     fusion_hash_destroy( call->quotas );
 }
 
 __attribute__((unused))
@@ -140,18 +176,44 @@ static void print_call( FusionCall* call )
      printk("\n");
 }
 
+typedef struct {
+     char       string[900];
+     int        offset;
+} CallQuotaDumpContext;
+
+static bool fusion_call_quota_hash_dump_iterator( FusionHash *hash,
+                                                  void       *key,
+                                                  void       *value,
+                                                  void       *ctx )
+{
+     CallQuota            *quota      = value;
+     CallQuotaDumpContext *quota_dump = ctx;
+
+     int result;
+
+     result = snprintf( quota_dump->string + quota_dump->offset, sizeof(quota_dump->string) - quota_dump->offset,
+                        " 0x%08lx %u/%u ", quota->fusion_id, quota->count, quota->limit );
+     if (result > 0)
+          quota_dump->offset += result;
+
+     return false;
+}
+
 static void
 fusion_call_print(FusionEntry * entry, void *ctx, struct seq_file *p)
 {
      FusionLink *e;
      bool idle = true;
      FusionCall *call = (FusionCall *) entry;
+     CallQuotaDumpContext quota_dump = { .string[0] = 0, .offset = 0 };
 
      if (call->executions)
           idle = ((FusionCallExecution *) call->executions)->executed;
 
-     seq_printf(p, "(%d calls) %s",
-                call->count, idle ? "idle" : "executing");
+     fusion_hash_iterate( call->quotas, fusion_call_quota_hash_dump_iterator, &quota_dump );
+
+     seq_printf(p, "(%d calls) %s [%s]",
+                call->count, idle ? "idle" : "executing", quota_dump.string);
 
      fusion_list_foreach(e, call->executions) {
           FusionCallExecution *exec = (FusionCallExecution *) e;
@@ -213,6 +275,7 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 
      FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
 
+restart:
      /* Lookup and lock call. */
      ret = fusion_call_lookup(&dev->call, execute->call_id, &call);
      if (ret)
@@ -231,6 +294,30 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
                return -EIDRM;
      }
      else {
+          CallQuota             *quota    = NULL;
+          FusionMessageCallback  callback = FMC_NONE;
+
+          if (call->quotas->nnodes) {
+               // TODO: optimise by keeping last quota lookup which is most likely the one we want
+               quota = fusion_hash_lookup( call->quotas, (void*)(long) fusionee->id );
+               if (quota) {
+                    if (quota->count >= quota->limit) {
+#ifdef FUSION_CALL_INTERRUPTIBLE
+                         fusion_core_wq_wait( fusion_core, &quota->wait, 0, true );
+
+                         if (signal_pending(current)) {
+                              FUSION_DEBUG( "  -> woke up waiting for quota, SIGNAL PENDING!\n" );
+                              return -EINTR;
+                         }
+#else
+                         fusion_core_wq_wait( fusion_core, &quota->wait, 0, false );
+#endif
+
+                         goto restart;
+                    }
+               }
+          }
+
           do {
                serial = ++call->serial;
           } while (!serial);
@@ -259,13 +346,20 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
 
           FUSION_DEBUG( "  -> sending call message, caller %u\n", message.caller );
 
+          if (quota && ++quota->count % (quota->limit/4) == 0) {
+               callback = FMC_CALL_QUOTA;
+               flush    = true;
+          }
+
           /* Put message into queue of callee. */
           ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
                                        call->entry.id, 0, sizeof(message),
-                                       &message, FMC_NONE, NULL, 1, NULL, 0,
+                                       &message, callback, quota, 1, NULL, 0,
                                        flush);
           if (ret) {
                FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
+               if (quota)
+                    quota->count--;
                if (execution) {
                     remove_execution(call, execution);
                     free_execution(dev, execution);
@@ -349,6 +443,7 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 
      FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
 
+restart:
      /* Lookup and lock call. */
      ret = fusion_call_lookup(&dev->call, execute->call_id, &call);
      if (ret)
@@ -367,6 +462,30 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
                return -EIDRM;
      }
      else {
+          CallQuota             *quota    = NULL;
+          FusionMessageCallback  callback = FMC_NONE;
+
+          if (call->quotas->nnodes) {
+               // TODO: optimise by keeping last quota lookup which is most likely the one we want
+               quota = fusion_hash_lookup( call->quotas, (void*)(long) fusionee->id );
+               if (quota) {
+                    if (quota->count >= quota->limit) {
+#ifdef FUSION_CALL_INTERRUPTIBLE
+                         fusion_core_wq_wait( fusion_core, &quota->wait, 0, true );
+
+                         if (signal_pending(current)) {
+                              FUSION_DEBUG( "  -> woke up waiting for quota, SIGNAL PENDING!\n" );
+                              return -EINTR;
+                         }
+#else
+                         fusion_core_wq_wait( fusion_core, &quota->wait, 0, false );
+#endif
+
+                         goto restart;
+                    }
+               }
+          }
+
           do {
                serial = ++call->serial;
           } while (!serial);
@@ -395,13 +514,20 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
 
           FUSION_DEBUG( "  -> sending call message, caller %u\n", message.caller );
 
+          if (quota && ++quota->count % (quota->limit/4) == 0) {
+               callback = FMC_CALL_QUOTA;
+               flush    = true;
+          }
+
           /* Put message into queue of callee. */
           ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL,
                                        call->entry.id, 0, sizeof(FusionCallMessage),
-                                       &message, FMC_NONE, NULL, 1, execute->ptr, execute->length,
+                                       &message, callback, quota, 1, execute->ptr, execute->length,
                                        flush);
           if (ret) {
                FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
+               if (quota)
+                    quota->count--;
                if (execution) {
                     remove_execution(call, execution);
                     free_execution( dev, execution);
@@ -552,6 +678,7 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
 
      FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
 
+restart:
      /* Lookup and lock call. */
      ret = fusion_call_lookup(&dev->call, execute->call_id, &call);
      if (ret)
@@ -570,6 +697,34 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
                return -EIDRM;
      }
      else {
+          CallQuota             *quota    = NULL;
+          FusionMessageCallback  callback = FMC_NONE;
+
+          if (call->quotas->nnodes) {
+               // TODO: optimise by keeping last quota lookup which is most likely the one we want
+               quota = fusion_hash_lookup( call->quotas, (void*)(long) fusionee->id );
+               if (quota) {
+                    if (quota->count >= quota->limit) {
+                         fusionee->wait_on_call_quota = execute->call_id;
+
+#ifdef FUSION_CALL_INTERRUPTIBLE
+                         fusion_core_wq_wait( fusion_core, &quota->wait, 0, true );
+
+                         if (signal_pending(current)) {
+                              FUSION_DEBUG( "  -> woke up waiting for quota, SIGNAL PENDING!\n" );
+                              fusionee->wait_on_call_quota = 0;
+                              return -EINTR;
+                         }
+#else
+                         fusion_core_wq_wait( fusion_core, &quota->wait, 0, false );
+#endif
+                         fusionee->wait_on_call_quota = 0;
+
+                         goto restart;
+                    }
+               }
+          }
+
           do {
                serial = ++call->serial;
           } while (!serial);
@@ -600,13 +755,20 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
 
           FUSION_DEBUG( "  -> sending call message, caller %u, ptr %p, length %u\n", message.caller, execute->ptr, execute->length );
 
+          if (quota && ++quota->count % (quota->limit/4) == 0) {
+               callback = FMC_CALL_QUOTA;
+               flush    = true;
+          }
+
           /* Put message into queue of callee. */
           ret = fusionee_send_message2(dev, fusionee, call->fusionee, FMT_CALL3,
                                        call->entry.id, 0, sizeof(FusionCallMessage3),
-                                       &message, FMC_NONE, NULL, 1, execute->ptr, execute->length,
+                                       &message, callback, quota, 1, execute->ptr, execute->length,
                                        flush);
           if (ret) {
                FUSION_DEBUG( "  -> MESSAGE SENDING FAILED! (ret %u)\n", ret );
+               if (quota)
+                    quota->count--;
                if (execution) {
                     remove_execution(call, execution);
                     free_execution(dev, execution);
@@ -786,6 +948,48 @@ int fusion_call_get_owner(FusionDev * dev, int call_id, FusionID *ret_fusion_id)
      return 0;
 }
 
+int fusion_call_set_quota(FusionDev * dev, FusionCallSetQuota *set_quota)
+{
+     int         ret;
+     FusionCall *call;
+     CallQuota  *quota;
+
+     if (set_quota->limit < 4)
+          return -EINVAL;
+
+restart:
+     /* Lookup and lock call. */
+     ret = fusion_call_lookup(&dev->call, set_quota->call_id, &call);
+     if (ret)
+          return ret;
+
+     quota = fusion_hash_lookup( call->quotas, (void*)(long) set_quota->fusion_id );
+     if (quota && quota->count > 0) {
+          fusion_core_wq_wait( fusion_core, &quota->wait, 0, true );
+
+          if (signal_pending(current)) {
+               FUSION_DEBUG( "  -> woke up waiting for zero quota, SIGNAL PENDING!\n" );
+               return -EINTR;
+          }
+
+          goto restart;
+     }
+     if (!quota) {
+          quota = fusion_core_malloc( fusion_core, sizeof(CallQuota) );
+          if (!quota)
+               return -ENOMEM;
+
+          quota->fusion_id = set_quota->fusion_id;
+          quota->limit     = set_quota->limit;
+
+          fusion_core_wq_init( fusion_core, &quota->wait );
+     }
+
+     fusion_hash_insert( call->quotas, (void*)(long) set_quota->fusion_id, quota );
+
+     return 0;
+}
+
 int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
 {
      int ret;
@@ -929,5 +1133,15 @@ static void free_all_executions(FusionCall * call)
           if (!execution->caller)
                free_execution( call->entry.entries->dev,  execution );
      }
+}
+
+void
+fusion_call_quota_message_callback(FusionDev * dev, int id, void *ctx, int arg)
+{
+     CallQuota *quota = ctx;
+
+     quota->count -= quota->limit / 4;
+
+     fusion_core_wq_wake( fusion_core, &quota->wait );
 }
 

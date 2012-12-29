@@ -45,10 +45,15 @@ int fusion_call_return3(FusionDev * dev,
 
 int fusion_call_get_owner(FusionDev * dev, int call_id, FusionID *ret_fusion_id);
 
+int fusion_call_set_quota(FusionDev * dev, FusionCallSetQuota *set_quota);
+
 int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id);
 
 /* internal functions */
 
 void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee);
+
+
+void fusion_call_quota_message_callback(FusionDev * dev, int id, void *ctx, int arg);
 
 #endif

@@ -663,6 +663,7 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
      FusionCallReturn    call_ret;
      FusionCallReturn3   call_ret3;
      FusionCallGetOwner  get_owner;
+     FusionCallSetQuota  set_quota;
      FusionID            fusion_id = fusionee_id(fusionee);
 
      switch (_IOC_NR(cmd)) {
@@ -762,6 +763,16 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                if (unlocked_copy_to_user
                    ((FusionCallGetOwner *) arg, &get_owner, sizeof(get_owner)))
                     return -EFAULT;
+               return 0;
+
+          case _IOC_NR(FUSION_CALL_SET_QUOTA):
+               if (unlocked_copy_from_user
+                   (&set_quota, (FusionCallSetQuota *) arg, sizeof(set_quota)))
+                    return -EFAULT;
+
+               ret = fusion_call_set_quota(dev, &set_quota);
+               if (ret)
+                    return ret;
                return 0;
      }
 
