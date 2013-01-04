@@ -456,7 +456,10 @@ int fusionee_new(FusionDev * dev, bool force_slave, Fusionee ** ret_fusionee)
 
      fusionee->fusion_dev = dev;
 
-     put_name( current->mm->exe_file->f_path.dentry, fusionee->exe_file );
+     if (current->mm->exe_file)
+          put_name( current->mm->exe_file->f_path.dentry, fusionee->exe_file );
+     else
+          printk( KERN_WARNING "fusion: Could not determine exe file of fusionee! (pid %d)\n", current->pid );
 
      D_MAGIC_SET( fusionee, Fusionee );
 
