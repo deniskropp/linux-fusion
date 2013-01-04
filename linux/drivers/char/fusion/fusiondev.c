@@ -486,6 +486,9 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                     return -EFAULT;
 
                switch (info.type) {
+                    case FT_CALL:
+                         return fusion_entry_set_info(&dev->call, &info);
+
                     case FT_SKIRMISH:
                          return fusion_entry_set_info(&dev->skirmish, &info);
 
@@ -511,6 +514,10 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                     return -EFAULT;
 
                switch (info.type) {
+                    case FT_CALL:
+                         ret = fusion_entry_get_info(&dev->call, &info);
+                         break;
+
                     case FT_SKIRMISH:
                          ret = fusion_entry_get_info(&dev->skirmish, &info);
                          break;
