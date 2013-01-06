@@ -20,8 +20,8 @@
 #include <linux/limits.h>
 
 /* Fusion supports all API versions up to this version */
-#define FUSION_API_MAJOR_PROVIDED 8
-#define FUSION_API_MINOR_PROVIDED 11
+#define FUSION_API_MAJOR_PROVIDED 9
+#define FUSION_API_MINOR_PROVIDED 0
 #define FUSION_API_MICRO_PROVIDED 0
 
 /*
@@ -164,8 +164,6 @@ typedef enum {
 } FusionCallExecFlags;
 
 typedef struct {
-     int                      ret_val;       /* return value of the call */
-
      int                      call_id;       /* id of the requested call, each call has a fixed owner */
 
      int                      call_arg;      /* optional int argument */
@@ -173,11 +171,11 @@ typedef struct {
 
      FusionCallExecFlags      flags;         /* execution flags */
      unsigned int             serial;        /* with FCEF_RESUMABLE used for EINTR handling, intialise with zero!!! */
+
+     int                      ret_val;       /* return value of the call */
 } FusionCallExecute;
 
 typedef struct {
-     int                      ret_val;       /* return value of the call */
-
      int                      call_id;       /* id of the requested call, each call has a fixed owner */
 
      int                      call_arg;      /* optional int argument */
@@ -186,6 +184,8 @@ typedef struct {
 
      FusionCallExecFlags      flags;         /* execution flags */
      unsigned int             serial;        /* with FCEF_RESUMABLE used for EINTR handling, intialise with zero!!! */
+
+     int                      ret_val;       /* return value of the call */
 } FusionCallExecute2;
 
 typedef struct {
