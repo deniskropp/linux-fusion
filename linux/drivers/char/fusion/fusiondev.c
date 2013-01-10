@@ -693,9 +693,15 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                    (&execute, (FusionCallExecute *) arg, sizeof(execute)))
                     return -EFAULT;
 
+               if (dev->api.major < 9)
+                    swap(execute.call_id, execute.ret_val);
+
                ret = fusion_call_execute(dev, fusionee, &execute);
                if (ret)
                     return ret;
+
+               if (dev->api.major < 9)
+                    swap(execute.call_id, execute.ret_val);
 
                if (unlocked_copy_to_user((FusionCallExecute *) arg, &execute, sizeof(execute)))
                     return -EFAULT;
@@ -719,9 +725,15 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                    (&execute2, (FusionCallExecute2 *) arg, sizeof(execute2)))
                     return -EFAULT;
 
+               if (dev->api.major < 9)
+                    swap(execute.call_id, execute.ret_val);
+
                ret = fusion_call_execute2(dev, fusionee, &execute2);
                if (ret)
                     return ret;
+
+               if (dev->api.major < 9)
+                    swap(execute.call_id, execute.ret_val);
 
                if (unlocked_copy_to_user((FusionCallExecute2 *) arg, &execute2, sizeof(execute2)))
                     return -EFAULT;
