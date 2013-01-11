@@ -486,7 +486,7 @@ int fusionee_enter(FusionDev * dev, FusionEnter * enter, Fusionee * fusionee)
      if (dev->fusionee.last_id == 0) {
           /* master determines Fusion API (if supported) */
           int major = enter->api.major;
-          if ((major != 3) && (major != 4) && (major != 8))
+          if ((major != 3) && (major != 4) && (major != 8) && (major != 9))
                return -ENOPROTOOPT;
 
           dev->api.major = enter->api.major;
