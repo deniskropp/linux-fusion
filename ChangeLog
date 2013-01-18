@@ -1,3 +1,235 @@
+commit a3dc69d85f5cd88a1a700bf510db43e83b18c842
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Jan 15 11:33:16 2013 +0100
+
+    debian: update package version
+
+commit 06c65ec780713ed1d836cd0d2b21672b0cc2bc59
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Jan 11 13:12:03 2013 +0100
+
+    fusion: allow API major 9 in fusionee_enter
+
+commit f89d66a333e86be2900b7887aecde6684c679d64
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Thu Jan 10 14:37:00 2013 +0100
+
+    fusiondev: compatibility for old clients (major < 9)
+
+commit 7c498542fbdc3b2d97cdc15a439ca482b91d52b2
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun Jan 6 21:25:38 2013 +0100
+
+    API: Move call_id to beginning of FusionCallExecute and FusionCallExecute2 to fix permission checking code, make version 9.0.0.
+
+commit 8466a295f5ea69d76b8f1a4ea1dc71ca70b44286
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Jan 4 16:33:52 2013 +0100
+
+    fusionee: Check for exe_file pointer before putting the name of a fusionee.
+
+commit 5b6e02f59b47a33b74aab4620021e3df054be46a
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Jan 4 14:30:46 2013 +0100
+
+    ioctl: add FUSION_ENTRY_SET_INFO support to FT_CALL.
+
+commit 2afab1c3f58f33c34d82ab74aa22bbc346ed1408
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Dec 29 04:14:11 2012 +0100
+
+    fusionee: Add fusionee_remove_message_callback() to remove callbacks on pending packets, by context pointer.
+    
+    Remove pending quota callbacks when call is destructed.
+
+commit 2fef10aa79fc8b32880e6876d4846da5194b898f
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Dec 29 03:37:54 2012 +0100
+
+    Call: Add quota for calls, to limit the number of pending calls of a FusionCall per fusionee.
+    
+    Add FusionCallSetQuota with call id, fusion id and the limit to set.
+    
+    Add FUSION_CALL_SET_QUOTA ioctl.
+    
+    Show quotas and wait status of each fusionee in /proc/fusion.
+
+commit 482dec05ebebd2e5783ff6f7398aa8ad666fb4cf
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Dec 8 21:17:30 2012 +0100
+
+    API: remove trailing comma in FusionCallExecFlags definition
+
+commit d6c5a5d58768304724813cdfa80df5997f20a7f2
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Dec 8 21:16:11 2012 +0100
+
+    call: add some debug messages
+
+commit 2e49e4174311a0f9e380de6d5fb0982ddd5b2bf9
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Oct 23 11:51:12 2012 +0200
+
+    debian: also build linux-one in dkms package
+
+commit 91abc98a79b6eb394ccd5a6615b17a6f332799dd
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Oct 22 14:30:09 2012 +0200
+
+    add docs from linux-one
+
+commit cf93cdf6ab5052264fc30e575b547b94860a791c
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Oct 22 14:28:16 2012 +0200
+
+    merge linux-one
+
+commit 467de7846fa93d7280d7e039c1fa24771edf7499
+Merge: cfa1dfd 9305bf0
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Oct 22 12:04:54 2012 +0200
+
+    Merge branch 'master' of linux-one.bundle
+
+commit 9305bf02f0c241b415a5c86d6ec00cad73ce350c
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Wed Oct 10 11:51:51 2012 +0200
+
+    one: revert changes to makefile
+
+commit c224ffa078045f537f36ff0bbe968a6ce9e32dc8
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Tue Oct 9 17:00:15 2012 +0200
+
+    One: build fixes, one.pc fixes
+
+commit a4dbc395128e3f13b8cf4a1f22cbf8c92999f1e8
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Aug 31 00:49:37 2012 +0200
+
+    One: In OneAppTarget_Destroy() remove from receiving list if needed.
+
+commit 7d9dd5e106c53ec910d894cd46c341e55ff82cf2
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Aug 28 11:44:13 2012 +0200
+
+    One: Use direct_list_foreach_safe() when iterating through receiving list.
+
+commit 43e0a4723acaa48eba44a15ab96e5feab95b3b1c
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Jun 14 17:23:50 2012 +0200
+
+    linux-one: Reset magic values to zero after non-zeroing malloc.
+
+commit 7105e1a26b75af5149244422eb1613588c6e3784
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Wed Jun 6 17:03:10 2012 +0200
+
+    linux-one: increase max packet size to 32768 bytes (from 16384)
+
+commit 152c382a6d53aa4ce23772e9ddec7a5c854a23b5
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Mar 16 15:22:39 2012 +0100
+
+    One: Add more debug info about apps and queues to /proc.
+
+commit cacb6e53354948b7824dac942e468e62fd356a3e
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Wed Jan 11 12:12:33 2012 +0100
+
+    queue: init link magic with 0 to avoid assumption failure due to non-clearing malloc
+
+commit 0b2e7d0da787ee90a03b392855d8fd76790cb8c5
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Jan 10 16:38:50 2012 +0100
+
+    linux-one: fix kernel version detection for makefile
+
+commit f97410d43d8d92c857f01f25703d3b49faa02443
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Nov 18 15:02:39 2011 +0100
+
+    One: Print pending packet count for each queue, print attached QIDs, more error logging.
+
+commit fdc70accdffa6247a200e391849da62c768c7d25
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Nov 14 20:01:23 2011 +0100
+
+    One: Add TODO item about packet size limit
+
+commit 153bf3dce00fdd6d386d9c604bd574bcffd4b56f
+Author: Holger Hans Peter Freyther <holger@moiji-mobile.com>
+Date:   Sat Nov 12 10:52:24 2011 +0100
+
+    build: Fix make distcheck of master
+    
+    * Put Makefile.static into the EXTRA_DIST, invoke the Makefile via
+      the srcdir as distcheck invokes VPATH build.
+    * Put surface_core.h into the internal include headers, this file got
+      introduced by the recent PREALLOC surface patches.
+
+commit 3a970f42110f4cd543a6600aefa7779a782bc70e
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Oct 27 11:34:22 2011 +0200
+
+    One: Start dynamic IDs at 1000 to reserve 1-999 for static IDs.
+
+commit 3790aa71ec263fdfc1d135e70018b8313d5674cd
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Oct 21 21:43:34 2011 +0200
+
+    One: Add optional receive timeout, 0 = no timeout, -1 = return immediately if nothing to receive
+
+commit cae26c9d7c43ee6b41e3b8d186aee6fb9121831f
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Oct 11 16:45:50 2011 +0200
+
+    One: Allow attaching remote queue to local queue, needs refactoring...
+
+commit c932c9f4aee50369298852ec3da78b1eeec8ee05
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Tue Oct 11 16:45:21 2011 +0200
+
+    One: Keep a list of OneApps.
+
+commit 28abdf22db14025ac0d059e22d1e7746b392d4c4
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Oct 10 21:54:22 2011 +0200
+
+    One: Disable packet append for now
+
+commit 451906a3058b17be0b68a6a20dfbe5b957568b28
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Oct 10 20:35:40 2011 +0200
+
+    One: Don't clear magic in one_core_cleanup().
+
+commit f9e4360856119989593952ec28c31336144eb27d
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Oct 10 20:32:10 2011 +0200
+
+    One: Add missing one_core_cleanup() to kernel module.
+
+commit 386e3eed0459737765ee87170a6593d5c7fcd935
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Mon Oct 10 13:44:28 2011 +0200
+
+    One: Initial checkin of new IPC module.
+
+commit cfa1dfd2aca129f1465798e3acbae2938bac7ab1
+Author: André Draszik <andre.draszik@st.com>
+Date:   Tue Oct 2 14:21:33 2012 +0100
+
+    build: don't use linux-2.4 install rule for 3.4.x kernels
+    
+    Signed-off-by: André Draszik <andre.draszik@st.com>
+
+commit fdff16c4501106f66a6e72ed18527ccbf4f129c6
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Thu Sep 13 14:52:59 2012 +0200
+
+    update changelog
+
 commit ec7a082c70e19dfb86afad8341d8de30b0283a6e
 Author: Andreas Shimokawa <andi@directfb.org>
 Date:   Thu Sep 13 14:51:51 2012 +0200
