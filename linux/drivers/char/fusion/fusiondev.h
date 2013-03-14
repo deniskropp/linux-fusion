@@ -24,7 +24,7 @@
 
 #define D_ARRAY_SIZE(array)        ((int)(sizeof(array) / sizeof((array)[0])))
 
-#define NUM_MINORS  8
+#define NUM_MINORS  32
 #define NUM_CLASSES 8
 
 #define CACHE_EXECUTIONS_NUM      10
