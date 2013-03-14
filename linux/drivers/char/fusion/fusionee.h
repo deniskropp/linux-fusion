@@ -43,6 +43,7 @@ struct __Fusion_Fusionee {
 
      FusionWaitQueue wait_receive;
      FusionWaitQueue wait_process;
+     bool            waiting;
 
      bool force_slave;
 

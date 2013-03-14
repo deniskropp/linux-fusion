@@ -729,7 +729,9 @@ fusionee_get_messages(FusionDev * dev,
                flush_packets(fusionee, dev, &prev_packets);
           }
           else {
+               fusionee->waiting = true;
                fusion_core_wq_wait( fusion_core, &fusionee->wait_receive, NULL, true );
+               fusionee->waiting = false;
 
                if (signal_pending(current))
                     return -EINTR;
@@ -907,7 +909,7 @@ fusionee_sync( FusionDev *dev,
 {
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
-     while (fusionee->packets.count || fusionee->prev_packets.count) {
+     while (fusionee->packets.count || fusionee->prev_packets.count || !fusionee->waiting) {
           if (fusionee->packets.count) {
                Packet *packet = (Packet*) direct_list_last( fusionee->packets.items );
 
