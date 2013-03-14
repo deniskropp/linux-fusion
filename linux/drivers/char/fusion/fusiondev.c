@@ -192,6 +192,12 @@ static int fusiondev_init(FusionDev * dev)
           dev->shared = shared;
 
           fusion_core_wq_init( fusion_core, &dev->enter_wait);
+
+          dev->shm_base = fusion_shm_base
+#if FUSION_SHM_PER_WORLD_SPACE
+                          + dev->index * fusion_shm_size
+#endif
+                          ;
      }
 
      ret = fusionee_init(dev);
@@ -591,7 +597,7 @@ lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
                }
 
           case _IOC_NR(FUSION_SHM_GET_BASE):
-               if (put_user((unsigned long)fusion_shm_base, (unsigned long *)arg))
+               if (put_user(dev->shm_base, (unsigned long *)arg))
                     return -EFAULT;
 
                return 0;
@@ -1220,7 +1226,7 @@ shmpool_ioctl(FusionDev * dev, Fusionee * fusionee,
                return fusion_shmpool_destroy(dev, id);
 
           case _IOC_NR(FUSION_SHMPOOL_GET_BASE):
-               if (put_user((unsigned long)fusion_shm_base, (unsigned long *)arg))
+               if (put_user(dev->shm_base, (unsigned long *)arg))
                     return -EFAULT;
 
                return 0;
@@ -1585,7 +1591,9 @@ int __init fusion_init(void)
 
           memset( shared, 0, sizeof(FusionShared) );
 
+#if !FUSION_SHM_PER_WORLD_SPACE
           shared->addr_base = (void*) fusion_shm_base + 0x80000;
+#endif
 
           fusion_core_set_pointer( fusion_core, 0, shared );
      }

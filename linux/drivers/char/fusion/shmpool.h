@@ -15,6 +15,13 @@
 #ifndef __FUSION__SHMPOOL_H__
 #define __FUSION__SHMPOOL_H__
 
+#include <asm/bitsperlong.h>
+
+#ifndef FUSION_SHM_PER_WORLD_SPACE
+#define FUSION_SHM_PER_WORLD_SPACE (__BITS_PER_LONG == 64)
+#endif
+
+
 #include "fusiondev.h"
 #include "types.h"
 
@@ -31,12 +38,13 @@
 #define FUSION_SHM_SIZE_64	0x001000000000LL	/* size of virtual address space */
 
 #ifndef FUSION_SHM_BASE_DEFAULT
-#define FUSION_SHM_BASE_DEFAULT (sizeof(void*)==4 ? (FUSION_SHM_BASE_32) : (FUSION_SHM_BASE_64))
+#define FUSION_SHM_BASE_DEFAULT (__BITS_PER_LONG == 64 ? (FUSION_SHM_BASE_64) : (FUSION_SHM_BASE_32))
 #endif
 
 #ifndef FUSION_SHM_SIZE_DEFAULT
-#define FUSION_SHM_SIZE_DEFAULT (sizeof(void*)==4 ? (FUSION_SHM_SIZE_32) : (FUSION_SHM_SIZE_64))
+#define FUSION_SHM_SIZE_DEFAULT (__BITS_PER_LONG == 64 ? (FUSION_SHM_SIZE_64) : (FUSION_SHM_SIZE_32))
 #endif
+
 
 /* module init/cleanup */
 

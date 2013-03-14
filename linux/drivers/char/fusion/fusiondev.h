@@ -20,6 +20,7 @@
 #include "debug.h"
 #include "entries.h"
 #include "list.h"
+#include "shmpool.h"
 
 #define D_ARRAY_SIZE(array)        ((int)(sizeof(array) / sizeof((array)[0])))
 
@@ -92,13 +93,22 @@ struct __Fusion_FusionDev {
      unsigned int  execution_free_list_num;
 
      unsigned int  next_class_index;
+
+#if FUSION_SHM_PER_WORLD_SPACE
+     FusionLink   *addr_entries;
+     void         *addr_base;
+#endif
+
+     unsigned long shm_base;
 };
 
 struct __Fusion_FusionShared {
      FusionDev   devs[NUM_MINORS];
 
+#if !FUSION_SHM_PER_WORLD_SPACE
      FusionLink *addr_entries;
      void       *addr_base;
+#endif
 };
 
 extern FusionCore            *fusion_core;

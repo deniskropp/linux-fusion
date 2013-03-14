@@ -80,18 +80,22 @@ static void free_all_nodes(FusionSHMPool * shmpool);
 
 /******************************************************************************/
 
+#if FUSION_SHM_PER_WORLD_SPACE
+#define dev_shared (dev)
+#else
+#define dev_shared (dev->shared)
+#endif
 
 /******************************************************************************/
 
 static AddrEntry *
 add_addr_entry( FusionDev *dev, void *next_base )
 {
-     AddrEntry    *entry  = fusion_core_malloc( fusion_core, sizeof(AddrEntry) );
-     FusionShared *shared = dev->shared;
+     AddrEntry *entry = fusion_core_malloc( fusion_core, sizeof(AddrEntry) );
 
      entry->next_base = next_base;
 
-     fusion_list_prepend( &shared->addr_entries, &entry->link );
+     fusion_list_prepend( &dev_shared->addr_entries, &entry->link );
 
      return entry;
 }
@@ -104,9 +108,8 @@ fusion_shmpool_construct( FusionEntry * entry, void *ctx, void *create_ctx )
      FusionSHMPool    *shmpool = (FusionSHMPool *) entry;
      FusionDev        *dev     = (FusionDev *)ctx;
      FusionSHMPoolNew *poolnew = create_ctx;
-     FusionShared     *shared  = dev->shared;
 
-     if ((ulong) shared->addr_base + poolnew->max_size >= fusion_shm_base + fusion_shm_size) {
+     if ((ulong) dev_shared->addr_base + poolnew->max_size >= dev->shm_base + fusion_shm_size) {
           printk(KERN_WARNING
                  "%s: virtual address space exhausted! (FIXME)\n",
                  __FUNCTION__);
@@ -120,12 +123,12 @@ fusion_shmpool_construct( FusionEntry * entry, void *ctx, void *create_ctx )
 #endif
 
      shmpool->max_size = poolnew->max_size;
-     shmpool->addr_base = poolnew->addr_base = shared->addr_base;
+     shmpool->addr_base = poolnew->addr_base = dev_shared->addr_base;
 
-     shared->addr_base += PAGE_ALIGN(poolnew->max_size) + PAGE_SIZE;
-     shared->addr_base = (void*)((unsigned long)(shared->addr_base + 0xffff) & ~0xffff);
+     dev_shared->addr_base += PAGE_ALIGN(poolnew->max_size) + PAGE_SIZE;
+     dev_shared->addr_base = (void*)((unsigned long)(dev_shared->addr_base + 0xffff) & ~0xffff);
 
-     shmpool->addr_entry = add_addr_entry( dev, shared->addr_base );
+     shmpool->addr_entry = add_addr_entry( dev, dev_shared->addr_base );
 
      return 0;
 }
@@ -136,11 +139,10 @@ fusion_shmpool_destruct( FusionEntry * entry, void *ctx )
      AddrEntry     *addr_entry;
      FusionSHMPool *shmpool = (FusionSHMPool *) entry;
      FusionDev     *dev     = (FusionDev *) ctx;
-     FusionShared  *shared  = dev->shared;
 
      free_all_nodes(shmpool);
 
-     fusion_list_remove( &shared->addr_entries, &shmpool->addr_entry->link );
+     fusion_list_remove( &dev_shared->addr_entries, &shmpool->addr_entry->link );
 
      /*
       * free trailing address space
@@ -149,11 +151,11 @@ fusion_shmpool_destruct( FusionEntry * entry, void *ctx )
      fusion_core_free(fusion_core, shmpool->kernel_base);
 #endif
 
-     shared->addr_base = (void*) fusion_shm_base + 0x80000;
+     dev_shared->addr_base = (void*) dev->shm_base + 0x80000;
 
-     fusion_list_foreach(addr_entry, shared->addr_entries) {
-          if (addr_entry->next_base > shared->addr_base)
-               shared->addr_base = addr_entry->next_base;
+     fusion_list_foreach(addr_entry, dev_shared->addr_entries) {
+          if (addr_entry->next_base > dev_shared->addr_base)
+               dev_shared->addr_base = addr_entry->next_base;
      }
 }
 
@@ -182,6 +184,8 @@ int fusion_shmpool_init(FusionDev * dev)
      fusion_entries_init(&dev->shmpool, &shmpool_class, dev, dev);
 
      fusion_entries_create_proc_entry(dev, "shmpools", &dev->shmpool);
+
+     dev_shared->addr_base = (void*) dev->shm_base + 0x80000;
 
      return 0;
 }
