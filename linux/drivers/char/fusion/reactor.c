@@ -251,6 +251,7 @@ fusion_reactor_dispatch_message_callback(FusionDev * dev, int id, void *ctx, int
      FusionReactor *reactor = NULL;
      ReactorDispatch *dispatch = ctx;
 
+     // FIXME: use entry lookup via hash table, or add reactor pointer to dispatch if possible
      fusion_list_foreach(l, dev->reactor.list) {
           reactor = (FusionReactor *) l;
 
