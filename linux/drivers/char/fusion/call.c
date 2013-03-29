@@ -292,8 +292,13 @@ restart:
                     break;
           }
 
-          if (!execution)
+          if (!execution) {
+               printk( KERN_ERR "%s: resumable execution with serial %u not found!\n", __FUNCTION__, execute->serial );
+               direct_list_foreach (execution, call->executions) {
+                    printk( KERN_ERR "%s:   having serial %u\n", __FUNCTION__, execution->serial );
+               }
                return -EIDRM;
+          }
      }
      else {
           CallQuota             *quota    = NULL;
@@ -460,8 +465,13 @@ restart:
                     break;
           }
 
-          if (!execution)
+          if (!execution) {
+               printk( KERN_ERR "%s: resumable execution with serial %u not found!\n", __FUNCTION__, execute->serial );
+               direct_list_foreach (execution, call->executions) {
+                    printk( KERN_ERR "%s:   having serial %u\n", __FUNCTION__, execution->serial );
+               }
                return -EIDRM;
+          }
      }
      else {
           CallQuota             *quota    = NULL;
@@ -695,8 +705,13 @@ restart:
                     break;
           }
 
-          if (!execution)
+          if (!execution) {
+               printk( KERN_ERR "%s: resumable execution with serial %u not found!\n", __FUNCTION__, execute->serial );
+               direct_list_foreach (execution, call->executions) {
+                    printk( KERN_ERR "%s:   having serial %u\n", __FUNCTION__, execution->serial );
+               }
                return -EIDRM;
+          }
      }
      else {
           CallQuota             *quota    = NULL;
