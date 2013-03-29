@@ -752,15 +752,33 @@ call_ioctl(FusionDev * dev, Fusionee * fusionee,
                     if (unlocked_copy_from_user(&execute3, execute3_bin, sizeof(execute3)))
                          return -EFAULT;
 
-                    ret = fusion_call_execute3(dev, fusionee, &execute3);
-                    if (ret) {
-                         execute3.flags |= FCEF_ERROR;
-                         unlocked_copy_to_user(execute3_bin, &execute3, sizeof(execute3));
-                         return ret;
-                    }
+                    if (!(execute3.flags & FCEF_DONE)) {
+                         if (execute3.flags & FCEF_ERROR) {
+                              printk( KERN_ERR "fusion: FUSION_CALL_EXECUTE3 with errorneous call (failed on previous ioctl call), "
+                                               "call id %d, flags 0x%08x, arg %d, length %u, serial %u,  %ld\n",
+                                      execute3.call_id, execute3.flags, execute3.call_arg, execute3.length, execute3.ret_length,
+                                      (execute3_bin - (FusionCallExecute3 *) arg) );
+                              return -EIO;
+                         }
 
-                    if (unlocked_copy_to_user(execute3_bin, &execute3, sizeof(execute3)))
-                         return -EFAULT;
+                         ret = fusion_call_execute3(dev, fusionee, &execute3);
+                         if (ret) {
+                              if (ret != -EINTR)
+                                   execute3.flags |= FCEF_ERROR;
+
+                              // TODO: OPTIMIZE: copy whole array at once outside of while loop
+                              if (unlocked_copy_to_user(execute3_bin, &execute3, sizeof(execute3)))
+                                   return -EFAULT;
+
+                              return ret;
+                         }
+
+                         execute3.flags |= FCEF_DONE;
+
+                         // TODO: OPTIMIZE: copy whole array at once outside of while loop
+                         if (unlocked_copy_to_user(execute3_bin, &execute3, sizeof(execute3)))
+                              return -EFAULT;
+                    }
 
                     if (!(execute3_bin->flags & FCEF_FOLLOW))
                          break;

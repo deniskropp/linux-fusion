@@ -22,7 +22,7 @@
 /* Fusion supports all API versions up to this version */
 #define FUSION_API_MAJOR_PROVIDED 9
 #define FUSION_API_MINOR_PROVIDED 0
-#define FUSION_API_MICRO_PROVIDED 0
+#define FUSION_API_MICRO_PROVIDED 1
 
 /*
  * Fusion Kernel Device API Version
@@ -160,7 +160,8 @@ typedef enum {
      FCEF_FOLLOW              = 0x00000004,
      FCEF_ERROR               = 0x00000008,
      FCEF_RESUMABLE           = 0x00000010,
-     FCEF_ALL                 = 0x0000001f
+     FCEF_DONE                = 0x00000020,
+     FCEF_ALL                 = 0x0000003f
 } FusionCallExecFlags;
 
 typedef struct {
