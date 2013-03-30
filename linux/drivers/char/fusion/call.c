@@ -421,6 +421,9 @@ restart:
           /* Return result to calling process. */
           execute->ret_val = execution->ret_val;
 
+          /* Remove execution, freeing is up to caller. */
+          remove_execution(call, execution);
+
           /* Free execution, which has already been removed by callee. */
           free_execution( dev, execution);
 
@@ -594,6 +597,9 @@ restart:
           /* Return result to calling process. */
           execute->ret_val = execution->ret_val;
 
+          /* Remove execution, freeing is up to caller. */
+          remove_execution(call, execution);
+
           /* Free execution, which has already been removed by callee. */
           free_execution( dev, execution);
 
@@ -654,9 +660,6 @@ fusion_call_return(FusionDev * dev, int fusion_id, FusionCallReturn * call_ret)
           /* Write result to execution. */
           execution->ret_val = call_ret->val;
           execution->executed = true;
-
-          /* Remove execution, freeing is up to caller. */
-          remove_execution(call, execution);
 
           /* FIXME: Caller might still have received a signal since check above. */
           FUSION_ASSERT(!execution->signalled);
@@ -853,6 +856,9 @@ restart:
 
           execute->ret_length = execution->ret_length;
 
+          /* Remove execution, freeing is up to caller. */
+          remove_execution(call, execution);
+
           /* Free execution, which has already been removed by callee. */
           free_execution( dev, execution );
 
@@ -927,9 +933,6 @@ fusion_call_return3(FusionDev * dev, int fusion_id, FusionCallReturn3 * call_ret
 
           execution->ret_length = call_ret->length;
           execution->executed = true;
-
-          /* Remove execution, freeing is up to caller. */
-          remove_execution(call, execution);
 
           /* FIXME: Caller might still have received a signal since check above. */
           FUSION_ASSERT(!execution->signalled);
