@@ -275,7 +275,8 @@ fusion_call_execute(FusionDev * dev, Fusionee * fusionee,
      unsigned int serial;
      bool flush = true;
 
-     FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
+     FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p, call id %d, serial %u )\n", __FUNCTION__, dev, fusionee, execute,
+                   execute->call_id, execute->serial );
 
 restart:
      /* Lookup and lock call. */
@@ -451,7 +452,8 @@ fusion_call_execute2(FusionDev * dev, Fusionee * fusionee,
      unsigned int serial;
      bool flush = true;
 
-     FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
+     FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p, call id %d, serial %u )\n", __FUNCTION__, dev, fusionee, execute,
+                   execute->call_id, execute->serial );
 
 restart:
      /* Lookup and lock call. */
@@ -691,7 +693,8 @@ fusion_call_execute3(FusionDev * dev, Fusionee * fusionee,
      unsigned int serial;
      bool flush = true;
 
-     FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p )\n", __FUNCTION__, dev, fusionee, execute );
+     FUSION_DEBUG( "%s( dev %p, fusionee %p, execute %p, call id %d, serial %u )\n", __FUNCTION__, dev, fusionee, execute,
+                   execute->call_id, execute->serial );
 
 restart:
      /* Lookup and lock call. */
