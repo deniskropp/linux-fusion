@@ -1020,12 +1020,6 @@ int fusion_call_destroy(FusionDev * dev, Fusionee *fusionee, int call_id)
      FusionCallExecution *execution;
 
      do {
-          /* Wait for all messages being processed. */
-          ret =
-          fusionee_wait_processing(dev, fusionee->id, FMT_CALL, call_id);
-          if (ret)
-               return ret;
-
           ret = fusion_call_lookup(&dev->call, call_id, &call);
           if (ret)
                return ret;
