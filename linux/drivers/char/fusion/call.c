@@ -1121,6 +1121,8 @@ static void remove_execution( FusionCall * call, FusionCallExecution * execution
      FUSION_DEBUG( "%s( call %p [%u], execution %p )\n", __FUNCTION__, call, call->entry.id, execution );
 
      fusion_list_remove( &call->executions, &execution->link );
+
+     fusion_core_wq_wake( fusion_core, &execution->wait );
 }
 
 static void free_execution( FusionDev * dev, FusionCallExecution * execution )
