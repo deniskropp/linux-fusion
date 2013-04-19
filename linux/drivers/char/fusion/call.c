@@ -1145,8 +1145,6 @@ static void free_all_executions(FusionCall * call)
      direct_list_foreach_safe (execution, next, call->executions) {
           remove_execution( call, execution );
 
-          fusion_core_wq_wake( fusion_core,  &execution->wait );
-
           if (!execution->caller)
                free_execution( call->entry.entries->dev,  execution );
      }
