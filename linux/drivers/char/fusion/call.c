@@ -778,9 +778,10 @@ restart:
 
           FUSION_DEBUG( "  -> sending call message, caller %u, ptr %p, length %u\n", message.caller, execute->ptr, execute->length );
 
-          if (quota && ++quota->count % (quota->limit/4) == 0) {
+          if (quota/* && ++quota->count % (quota->limit/4+1) == 0*/) {
+               ++quota->count;
                callback = FMC_CALL_QUOTA;
-               flush    = true;
+               //flush    = true;
           }
 
           /* Put message into queue of callee. */
@@ -977,8 +978,8 @@ int fusion_call_set_quota(FusionDev * dev, FusionCallSetQuota *set_quota)
      FusionCall *call;
      CallQuota  *quota;
 
-     if (set_quota->limit < 4)
-          return -EINVAL;
+     FUSION_DEBUG( "%s( dev %p, call_id %d, fusion_id %lu, limit %u )\n", __FUNCTION__,
+                   dev, set_quota->call_id, set_quota->fusion_id, set_quota->limit );
 
 restart:
      /* Lookup and lock call. */
@@ -987,16 +988,6 @@ restart:
           return ret;
 
      quota = fusion_hash_lookup( call->quotas, (void*)(long) set_quota->fusion_id );
-     if (quota && quota->count > 0) {
-          fusion_core_wq_wait( fusion_core, &quota->wait, 0, true );
-
-          if (signal_pending(current)) {
-               FUSION_DEBUG( "  -> woke up waiting for zero quota, SIGNAL PENDING!\n" );
-               return -EINTR;
-          }
-
-          goto restart;
-     }
      if (!quota) {
           quota = fusion_core_malloc( fusion_core, sizeof(CallQuota) );
           if (!quota)
@@ -1006,9 +997,14 @@ restart:
           quota->limit     = set_quota->limit;
 
           fusion_core_wq_init( fusion_core, &quota->wait );
-     }
 
-     fusion_hash_insert( call->quotas, (void*)(long) set_quota->fusion_id, quota );
+          fusion_hash_insert( call->quotas, (void*)(long) set_quota->fusion_id, quota );
+     }
+     else {
+          quota->limit = set_quota->limit;
+
+          fusion_core_wq_wake( fusion_core, &quota->wait );
+     }
 
      return 0;
 }
@@ -1157,7 +1153,7 @@ fusion_call_quota_message_callback(FusionDev * dev, int id, void *ctx, int arg)
 {
      CallQuota *quota = ctx;
 
-     quota->count -= quota->limit / 4;
+     quota->count--;// -= quota->limit / 4 + 1;
 
      fusion_core_wq_wake( fusion_core, &quota->wait );
 }
