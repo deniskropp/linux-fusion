@@ -185,7 +185,9 @@ int fusion_shmpool_init(FusionDev * dev)
 
      fusion_entries_create_proc_entry(dev, "shmpools", &dev->shmpool);
 
+#if FUSION_SHM_PER_WORLD_SPACE
      dev_shared->addr_base = (void*) dev->shm_base + 0x80000;
+#endif
 
      return 0;
 }
