@@ -100,6 +100,8 @@ struct __Fusion_FusionDev {
 #endif
 
      unsigned long shm_base;
+
+     int           shutdown;
 };
 
 struct __Fusion_FusionShared {

@@ -338,22 +338,24 @@ fusionees_read_proc(char *buf, char **start, off_t offset,
 
      fusion_core_lock( fusion_core );
 
-     direct_list_foreach(fusionee, dev->fusionee.list) {
-          written +=
-          sprintf(buf + written,
-                  "(%5d) 0x%08lx (%4d packets waiting, %7ld received, %7ld sent) - wcq 0x%x - '%s'\n",
-                  fusionee->pid, fusionee->id,
-                  fusionee->packets.count, atomic_long_read(&fusionee->rcv_total),
-                  atomic_long_read(&fusionee->snd_total),
-                  fusionee->wait_on_call_quota,
-                  fusionee->exe_file);
-          if (written < offset) {
-               offset -= written;
-               written = 0;
+     if (!dev->shutdown) {
+          direct_list_foreach(fusionee, dev->fusionee.list) {
+               written +=
+               sprintf(buf + written,
+                       "(%5d) 0x%08lx (%4d packets waiting, %7ld received, %7ld sent) - wcq 0x%x - '%s'\n",
+                       fusionee->pid, fusionee->id,
+                       fusionee->packets.count, atomic_long_read(&fusionee->rcv_total),
+                       atomic_long_read(&fusionee->snd_total),
+                       fusionee->wait_on_call_quota,
+                       fusionee->exe_file);
+               if (written < offset) {
+                    offset -= written;
+                    written = 0;
+               }
+     
+               if (written >= len)
+                    break;
           }
-
-          if (written >= len)
-               break;
      }
 
      fusion_core_unlock( fusion_core );
@@ -383,7 +385,11 @@ void fusionee_deinit(FusionDev * dev)
 {
      Fusionee *fusionee, *next;
 
+     fusion_core_unlock( fusion_core );
+
      remove_proc_entry( "fusionees", fusion_proc_dir[dev->index] );
+
+     fusion_core_lock( fusion_core );
 
      if (!dev->refs) {
           direct_list_foreach_safe (fusionee, next, dev->fusionee.list) {

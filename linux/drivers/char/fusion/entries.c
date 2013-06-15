@@ -101,21 +101,29 @@ static void *fusion_entries_seq_start(struct seq_file *f, loff_t * pos)
 
      fusion_core_lock( fusion_core );
 
-     entry = (void *)(entries->list);
-     while (i && entry) {
-          entry = (void *)(entry->link.next);
-          i--;
+     if (!entries->dev->shutdown) {
+          entry = (void *)(entries->list);
+          while (i && entry) {
+               entry = (void *)(entry->link.next);
+               i--;
+          }
+
+          FUSION_ASSERT(entries != NULL);
+
+          class = entry_classes[entries->dev->index][entries->class_index];
+          if (!class->Print) {
+               fusion_core_unlock( fusion_core );
+               return NULL;
+          }
+
+          do_gettimeofday(&entries->now);
+
+          return entry;
      }
 
-     FUSION_ASSERT(entries != NULL);
+     fusion_core_unlock( fusion_core );
 
-     class = entry_classes[entries->dev->index][entries->class_index];
-     if (!class->Print)
-          return NULL;
-
-     do_gettimeofday(&entries->now);
-
-     return entry;
+     return NULL;
 }
 
 static void *fusion_entries_seq_next(struct seq_file *f, void *v, loff_t * pos)
@@ -219,7 +227,11 @@ void fusion_entries_create_proc_entry(FusionDev * dev, const char *name,
 
 void fusion_entries_destroy_proc_entry(FusionDev * dev, const char *name)
 {
+     fusion_core_unlock( fusion_core );
+
      remove_proc_entry(name, fusion_proc_dir[dev->index]);
+
+     fusion_core_lock( fusion_core );
 }
 
 int fusion_entry_create(FusionEntries * entries, int *ret_id, void *create_ctx, FusionID fusion_id)

@@ -140,36 +140,42 @@ fusiondev_stat_read_proc(char *buf, char **start, off_t offset,
      FusionDev *dev = private;
      int written = 0;
 
-     if ((dev->api.major != 0) || (dev->api.minor != 0))
-          written +=
-          sprintf(buf, "Fusion API:%d.%d\n", dev->api.major,
-                  dev->api.minor);
+     fusion_core_lock( fusion_core );
 
-     written += snprintf(buf + written, offset + len - written,
-                         "lease/purchase   cede      attach     detach   dispatch      "
-                         "ref up   ref down  prevail/swoop dismiss\n");
-     if (written < offset) {
-          offset -= written;
-          written = 0;
-     }
-
-     if (written < len) {
+     if (!dev->shutdown) {
+          if ((dev->api.major != 0) || (dev->api.minor != 0))
+               written +=
+               sprintf(buf, "Fusion API:%d.%d\n", dev->api.major,
+                       dev->api.minor);
+     
           written += snprintf(buf + written, offset + len - written,
-                              "%10d %10d  %10d %10d %10d  %10d %10d  %10d %10d\n",
-                              dev->stat.property_lease_purchase,
-                              dev->stat.property_cede,
-                              dev->stat.reactor_attach,
-                              dev->stat.reactor_detach,
-                              dev->stat.reactor_dispatch,
-                              dev->stat.ref_up,
-                              dev->stat.ref_down,
-                              dev->stat.skirmish_prevail_swoop,
-                              dev->stat.skirmish_dismiss);
+                              "lease/purchase   cede      attach     detach   dispatch      "
+                              "ref up   ref down  prevail/swoop dismiss\n");
           if (written < offset) {
                offset -= written;
                written = 0;
           }
+     
+          if (written < len) {
+               written += snprintf(buf + written, offset + len - written,
+                                   "%10d %10d  %10d %10d %10d  %10d %10d  %10d %10d\n",
+                                   dev->stat.property_lease_purchase,
+                                   dev->stat.property_cede,
+                                   dev->stat.reactor_attach,
+                                   dev->stat.reactor_detach,
+                                   dev->stat.reactor_dispatch,
+                                   dev->stat.ref_up,
+                                   dev->stat.ref_down,
+                                   dev->stat.skirmish_prevail_swoop,
+                                   dev->stat.skirmish_dismiss);
+               if (written < offset) {
+                    offset -= written;
+                    written = 0;
+               }
+          }
      }
+
+     fusion_core_unlock( fusion_core );
 
      *start = buf + offset;
      written -= offset;
@@ -257,7 +263,11 @@ error_fusionee:
 
 static void fusiondev_deinit(FusionDev * dev)
 {
+     fusion_core_unlock( fusion_core );
+
      remove_proc_entry("stat", fusion_proc_dir[dev->index]);
+
+     fusion_core_lock( fusion_core );
 
      fusion_call_deinit(dev);
      fusion_shmpool_deinit(dev);
@@ -326,10 +336,11 @@ static int fusion_open(struct inode *inode, struct file *file)
           if (!fusion_local_refs[dev->index]) {
                fusiondev_deinit( dev );
 
+               fusion_core_unlock( fusion_core );
                remove_proc_entry( fusion_proc_dir[minor]->name, proc_fusion_dir );
           }
-
-          fusion_core_unlock( fusion_core );
+          else
+               fusion_core_unlock( fusion_core );
 
           return ret;
      }
@@ -363,9 +374,17 @@ static int fusion_release(struct inode *inode, struct file *file)
      fusion_local_refs[dev->index]--;
 
      if (!fusion_local_refs[dev->index]) {
+          dev->shutdown = 1;
+
           fusiondev_deinit( dev );
 
+          fusion_core_unlock( fusion_core );
+
           remove_proc_entry( fusion_proc_dir[minor]->name, proc_fusion_dir );
+
+          fusion_core_lock( fusion_core );
+
+          dev->shutdown = 0;
      }
 
      fusion_core_unlock( fusion_core );
