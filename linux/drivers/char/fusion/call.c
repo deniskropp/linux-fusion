@@ -981,7 +981,6 @@ int fusion_call_set_quota(FusionDev * dev, FusionCallSetQuota *set_quota)
      FUSION_DEBUG( "%s( dev %p, call_id %d, fusion_id %lu, limit %u )\n", __FUNCTION__,
                    dev, set_quota->call_id, set_quota->fusion_id, set_quota->limit );
 
-restart:
      /* Lookup and lock call. */
      ret = fusion_call_lookup(&dev->call, set_quota->call_id, &call);
      if (ret)
