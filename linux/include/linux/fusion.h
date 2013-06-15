@@ -229,7 +229,7 @@ typedef struct {
 typedef struct {
      int                      call_id;       /* [input] call from which to get the owner */
      FusionID                 fusion_id;     /* [input] fusionee to set quota for */
-     unsigned int             limit;         /* [input] max number of pending calls, at least 4 */
+     unsigned int             limit;         /* [input] max number of pending calls, 0 = always blocked */
 } FusionCallSetQuota;
 
 typedef struct {
