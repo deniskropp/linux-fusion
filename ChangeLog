@@ -1,3 +1,127 @@
+commit c186c708f39feb68b00c68953b1f5ae22b0344ec
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jul 5 17:24:05 2013 +0200
+
+    debian: 9.0.1
+
+commit a76a43b33b2d4a83af4ecbe1243dbbbdf0decee9
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Jun 15 22:06:03 2013 +0200
+
+    proc: workaround dead lock issue when shutting down fusion device while opening proc file
+
+commit 8eff11a0a0621307c24e1644cbf8cabb907d5787
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Jun 15 22:05:33 2013 +0200
+
+    API: update comment of quota limit
+
+commit d864cf9d80ebcf4c2d5222b0d18853f4f360b347
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Jun 15 22:04:48 2013 +0200
+
+    call: fix warning
+
+commit 65ff77e8993d0bb98a99d46e6a4bc7bb6fa8e5cd
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Wed Jun 5 15:26:14 2013 +0200
+
+    fusion/shmpool: fix memory corruption bug with multiple fusion worlds on 32-bit machines
+
+commit 2c8f51d108da9c97d111d4631f614f099738710d
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sun Apr 21 10:50:41 2013 +0200
+
+    call: Some quota fixes and debug.
+    
+    Signed-off-by: Denis Oliver Kropp <dok@directfb.org>
+
+commit 670da5f481d124ee4bb5758de83ccf1997fe7a22
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Apr 19 19:34:40 2013 +0200
+
+    call: Wake waiter in remove_execution.
+
+commit 4180a374fc061d453eb77a54d314e7245d7f7fd5
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Apr 19 19:33:08 2013 +0200
+
+    call: Don't wake waiters on execution in free_all_executions.
+
+commit 65267d45552d8d4c422ace39cde02b34c48c304a
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Apr 19 19:30:11 2013 +0200
+
+    call: Don't need waiting for messages in call_destroy, waiting for executions afterwards anyways.
+
+commit 68b45d71cb82c182b8347de30bc788b147475cb4
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Mar 30 10:31:02 2013 +0100
+
+    call: Print call id and serial in execute functions.
+
+commit 59d160f3f332f25246e74f77cc93c4c070327479
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Sat Mar 30 10:28:33 2013 +0100
+
+    call: Fix another resume issue by not removing the execution on return, but after the result is received on caller side.
+
+commit 7644d9b148d72a5f872338f7e7f2d6ee774744be
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Mar 29 07:47:35 2013 +0100
+
+    call: Fix FCEF_RESUMABLE calls (EINTR) with FCEF_FOLLOW flag (buffered calls being flushed).
+    
+    This fixes EIDRM being received after a signal with restart of multiple calls in fusion_world_flush_calls().
+
+commit 29aae5f09a594ab3b26a6c012997ea54004d7338
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Fri Mar 29 07:29:09 2013 +0100
+
+    call: print error when execution has not been found on resume
+
+commit 10e49d9f689d96842d6232d8574e7bd813e9027c
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Mar 14 01:10:38 2013 +0100
+
+    FIXME: use entry lookup via hash table, or add reactor pointer to dispatch if possible
+
+commit a91ffe0ec61b76a8e448d92cbe789d5bcbe992a7
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Mar 14 01:09:44 2013 +0100
+
+    fusionee: Fix fusionee_sync() by waiting for the dispatcher to block on a read.
+
+commit c781ec23a4be64cdaea61056f4d9a4340602b0d0
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Mar 14 01:08:04 2013 +0100
+
+    call: Fix dead lock with user space refs by allowing packet over-allocation (non-blocking) for calls from dispatcher thread itself.
+
+commit 83baf1250027b213987e60cdd46b9d10d37435f0
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Mar 14 01:07:25 2013 +0100
+
+    fusiondev: Increase number of minors from 8 to 32 :)
+
+commit 74665374b8d2cf96eb80b4872dbeff044c4283d0
+Author: Denis Oliver Kropp <dok@directfb.org>
+Date:   Thu Mar 14 01:05:54 2013 +0100
+
+    shm: Add FUSION_SHM_PER_WORLD_SPACE to statically map the different worlds in a bigger address range, enabled on 64bit machines.
+
+commit 42b233dad44abb2408a22867657f11bc08ce6d55
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jan 18 21:21:16 2013 +0100
+
+    debian: install one.h
+
+commit 31a489822df20db189f407e663102bc115eac9c8
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jan 18 15:12:03 2013 +0100
+
+    update changelog
+
 commit a3dc69d85f5cd88a1a700bf510db43e83b18c842
 Author: Andreas Shimokawa <andi@directfb.org>
 Date:   Tue Jan 15 11:33:16 2013 +0100
