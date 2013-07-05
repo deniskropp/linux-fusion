@@ -1,3 +1,9 @@
+linux-fusion (9.0.1-1) unstable; urgency=high
+
+  * new upstream version
+
+ -- Andreas Shimokawa <andi@directfb.org>  Fri, 05 Jul 2013 17:23:13 +0200
+
 linux-fusion (9.0.0-2) unstable; urgency=high
 
   * inclcude one.h
