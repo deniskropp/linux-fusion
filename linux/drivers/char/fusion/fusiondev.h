@@ -15,6 +15,7 @@
 #ifndef __FUSION__FUSIONDEV_H__
 #define __FUSION__FUSIONDEV_H__
 
+#include <linux/version.h>
 #include <linux/proc_fs.h>
 
 #include "debug.h"
@@ -119,5 +120,9 @@ extern struct proc_dir_entry *fusion_proc_dir[NUM_MINORS];
 
 extern unsigned long fusion_shm_base;
 extern unsigned long fusion_shm_size;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
+#define PDE_DATA(x) (PDE(x)->data)
+#endif
 
 #endif

@@ -329,54 +329,48 @@ static void free_packets(Fusionee *fusionee, FusionDev * dev, FusionFifo * fifo)
 /******************************************************************************/
 
 static int
-fusionees_read_proc(char *buf, char **start, off_t offset,
-                    int len, int *eof, void *private)
+fusionees_proc_show(struct seq_file *m, void *v)
 {
      Fusionee *fusionee;
-     FusionDev *dev = private;
-     int written = 0;
+     FusionDev *dev = m->private;
 
      fusion_core_lock( fusion_core );
 
      if (!dev->shutdown) {
           direct_list_foreach(fusionee, dev->fusionee.list) {
-               written +=
-               sprintf(buf + written,
+               seq_printf(m,
                        "(%5d) 0x%08lx (%4d packets waiting, %7ld received, %7ld sent) - wcq 0x%x - '%s'\n",
                        fusionee->pid, fusionee->id,
                        fusionee->packets.count, atomic_long_read(&fusionee->rcv_total),
                        atomic_long_read(&fusionee->snd_total),
                        fusionee->wait_on_call_quota,
                        fusionee->exe_file);
-               if (written < offset) {
-                    offset -= written;
-                    written = 0;
-               }
-     
-               if (written >= len)
-                    break;
           }
      }
 
      fusion_core_unlock( fusion_core );
 
-     *start = buf + offset;
-     written -= offset;
-     if (written > len) {
-          *eof = 0;
-          return len;
-     }
-
-     *eof = 1;
-     return(written < 0) ? 0 : written;
+     return 0;
 }
+
+static int fusionees_proc_open(struct inode *inode, struct file *file) {
+     return single_open(file, fusionees_proc_show, PDE_DATA(inode));
+}
+
+static const struct file_operations fusionees_proc_fops = {
+     .open    = fusionees_proc_open,
+     .read    = seq_read,
+     .llseek  = seq_lseek,
+     .release = seq_release,
+};
 
 int fusionee_init(FusionDev * dev)
 {
      if (!dev->refs)
           fusion_core_wq_init( fusion_core, &dev->fusionee.wait);
 
-     create_proc_read_entry( "fusionees", 0, fusion_proc_dir[dev->index], fusionees_read_proc, dev );
+     proc_create_data("fusionees", 0, fusion_proc_dir[dev->index],
+                       &fusionees_proc_fops, dev);
 
      return 0;
 }
@@ -403,6 +397,8 @@ void fusionee_deinit(FusionDev * dev)
           }
      }
 }
+
+
 
 /******************************************************************************/
 

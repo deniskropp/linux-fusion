@@ -36,6 +36,7 @@
 #include <linux/vmalloc.h>
 #include <linux/mman.h>
 #include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/init.h>
@@ -134,30 +135,21 @@ unsigned int           fusion_local_refs[NUM_MINORS] = { 0 };
 /******************************************************************************/
 
 static int
-fusiondev_stat_read_proc(char *buf, char **start, off_t offset,
-                         int len, int *eof, void *private)
+fusiondev_stat_proc_show(struct seq_file *m, void *v)
 {
-     FusionDev *dev = private;
-     int written = 0;
+     FusionDev *dev = m->private;
 
      fusion_core_lock( fusion_core );
 
      if (!dev->shutdown) {
           if ((dev->api.major != 0) || (dev->api.minor != 0))
-               written +=
-               sprintf(buf, "Fusion API:%d.%d\n", dev->api.major,
-                       dev->api.minor);
+               seq_printf(m, "Fusion API:%d.%d\n", dev->api.major, dev->api.minor);
      
-          written += snprintf(buf + written, offset + len - written,
+          seq_printf(m,
                               "lease/purchase   cede      attach     detach   dispatch      "
                               "ref up   ref down  prevail/swoop dismiss\n");
-          if (written < offset) {
-               offset -= written;
-               written = 0;
-          }
-     
-          if (written < len) {
-               written += snprintf(buf + written, offset + len - written,
+
+          seq_printf(m,
                                    "%10d %10d  %10d %10d %10d  %10d %10d  %10d %10d\n",
                                    dev->stat.property_lease_purchase,
                                    dev->stat.property_cede,
@@ -168,25 +160,25 @@ fusiondev_stat_read_proc(char *buf, char **start, off_t offset,
                                    dev->stat.ref_down,
                                    dev->stat.skirmish_prevail_swoop,
                                    dev->stat.skirmish_dismiss);
-               if (written < offset) {
-                    offset -= written;
-                    written = 0;
-               }
-          }
      }
 
      fusion_core_unlock( fusion_core );
 
-     *start = buf + offset;
-     written -= offset;
-     if (written > len) {
-          *eof = 0;
-          return len;
-     }
-
-     *eof = 1;
-     return(written < 0) ? 0 : written;
+     return 0;
 }
+
+static int fusiondev_stat_proc_open(struct inode *inode, struct file *file)
+{
+     return single_open(file, fusiondev_stat_proc_show, PDE_DATA(inode));
+}
+ 
+static const struct file_operations fusiondev_stat_proc_fops = {
+     .open    = fusiondev_stat_proc_open,
+     .read    = seq_read,
+     .llseek  = seq_lseek,
+     .release = seq_release,
+};
+
 
 /******************************************************************************/
 
@@ -234,8 +226,8 @@ static int fusiondev_init(FusionDev * dev)
      if (ret)
           goto error_call;
 
-     create_proc_read_entry("stat", 0, fusion_proc_dir[dev->index],
-                            fusiondev_stat_read_proc, dev);
+     proc_create_data("stat", 0, fusion_proc_dir[dev->index],
+                       &fusiondev_stat_proc_fops, dev);
 
      return 0;
 
@@ -337,7 +329,11 @@ static int fusion_open(struct inode *inode, struct file *file)
                fusiondev_deinit( dev );
 
                fusion_core_unlock( fusion_core );
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
                remove_proc_entry( fusion_proc_dir[minor]->name, proc_fusion_dir );
+#else
+#warning find a replacement for proc_dir_entry::name
+#endif
           }
           else
                fusion_core_unlock( fusion_core );
@@ -359,9 +355,10 @@ static int fusion_open(struct inode *inode, struct file *file)
 
 static int fusion_release(struct inode *inode, struct file *file)
 {
-     int minor = iminor(inode);
      Fusionee  *fusionee = file->private_data;
      FusionDev *dev      = fusionee->fusion_dev;
+
+     int minor = iminor(inode);
 
      FUSION_DEBUG("fusion_release( %p, %ld )\n", file, atomic_long_read(&file->f_count));
 
@@ -380,8 +377,11 @@ static int fusion_release(struct inode *inode, struct file *file)
 
           fusion_core_unlock( fusion_core );
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
           remove_proc_entry( fusion_proc_dir[minor]->name, proc_fusion_dir );
-
+#else
+#warning find a replacement for proc_dir_entry::name
+#endif
           fusion_core_lock( fusion_core );
 
           dev->shutdown = 0;

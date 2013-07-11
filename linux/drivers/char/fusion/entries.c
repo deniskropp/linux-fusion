@@ -201,7 +201,7 @@ static int fusion_entries_open(struct inode *inode, struct file *file)
           return ret;
 
      sf = file->private_data;
-     sf->private = PDE(inode)->data;
+     sf->private = PDE_DATA(inode);
 
      return 0;
 }
@@ -216,13 +216,7 @@ static const struct file_operations proc_fusion_entries_operations = {
 void fusion_entries_create_proc_entry(FusionDev * dev, const char *name,
                                       FusionEntries * data)
 {
-     struct proc_dir_entry *pde;
-
-     pde = create_proc_entry(name, 0, fusion_proc_dir[dev->index]);
-     if (pde) {
-          pde->proc_fops = &proc_fusion_entries_operations;
-          pde->data = data;
-     }
+     proc_create_data(name, 0, fusion_proc_dir[dev->index], &proc_fusion_entries_operations, data);
 }
 
 void fusion_entries_destroy_proc_entry(FusionDev * dev, const char *name)
