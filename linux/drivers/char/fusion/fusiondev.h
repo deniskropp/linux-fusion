@@ -121,8 +121,4 @@ extern struct proc_dir_entry *fusion_proc_dir[NUM_MINORS];
 extern unsigned long fusion_shm_base;
 extern unsigned long fusion_shm_size;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-#define PDE_DATA(x) (PDE(x)->data)
-#endif
-
 #endif

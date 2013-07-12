@@ -21,6 +21,10 @@ typedef enum {
 } bool;
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
+#define PDE_DATA(x) (PDE(x)->data)
+#endif
+
 typedef struct __One_OneApp    OneApp;
 typedef struct __One_OneDev    OneDev;
 typedef struct __One_OnePacket OnePacket;

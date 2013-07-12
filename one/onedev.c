@@ -39,6 +39,7 @@
 #include <linux/vmalloc.h>
 #include <linux/mman.h>
 #include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/init.h>
@@ -91,106 +92,73 @@ struct proc_dir_entry *one_proc_dir[NUM_MINORS]   = { 0 };
 unsigned int           one_local_refs[NUM_MINORS] = { 0 };
 
 /******************************************************************************/
-
 static int
-onedev_apps_read_proc(char *buf, char **start, off_t offset,
-                      int len, int *eof, void *private)
+onedev_apps_proc_show(struct seq_file *m, void *v)
 {
-     OneDev *dev = private;
-     int     written = 0;
+     OneDev *dev = m->private;
      OneApp *app;
 
-     written += snprintf(buf + written, offset + len - written,
-                         "  pid   OneID       status         queues\n");
-     if (written < offset) {
-          offset -= written;
-          written = 0;
-     }
+     seq_printf(m, "  pid   OneID       status         queues\n");
 
      direct_list_foreach (app, dev->apps) {
           OneAppTargetData *recv_data;
 
-          if (written >= len)
-               break;
+          seq_printf(m, "(%5d) 0x%08x  %s  ", current->pid,
+                        app->one_id, app->recv_data ? "RECEIVING" : "not receiving");
 
-          written += snprintf(buf + written, offset + len - written,
-                              "(%5d) 0x%08x  %s  ", current->pid,
-                              app->one_id, app->recv_data ? "RECEIVING" : "not receiving");
-          if (written < offset) {
-               offset -= written;
-               written = 0;
-          }
+          direct_list_foreach (recv_data, app->recv_data)
+               seq_printf(m, " 0x%08x", recv_data->queue_id);
 
-          direct_list_foreach (recv_data, app->recv_data) {
-               written += snprintf(buf + written, offset + len - written,
-                                   " 0x%08x", recv_data->queue_id);
-               if (written < offset) {
-                    offset -= written;
-                    written = 0;
-               }
-          }
-
-          written += snprintf(buf + written, offset + len - written, "\n");
-          if (written < offset) {
-               offset -= written;
-               written = 0;
-          }
      }
 
-     *start = buf + offset;
-     written -= offset;
-     if (written > len) {
-          *eof = 0;
-          return len;
-     }
-
-     *eof = 1;
-     return(written < 0) ? 0 : written;
+     return 0;
 }
 
 static int
-onedev_stat_read_proc(char *buf, char **start, off_t offset,
-                      int len, int *eof, void *private)
+onedev_stat_proc_show(struct seq_file *m, void *v)
 {
-     OneDev *dev = private;
-     int written = 0;
+     OneDev *dev = m->private;
 
      if ((dev->api.major != 0) || (dev->api.minor != 0))
-          written +=
-          sprintf(buf, "One API:%d.%d\n", dev->api.major,
+          seq_printf(m, "One API:%d.%d\n", dev->api.major,
                   dev->api.minor);
 
-     written += snprintf(buf + written, offset + len - written,
-                         "    attach     detach   dispatch\n");
-     if (written < offset) {
-          offset -= written;
-          written = 0;
-     }
+     seq_printf(m, "    attach     detach   dispatch\n");
 
-     if (written < len) {
-          written += snprintf(buf + written, offset + len - written,
-                              "%10d %10d %10d\n",
-                              dev->stat.queue_attach,
-                              dev->stat.queue_detach,
-                              dev->stat.queue_dispatch);
-          if (written < offset) {
-               offset -= written;
-               written = 0;
-          }
-     }
+     seq_printf(m, "%10d %10d %10d\n",
+                   dev->stat.queue_attach,
+                   dev->stat.queue_detach,
+                   dev->stat.queue_dispatch);
 
-     *start = buf + offset;
-     written -= offset;
-     if (written > len) {
-          *eof = 0;
-          return len;
-     }
-
-     *eof = 1;
-     return(written < 0) ? 0 : written;
+     return 0;
 }
 
 /******************************************************************************/
+
+static int onedev_apps_proc_open(struct inode *inode, struct file *file)
+{
+     return single_open(file, onedev_apps_proc_show, PDE_DATA(inode));
+}
+
+static int onedev_stat_proc_open(struct inode *inode, struct file *file)
+{
+     return single_open(file, onedev_stat_proc_show, PDE_DATA(inode));
+}
+ 
+static const struct file_operations onedev_apps_proc_fops = {
+     .open    = onedev_apps_proc_open,
+     .read    = seq_read,
+     .llseek  = seq_lseek,
+     .release = seq_release,
+};
+
+static const struct file_operations onedev_stat_proc_fops = {
+     .open    = onedev_stat_proc_open,
+     .read    = seq_read,
+     .llseek  = seq_lseek,
+     .release = seq_release,
+};
+
 
 static int onedev_init(OneDev * dev)
 {
@@ -200,11 +168,11 @@ static int onedev_init(OneDev * dev)
      if (ret)
           goto error_queue;
 
-     create_proc_read_entry("apps", 0, one_proc_dir[dev->index],
-                            onedev_apps_read_proc, dev);
+     proc_create_data("apps", 0, one_proc_dir[dev->index],
+                       &onedev_apps_proc_fops, dev);
 
-     create_proc_read_entry("stat", 0, one_proc_dir[dev->index],
-                            onedev_stat_read_proc, dev);
+     proc_create_data("stat", 0, one_proc_dir[dev->index],
+                       &onedev_stat_proc_fops, dev);
 
      return 0;
 
@@ -270,8 +238,11 @@ static int one_open(struct inode *inode, struct file *file)
      if (ret) {
           if (!one_local_refs[dev->index]) {
                onedev_deinit( dev );
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
                remove_proc_entry( one_proc_dir[minor]->name, proc_one_dir );
+#else
+#warning find a replacement for proc_dir_entry::name
+#endif
           }
 
           one_core_unlock( one_core );
@@ -315,8 +286,11 @@ static int one_release(struct inode *inode, struct file *file)
 
      if (!one_local_refs[dev->index]) {
           onedev_deinit( dev );
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
           remove_proc_entry( one_proc_dir[minor]->name, proc_one_dir );
+#else
+#warning find a replacement for proc_dir_entry::name
+#endif
      }
 
      one_core_unlock( one_core );

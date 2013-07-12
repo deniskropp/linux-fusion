@@ -24,6 +24,10 @@ typedef enum {
 } bool;
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
+#define PDE_DATA(x) (PDE(x)->data)
+#endif
+
 typedef struct __Fusion_FusionDev FusionDev;
 typedef struct __Fusion_Fusionee  Fusionee;
 

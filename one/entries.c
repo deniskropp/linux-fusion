@@ -190,7 +190,7 @@ static int one_entries_open(struct inode *inode, struct file *file)
           return ret;
 
      sf = file->private_data;
-     sf->private = PDE(inode)->data;
+     sf->private = PDE_DATA(inode);
 
      return 0;
 }
@@ -205,13 +205,7 @@ static const struct file_operations proc_one_entries_operations = {
 void one_entries_create_proc_entry(OneDev * dev, const char *name,
                                       OneEntries * data)
 {
-     struct proc_dir_entry *pde;
-
-     pde = create_proc_entry(name, 0, one_proc_dir[dev->index]);
-     if (pde) {
-          pde->proc_fops = &proc_one_entries_operations;
-          pde->data = data;
-     }
+     proc_create_data(name, 0, one_proc_dir[dev->index], &proc_one_entries_operations, data);
 }
 
 void one_entries_destroy_proc_entry(OneDev * dev, const char *name)
