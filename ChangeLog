@@ -1,3 +1,39 @@
+commit a46139ef2570de106799b235203eb22185239180
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Jul 15 11:33:47 2013 +0200
+
+    change version to 9.0.2
+
+commit 5858093828e6f9e8b9a0fb7df008f34d81e80e20
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Jul 15 11:29:35 2013 +0200
+
+    do not access members of proc_dir_entry anymore (for linux 3.10)
+
+commit c8948946261f2a8e6cbf12b1b33791a29fcdb7a3
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jul 12 11:57:16 2013 +0200
+
+    fix one for 3.10, move PDE_DATA compat macro from fusiondev.h to types.h
+    
+    still need a replacement for proc_dir_entry::name
+
+commit 7b276feeeb847d9c6ab8f73a15e9eaa2daafb088
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Thu Jul 11 22:13:46 2013 +0200
+
+    fusion: support linux 3.10 (incomplete)
+    
+    TODO:
+    - do the same for one
+    - find a replacement for proc_dir_entry::name
+
+commit 0f3669626cb4307d92839184a94b60ccec0c3863
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Fri Jul 5 17:24:49 2013 +0200
+
+    update changelog
+
 commit c186c708f39feb68b00c68953b1f5ae22b0344ec
 Author: Andreas Shimokawa <andi@directfb.org>
 Date:   Fri Jul 5 17:24:05 2013 +0200
