@@ -1,3 +1,15 @@
+commit b7a00091b78943cd50ca16aff502d6eee9765a64
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Jul 15 11:55:25 2013 +0200
+
+    debian: fix header location in rules script
+
+commit c89972a75160222cc209349d024883c697af9d46
+Author: Andreas Shimokawa <andi@directfb.org>
+Date:   Mon Jul 15 11:34:11 2013 +0200
+
+    update changelog
+
 commit a46139ef2570de106799b235203eb22185239180
 Author: Andreas Shimokawa <andi@directfb.org>
 Date:   Mon Jul 15 11:33:47 2013 +0200
