@@ -198,8 +198,11 @@ static int one_open(struct inode *inode, struct file *file)
      OneApp *oneapp;
      int     minor = iminor(inode);
      OneDev *dev   = &one_devs[minor];
+     char buf[4];
 
      ONE_DEBUG("one_open( file %p, f_count %ld ) <- minor %d\n", file, atomic_long_read(&file->f_count), minor);
+
+     snprintf(buf, 4, "%d", minor);
 
      one_core_lock( one_core );
 
@@ -220,10 +223,6 @@ static int one_open(struct inode *inode, struct file *file)
      }
 
      if (!one_local_refs[dev->index]) {
-          char buf[4];
-
-          snprintf(buf, 4, "%d", minor);
-
           one_proc_dir[minor] = proc_mkdir(buf, proc_one_dir);
 
           ret = onedev_init( dev );
@@ -238,11 +237,7 @@ static int one_open(struct inode *inode, struct file *file)
      if (ret) {
           if (!one_local_refs[dev->index]) {
                onedev_deinit( dev );
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-               remove_proc_entry( one_proc_dir[minor]->name, proc_one_dir );
-#else
-#warning find a replacement for proc_dir_entry::name
-#endif
+               remove_proc_entry( buf, proc_one_dir );
           }
 
           one_core_unlock( one_core );
@@ -271,8 +266,11 @@ static int one_release(struct inode *inode, struct file *file)
      int     minor  = iminor(inode);
      OneApp *oneapp = file->private_data;
      OneDev *dev    = oneapp->dev;
+     char buf[4];
 
      ONE_DEBUG( "one_release( %p, f_count %ld )\n", file, atomic_long_read(&file->f_count) );
+
+     snprintf(buf, 4, "%d", minor);
 
      one_core_lock( one_core );
 
@@ -286,11 +284,8 @@ static int one_release(struct inode *inode, struct file *file)
 
      if (!one_local_refs[dev->index]) {
           onedev_deinit( dev );
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-          remove_proc_entry( one_proc_dir[minor]->name, proc_one_dir );
-#else
-#warning find a replacement for proc_dir_entry::name
-#endif
+
+          remove_proc_entry( buf, proc_one_dir );
      }
 
      one_core_unlock( one_core );

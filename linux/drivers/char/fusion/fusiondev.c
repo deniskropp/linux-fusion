@@ -287,8 +287,11 @@ static int fusion_open(struct inode *inode, struct file *file)
      Fusionee *fusionee;
      int minor = iminor(inode);
      FusionDev *dev = &shared->devs[minor];
+     char buf[4];
 
      FUSION_DEBUG("fusion_open( file %p, f_count %ld ) <- minor %d\n", file, atomic_long_read(&file->f_count), minor);
+
+     snprintf(buf, 4, "%d", minor);
 
      fusion_core_lock( fusion_core );
 
@@ -309,9 +312,6 @@ static int fusion_open(struct inode *inode, struct file *file)
      }
 
      if (!fusion_local_refs[dev->index]) {
-          char buf[4];
-
-          snprintf(buf, 4, "%d", minor);
 
           fusion_proc_dir[minor] = proc_mkdir(buf, proc_fusion_dir);
 
@@ -329,11 +329,7 @@ static int fusion_open(struct inode *inode, struct file *file)
                fusiondev_deinit( dev );
 
                fusion_core_unlock( fusion_core );
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-               remove_proc_entry( fusion_proc_dir[minor]->name, proc_fusion_dir );
-#else
-#warning find a replacement for proc_dir_entry::name
-#endif
+               remove_proc_entry( buf, proc_fusion_dir );
           }
           else
                fusion_core_unlock( fusion_core );
@@ -359,8 +355,11 @@ static int fusion_release(struct inode *inode, struct file *file)
      FusionDev *dev      = fusionee->fusion_dev;
 
      int minor = iminor(inode);
+     char buf[4];
 
      FUSION_DEBUG("fusion_release( %p, %ld )\n", file, atomic_long_read(&file->f_count));
+
+     snprintf(buf, 4, "%d", minor);
 
      fusion_core_lock( fusion_core );
 
@@ -377,11 +376,8 @@ static int fusion_release(struct inode *inode, struct file *file)
 
           fusion_core_unlock( fusion_core );
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-          remove_proc_entry( fusion_proc_dir[minor]->name, proc_fusion_dir );
-#else
-#warning find a replacement for proc_dir_entry::name
-#endif
+          remove_proc_entry( buf, proc_fusion_dir );
+
           fusion_core_lock( fusion_core );
 
           dev->shutdown = 0;
