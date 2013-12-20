@@ -184,9 +184,9 @@ fusion_core_wq_wait( FusionCore      *core,
      else
           schedule();
 
-     fusion_core_lock( core );
-
      finish_wait( &queue->queue, &wait );
+
+     fusion_core_lock( core );
 #else
      wait_queue_t wait;
 

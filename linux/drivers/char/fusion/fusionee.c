@@ -267,7 +267,8 @@ Fusionee_GetPacket( Fusionee  *fusionee,
           if (packet) {
                packet->flush = true;
 
-               fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+//               fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+               wake_up_interruptible_sync_poll( &fusionee->wait_receive.queue, POLLIN | POLLRDNORM );
           }
 
           if (fusionee->free_packets.count) {
@@ -621,7 +622,8 @@ fusionee_send_message(FusionDev * dev,
 
 
      packet->flush = true;
-     fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+//     fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+     wake_up_interruptible_sync_poll( &fusionee->wait_receive.queue, POLLIN | POLLRDNORM );
 
      return 0;
 }
@@ -693,7 +695,8 @@ fusionee_send_message2(FusionDev * dev,
 
      if (flush) {
           packet->flush = true;
-          fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+//          fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+          wake_up_interruptible_sync_poll( &fusionee->wait_receive.queue, POLLIN | POLLRDNORM );
      }
 
      return 0;
@@ -722,15 +725,13 @@ fusionee_get_messages(FusionDev * dev,
      fusion_core_wq_wake( fusion_core, &fusionee->wait_process);
 
      while (!fusionee->packets.count || !((Packet *) fusionee->packets.items)->flush) {
-//          if (!block) {
-//               flush_packets(fusionee, dev, &prev_packets);
-//               return -EAGAIN;
-//          }
-
           if (prev_packets.count) {
                flush_packets(fusionee, dev, &prev_packets);
           }
           else {
+               if (!block)
+                    return -EAGAIN;
+
                fusionee->waiting = true;
                fusion_core_wq_wait( fusion_core, &fusionee->wait_receive, NULL, true );
                fusionee->waiting = false;
@@ -867,42 +868,21 @@ fusionee_remove_message_callbacks(Fusionee  *fusionee,
 }
 
 unsigned int
-fusionee_poll(FusionDev * dev,
-              Fusionee * fusionee, struct file *file, poll_table * wait)
+fusionee_poll( FusionDev                *dev,
+               Fusionee                 *fusionee,
+               struct file              *file,
+               struct poll_table_struct *wait )
 {
-     int ret;
-     FusionID id = fusionee->id;
-     FusionFifo prev_msgs;
-
-     ret = lock_fusionee(dev, id, &fusionee);
-     if (ret)
-          return POLLERR;
-
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
-     prev_msgs = fusionee->prev_packets;
+     poll_wait( file, &fusionee->wait_receive.queue, wait );
 
-     fusion_fifo_reset(&fusionee->prev_packets);
+     unsigned int mask = 0;
 
-     flush_packets(fusionee, dev, &prev_msgs);
+     if (fusionee->packets.count && ((Packet *) fusionee->packets.items)->flush)
+          mask |= POLLIN | POLLRDNORM;
 
-     fusion_core_wq_wake( fusion_core, &fusionee->wait_process );
-
-
-     // FIXME: what to do because of poll_wait?
-//     fusion_core_wq_wait( fusion_core, &fusionee->wait_receive, NULL );
-//     poll_wait(file, &fusionee->wait_receive.q, wait);
-
-
-     ret = lock_fusionee(dev, id, &fusionee);
-     if (ret)
-          return POLLERR;
-
-     if (fusionee->packets.count && ((Packet *) fusionee->packets.items)->flush) {
-          return POLLIN | POLLRDNORM;
-     }
-
-     return 0;
+     return mask;
 }
 
 int
@@ -920,7 +900,8 @@ fusionee_sync( FusionDev *dev,
                if (!packet->flush) {
                     packet->flush = true;
 
-                    fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+//                    fusion_core_wq_wake( fusion_core, &fusionee->wait_receive);
+                    wake_up_interruptible_sync_poll( &fusionee->wait_receive.queue, POLLIN | POLLRDNORM );
                }
           }
 

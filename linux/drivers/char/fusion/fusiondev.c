@@ -343,6 +343,7 @@ static int fusion_open(struct inode *inode, struct file *file)
 
      fusion_core_unlock( fusion_core );
 
+	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
 
      file->private_data = fusionee;
 
@@ -430,13 +431,16 @@ fusion_read(struct file *file, char *buf, size_t count, loff_t * ppos)
 
      fusion_core_unlock( fusion_core );
 
+
+     if (ret > 0)
+          file_accessed( file );
+
      return ret;
 }
 
-/*
 static unsigned int fusion_poll(struct file *file, poll_table * wait)
 {
-     int ret;
+     unsigned int ret;
      Fusionee  *fusionee = file->private_data;
      FusionDev *dev      = fusionee->fusion_dev;
 
@@ -450,7 +454,6 @@ static unsigned int fusion_poll(struct file *file, poll_table * wait)
 
      return ret;
 }
-*/
 
 static int
 lounge_ioctl(FusionDev * dev, Fusionee * fusionee,
@@ -1495,7 +1498,7 @@ static struct file_operations fusion_fops = {
      .flush = fusion_flush,
      .release = fusion_release,
      .read = fusion_read,
-//     .poll = fusion_poll,
+     .poll = fusion_poll,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
      .unlocked_ioctl = fusion_ioctl,
 #else
