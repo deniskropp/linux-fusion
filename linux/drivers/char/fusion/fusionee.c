@@ -713,9 +713,6 @@ fusionee_get_messages(FusionDev * dev,
 
      D_MAGIC_ASSERT( fusionee, Fusionee );
 
-     if (fusionee->dispatcher_pid)
-          FUSION_ASSUME(fusionee->dispatcher_pid == fusion_core_pid( fusion_core ));
-
      fusionee->dispatcher_pid = fusion_core_pid( fusion_core );
 
      prev_packets = fusionee->prev_packets;
