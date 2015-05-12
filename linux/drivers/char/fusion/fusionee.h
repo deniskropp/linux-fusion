@@ -139,5 +139,7 @@ FusionID fusionee_id(const Fusionee * fusionee);
 
 pid_t fusionee_dispatcher_pid(FusionDev * dev, FusionID fusion_id);
 
+int fusionee_lookup(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee);
+
 
 #endif
