@@ -44,6 +44,7 @@ typedef struct {
 
      bool executed;
      bool signalled;
+     bool interrupted;
 
      FusionWaitQueue wait;
 
@@ -414,6 +415,9 @@ restart:
 
                     return -EINTR;
                }
+               if (execution->interrupted) {
+                    return -EIDRM;
+               }
 #else
                fusion_core_wq_wait( fusion_core, &execution->wait, 0, false );
 #endif
@@ -590,6 +594,9 @@ restart:
                     }
 
                     return -EINTR;
+               }
+               if (execution->interrupted) {
+                    return -EIDRM;
                }
 #else
                fusion_core_wq_wait( fusion_core, &execution->wait, 0, false );
@@ -839,6 +846,9 @@ restart:
 
                     return -EINTR;
                }
+               if (execution->interrupted) {
+                    return -EIDRM;
+               }
 #else
                fusion_core_wq_wait( fusion_core, &execution->wait, 0, false );
 #endif
@@ -1056,8 +1066,8 @@ void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee)
 
                /* If an execution is pending... */
                direct_list_foreach (execution, call->executions) {
-                    // FIMXE: indicate to caller that fusionee did quit
-
+                    /* indicate to caller that fusionee did quit */
+                    execution->interrupted = true;
                     /* Wake up uninterruptibly(!) waiting caller! */
                     fusion_core_wq_wake( fusion_core, &execution->wait );
                }
