@@ -224,7 +224,11 @@ ksocket_receive(struct socket* sock, struct sockaddr_in* addr, void *buf, int le
 
      oldfs = get_fs();
      set_fs(KERNEL_DS);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
+     size = sock_recvmsg(sock,&msg,msg.msg_flags);
+#else
      size = sock_recvmsg(sock,&msg,len,msg.msg_flags);
+#endif
      set_fs(oldfs);
 
      return size;
