@@ -319,8 +319,6 @@ Fusionee_PutPacket( Fusionee *fusionee,
 
 /******************************************************************************/
 
-static int lookup_fusionee(FusionDev * dev, FusionID id,
-                           Fusionee ** ret_fusionee);
 static int lock_fusionee(FusionDev * dev, FusionID id,
                          Fusionee ** ret_fusionee);
 
@@ -540,7 +538,7 @@ fusionee_get_info(FusionDev * dev, FusionGetFusioneeInfo * get_info)
      int       ret;
      Fusionee *fusionee;
 
-     ret = lookup_fusionee(dev, get_info->fusion_id, &fusionee);
+     ret = fusionee_lookup(dev, get_info->fusion_id, &fusionee);
      if (ret)
           return ret;
 
@@ -569,7 +567,7 @@ fusionee_send_message(FusionDev * dev,
      Fusionee                *fusionee;
      size_t                   size;
 
-     ret = lookup_fusionee(dev, recipient, &fusionee);
+     ret = fusionee_lookup(dev, recipient, &fusionee);
      if (ret)
           return ret;
 
@@ -1078,10 +1076,8 @@ pid_t fusionee_dispatcher_pid(FusionDev * dev, FusionID fusion_id)
      return ret;
 }
 
-/******************************************************************************/
-
-static int
-lookup_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
+int
+fusionee_lookup(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
 {
      Fusionee *fusionee;
 
@@ -1097,12 +1093,14 @@ lookup_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
      return -EINVAL;
 }
 
+/******************************************************************************/
+
 static int lock_fusionee(FusionDev * dev, FusionID id, Fusionee ** ret_fusionee)
 {
      int ret;
      Fusionee *fusionee;
 
-     ret = lookup_fusionee(dev, id, &fusionee);
+     ret = fusionee_lookup(dev, id, &fusionee);
      if (ret)
           return ret;
 

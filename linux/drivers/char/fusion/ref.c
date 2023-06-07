@@ -269,10 +269,17 @@ int fusion_ref_throw(FusionDev * dev, int id, FusionID fusion_id, FusionID catch
      int        local;
      int        throws;
      FusionRef *ref;
+     Fusionee  *fusionee;
 
      ret = fusion_ref_lookup(&dev->ref, id, &ref);
      if (ret)
           return ret;
+
+     ret = fusionee_lookup(dev, catcher, &fusionee);
+     if (ret) {
+          printk( KERN_ERR "fusion: catcher id=%lu no longer exists!\n", catcher );
+          return ret;
+     }
 
      dev->stat.ref_throw++;
 
@@ -560,6 +567,31 @@ static void clear_local(FusionDev * dev, FusionRef * ref, FusionID fusion_id)
      if (ref->locked == fusion_id) {
           ref->locked = 0;
           fusion_core_wq_wake( fusion_core, &ref->entry.wait);
+     }
+
+     fusion_list_foreach(l, ref->throws) {
+          Throw *throw_ = (Throw *) l;
+
+          if (throw_->catcher == fusion_id) {
+               int ret;
+               FusionID thrower = throw_->fusion_id;
+
+               fusion_list_remove( &ref->throws, &throw_->link );
+               fusion_core_free( fusion_core, throw_ );
+
+               ret = add_local( ref, thrower, -1 );
+               if(ret) {
+                    printk( KERN_ERR
+                            "fusion: unable to decrement ref id=0x%x thrower=%lu catcher=%lu err=%d\n",
+                            ref->entry.id,
+                            thrower,
+                            fusion_id,
+                            ret );
+                    break;
+               }
+               propagate_local( dev, ref, -1, false );
+               break;
+          }
      }
 
      fusion_list_foreach(l, ref->local_refs) {
