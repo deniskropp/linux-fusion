@@ -1065,6 +1065,18 @@ void fusion_call_destroy_all(FusionDev * dev, Fusionee *fusionee)
                fusion_entry_destroy_locked(call->entry.entries,
                                            &call->entry);
           }
+          else
+          {
+               /* Cleanup call executions initiated and not finished by fusionee */
+               FusionCallExecution *execution, *next;
+               direct_list_foreach_safe (execution, next, call->executions) {
+                    if (execution->caller == fusionee) {
+                         /* Remove and free execution */
+                         remove_execution(call, execution);
+                         free_execution(dev, execution);
+                    }
+               }
+          }
 
           l = next;
      }
